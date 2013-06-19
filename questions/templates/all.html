@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <style type="text/css">
+        td.options-menu {
+            border-top-color:rgb(240,240,240);
+        }
+
+        td.lead {
+            vertical-align: middle;
+        }
+
+        div.assigned {
+            opacity: 0.5;
+        }
+
+        h1.thin {
+            font-weight:200;
+        }
+
+        .table th.lead {
+            font-weight:200;
+        }
+
+        @media (min-width: 1200px) {
+            .table td.table-span1, .table th.table-span1 {
+                min-width:90px;
+            }
+        }
+
+        @media (max-width: 1199px) {
+            .table td.table-span1, .table th.table-span1 {
+                min-width:90px;
+            }
+        }
+
+        .close {
+            font-weight: 200;
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+{% if teaching_block %}
+    <h1 class="thin">{{ teaching_block }}</h1>
+    {{ request }}
+    {% for w, l in activities.iteritems %}
+    {% if forloop.first %}
+        <table class="table table-bordered">
+            <tr>
+                <th class="lead">Week</th>
+                {% for c in columns %}
+                <th class="table-span1 lead">
+                    <div class="text-center">Lecture {{ c }}</div>
+                </th>
+                {% endfor %}
+            </tr>
+    {% endif %}
+        <tr>
+            <td rowspan="2" class="lead">
+                <div class="text-center">
+                    {{ w }}
+                </div>
+            </td>
+            {% for t in l %}
+            {% if t %}
+                <td class="table-span1" id="cell_{{ t.id }}">
+                    <a href="{% url 'questions.views.view_ta' ta_id=t.id %}">{{ t.name }}</a>
+                </td>
+            {% else %}
+                <td class="table-span1" rowspan="2">&nbsp;</td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        <tr>
+            {% for t in l %}
+                {% if t %}
+            <td class="options-menu table-span1">
+                {% if t.question_writer %}
+                    {% if user == t.question_writer %}
+                        <div class="text-center text-success assigned" id="div_{{ t.id }}">
+                            Assigned
+                    {% else %}
+                        <div class="text-center assigned" id="div_{{ t.id }}">
+                            Unavailable
+                    {% endif %}
+                {% else %}
+                    <div class="text-center" id="div_{{ t.id }}">
+                    <a data-url="{% url 'questions.views.signup'  ta_id=t.id %}">Assign to me</a>
+                {% endif %}
+                </div>
+            </td>
+                {% endif %}
+            {% endfor %}
+        </tr>
+    {% if forloop.last %}
+        </table>
+    {% endif %}
+    {% empty %}
+    <p>There are currently no questions in the database.</p>
+    {% endfor %}
+{% else %}
+    <h1>View teaching activites</h1>
+
+    <p>There is no teaching block in the database yet, so no teaching activities can be displayed.</p>
+    <p class="text-center"><a class='btn btn-large btn-primary' href="{% url 'questions.views.new_ta_upload' %}">Upload teaching activities</a></p>
+{% endif %}
+{% endblock content %}
+
+{% block javascript %}
+{% if teaching_block %}
+    <script type="text/javascript">
+        function remove_popover(e) {
+            e.popover('destroy')
+        }
+        function assign() {
+            d = $(this).parent()
+            d.addClass("assigned")
+            $.get($(this).attr("data-url"), function (data) {
+                switch(data.result) {
+                    case "success":
+                        d.empty()
+                        d.addClass("text-success")
+                        d.html("Assigned")
+                        break;
+                    case "error":
+                        d.empty()
+                        d.addClass("text-error")
+                        d.html(data.blurb)
+                        i = 'close-' + ($(".close").length + 1)
+                        d.popover({
+                            html: true,
+                            trigger: 'manual',
+                            placement: 'top',
+                            content: function () {
+                                return '<button id="' + i + '" type="button" class="close">&times;</button>' + data.explanation
+                            }
+                        })
+                        d.popover('show')
+                        $("#" + i).click(function () {remove_popover(d)})
+                    default:
+                        return
+                }
+            })
+        }
+        $(document).ready(function () {
+            $("td.options-menu a").click(assign)
+        })
+
+    </script>
+{% endif %}
+{% endblock javascript %}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="span9">{% block maincontent %}{% endblock maincontent %}</div>
+    <div class="span3 pull-right"><div class="text-center actions">{% block actions %}{% endblock actions %}</div></div>
+</div>
+{% endblock content %}

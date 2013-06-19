@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h3>Upload teaching activities</h3>
+    {% if tab %}
+    <div class="span10">
+        <form method="post" class="form-horizontal">
+            {% csrf_token %}
+            {% for b, f in new_blocks.iteritems %}
+            {% if forloop.first %}
+                <p>The following block{{ new_blocks|length|pluralize }} {% if new_blocks|length_is:"1" %}has{% else %}have{% endif %} not previously existed in the database. Please fill in the details below:</p>
+            {% endif %}
+                <h4>Block: {{ b }}, {{ year }}</h4>
+                <input type="hidden" name="new_block" value="{{ b }}" />
+                {% include "form.html" with form=f %}
+            {% endfor %}
+            <div {% if new_blocks %}class="spacer"{% endif %}>
+                <p>Please check that the following information is correct before saving it to the database.
+            </div>
+            <table class="table">
+                <tr><th>Name</th><th>Block</th><th>Week</th><th>Position</th></tr>
+                {% for b, ta in tab.iteritems %}
+                    {% for t in ta %}
+                        <tr>
+                            <td>{{ t.name }}<input type="hidden" value="{{ t.id }}" name="id" /><input type="hidden" value="{{ t.name }}" name="name_{{ t.id}}" /></td>
+                            <td>{{ b.name }}<input type="hidden" value="{{ b.name }}" name="block_{{ t.id }}" /></td>
+                            <td>{{ t.week }}<input type="hidden" value="{{ t.week }}" name="week_{{ t.id }}" /></td>
+                            <td>{{ t.position }}<input type="hidden" value="{{ t.position }}" name="position_{{ t.id }}" /></td>
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+            </table>
+            <input type="hidden" name="year" value="{{ year }}">
+            <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+    {% else %}
+        {% if errors or already_exist %}
+        <div class="span9">
+            <p>Some rows in the uploaded file were not valid. Please double check the file and upload again.</p>
+            <div class="text-center">
+            <a class="btn btn-primary" href="{% url 'questions.views.new_ta_upload' %}">Try again</a>
+            </div>
+        </div>
+        {% if errors %}
+            <div class="span9 spacer">
+                <p>The following entries in the file had errors.</p>
+                <table class="table">
+                    <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+                    {% for e in errors %}
+                        <tr><td>{{ e.id }}</td><td>{{ e.name }}</td><td>{{ e.week }}</td><td>{{ e.position }}</td></tr>
+                    {% endfor %}
+                </table>
+            </div>            
+        {% endif %}
+        {% if already_exist %}
+            <div class="span9 spacer">
+                <p>The following entries in the file had positions which were already in the database for this block.</p>
+                <table class="table">
+                    <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+                    {% for e in already_exist %}
+                        <tr><td>{{ e.id }}</td><td>{{ e.name }}</td><td>{{ e.week }}</td><td>{{ e.position }}</td></tr>
+                    {% endfor %}
+                </table>
+            </div>     
+        {% endif %}
+        {% else %}
+        {% if duplicates %}
+        <div class="span9">
+            <p>The following teaching activity duplicates were found. Please double check the file and upload again.</p>
+            <div class="text-center">
+            <a class="btn btn-primary" href="{% url 'questions.views.new_ta_upload' %}">Try again</a>
+            </div>
+            {% for d in dup_by_name %}
+                {% if forloop.first %}
+                    <h4>Duplicates by name</h4>
+                    <p>The following teaching activities have the same name.</p>
+                {% endif %}
+                <table class="table">
+                    <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+                    {% for dd in d %}
+                        <tr><td>{{ dd.id }}</td><td>{{ dd.name }}</td><td>{{ dd.week }}</td><td>{{ dd.position }}</td></tr>
+                    {% endfor %}
+                </table>
+            {% endfor %}
+
+            {% for d in dup_by_position %}
+                {% if forloop.first %}
+                    <h4>Duplicates by position</h4>
+                    <p>The following teaching activities have the same position.</p>
+                {% endif %}
+                <table class="table">
+                    <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+                    {% for dd in d %}
+                        <tr><td>{{ dd.id }}</td><td>{{ dd.name }}</td><td>{{ dd.week }}</td><td>{{ dd.position }}</td></tr>
+                    {% endfor %}
+                </table>
+            {% empty %}
+                <p>There are no duplicates</p>
+            {% endfor %}
+        {% else %}
+            <form enctype="multipart/form-data" method="post" class="form-horizontal">
+                <div class="row">
+                    {% csrf_token %}
+                    {% include "form.html" %}
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        {% endif %}
+        {% endif %}
+    {% endif %}
+{% endblock content %}

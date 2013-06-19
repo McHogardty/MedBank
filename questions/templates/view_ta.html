@@ -1,0 +1,51 @@
+{% extends "base_with_actions.html" %}
+{% load custom_filters %}
+
+
+{% block actions %}{% if not t.question_writer or t.question_writer == user and not t.questions.count >= max_questions %}
+        <h3 class="thin">Page actions</h3>    
+    {% endif %}{% if not t.question_writer %}
+        <a class="action" href="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>        
+    {% endif %}{% if t.question_writer == user and not t.questions.count >= max_questions %}
+        <a class="action" href="{% url 'questions.views.new' ta_id=t.id %}">Submit{% if t.questions.count %} more {% else %} {% endif %}questions</a>        
+    {% endif %}{% endblock actions %}
+
+
+{% block maincontent %}
+    <h1 class="thin">{{ t.block.number }}.{{ t.week|stringformat:"02d" }}: {{ t.name }}</h1>
+    <p>Block: {{ t.block }}</p>
+    {% if not t.question_writer %}
+        <p>Nobody has assigned themselves to write questions for this activity yet. <a href="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a></p>
+    {% endif %}
+    {% if t.question_writer == user %}
+        {% if t.questions.count == max_questions %}
+            You have written enough questions for this teaching activity.
+        {% else %}
+            You have {{ max_questions|subtract:t.questions.count }} question{{ max_questions|pluralize }} left to write.
+        {% endif %}
+    {% else %}
+    {% endif %}
+    {% for q in t.questions.all %}
+    {% if forloop.first %}
+    <table class="table questions">
+        <thead>
+            <tr>
+                <th class="lead">Question</th>
+                <th class="lead">Status</th>
+                <th class="lead actions">Actions</th>
+            </tr>
+        </thead>
+    {% endif %}
+    <tr>
+        <td class="question-body">{{ q.body }}</td>
+        <td><div class="{% if q.pending %}text-warning{% else %}text-success{% endif %}">{{ q.get_status_display }}</div></td>
+        <td class="actions">
+            <a class="action" href="{% url 'questions.views.view' ta_id=t.id q_id=q.id %}{% if perms.questions.can_approve %}?show{% endif %}">View</a>
+            <a class="action" href="{% url 'questions.views.new' ta_id=t.id q_id=q.id %}">Edit</a>
+        </td>
+    </tr>
+    {% if forloop.last %}
+    </table>
+    {% endif %}
+    {% endfor %}
+{% endblock maincontent %}
