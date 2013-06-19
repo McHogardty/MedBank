@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">
+    body {
+        padding-top: 60px;
+    }
+    .spacer {
+        margin-top:30px;
+    }
+
+    div.actions {
+        border:1px solid rgb(240,240,240);
+        padding:0 5px;
+    }
+
+    div.actions:empty {
+        border:none;
+    }
+
+    td.options-menu {
+        border-top-color:rgb(240,240,240);
+    }
+
+    td.lead {
+        vertical-align: middle;
+    }
+
+    .table .question-body {
+        text-overflow: ellipsis;
+        word-wrap: normal;
+        white-space:nowrap;
+        overflow: hidden;
+        min-width: 0;
+        max-width:300px;
+    }
+
+    div.actions .action {
+        display:block;
+        padding:11px 0;
+        font-size: 17.5px;
+        width:100%;
+        border-top: 1px solid rgb(240,240,240);
+    }
+
+    .questions .action {
+        display:inline-block;
+        padding: 0 10px;
+        border-right: 1px solid rgb(240,240,240);
+    }
+
+    .questions .action:last-of-type {
+        border-right:none;
+    }
+
+    .questions .actions {
+        text-align:center;
+    }
+
+    div.assigned {
+        opacity: 0.5;
+    }
+
+    .thin {
+        font-weight:200;
+    }
+
+    .table th.lead {
+        font-weight:200;
+    }
+
+    @media (min-width: 1200px) {
+        .table td.table-span1, .table th.table-span1 {
+            min-width:90px;
+        }
+    }
+
+    @media (max-width: 1199px) {
+        .table td.table-span1, .table th.table-span1 {
+            min-width:90px;
+        }
+    }
+
+    .close {
+        font-weight: 200;
+    }
+    </style>
+    <link rel="stylesheet" type="text/css" media="screen" href="{{ STATIC_URL }}css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="{{ STATIC_URL }}css/bootstrap-responsive.min.css">
+
+    {% block head %}{% endblock head %}
+</head>
+<body>
+    <div class="navbar navbar-fixed-top navbar-inverse">
+        <div class="navbar-inner">
+            <div class="container">
+                <a href="#" class="brand">MedBank</a>
+                <ul class="nav">
+                    <li><a href="">Home</a></li>
+                </ul>
+                <ul class="nav pull-right">
+                    {% if user.is_anonymous %}
+                        <li><a href="{% url 'login' %}?next={{ next_url|urlencode }}">Login</a></li>
+                    {% else %}
+                        <li><a href="{% url 'logout' %}">Logout</a></li>
+                    {% endif %}
+                </ul>
+                {% if user.is_authenticated %}
+                    <p class="navbar-text pull-right">Welcome, {{ user.username }}</p>                    
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        {% for m in messages %}
+            <div class="alert{% if m.tags %} alert-{{ m.tags}}{% endif %}">
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    {{ m }}
+            </div>
+        {% endfor %}
+        {% block content %}
+            <div class="hero-unit">
+                <h1>Welcome.</h1>
+                <p>MedBank is a peer-reviewed database of practice exam questions written by students in the Sydney Medical Program.</p>
+                <p class="text-center">
+                    <a class="btn btn-large btn-primary" href="{% url 'questions.views.home' %}">Start writing questions</a>
+                    <a type="button" class="btn btn-large" href="{% url 'create_user' %}">I don't have an account yet</a>
+                </p>
+            </div>        
+        {% endblock content %}
+    </div>
+    <script type="text/javascript" src="{{ STATIC_URL }}jquery-1.10.0.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}js/bootstrap.min.js"></script>
+    {% block javascript %}{% endblock javascript %}
+</body>
+</html>

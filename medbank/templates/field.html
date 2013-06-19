@@ -1,0 +1,27 @@
+{% if is_horizontal and not f.is_hidden %}
+    <div class="control-group{% if f.errors %} error{% endif %}">
+    <label
+        for="{{ f.auto_id }}"
+        {% if is_horizontal or f.field.required %}
+            class="{% if is_horizontal %}control-label{% endif %}{% if f.field.required %}{% if is_horizontal %} {% endif %}required{% endif %}"
+        {% endif %}
+    >
+        {{ f.label }}
+    </label>
+    <div class="controls">
+{% endif %}
+    {{ f }}
+{% if f.errors and not f.is_hidden %}
+    <span class="help-inline">
+        {{ f.errors|join:", "}}
+    </span>
+{% endif %}
+{% if f.help_text and not f.is_hidden %}
+    <span class="help-inline">
+        {{ f.help_text }}
+    </span>    
+{% endif %}
+{% if is_horizontal and not f.is_hidden %}
+    </div>
+    </div>
+{% endif %}
