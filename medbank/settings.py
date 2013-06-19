@@ -1,5 +1,6 @@
 # Django settings for medbank project.
 from .local_settings import *
+from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TPC
 
 
 DEBUG = True
@@ -35,7 +36,7 @@ TIME_ZONE = 'America/Chicago'
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en-au'
 
 SITE_ID = 1
 
@@ -120,9 +121,10 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Uncomment the next line to enable the admin:
-    # 'django.contrib.admin',
+    'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
+    'medbank',
     'questions',
 )
 
@@ -154,3 +156,13 @@ LOGGING = {
         },
     }
 }
+
+LOGIN_URL = '/login/'
+
+TEMPLATE_CONTEXT_PROCESSORS = TPC + (
+    'medbank.context_processors.add_next_url',
+)
+
+FORMAT_MODULE_PATH = 'medbank.formats'
+
+QUESTIONS_PER_USER = 3
