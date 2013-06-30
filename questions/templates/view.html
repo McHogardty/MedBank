@@ -10,31 +10,34 @@
 
 {% block actions %}
     <h3 class="thin">Page actions</h3>
-    <a class="action" href="{% url 'questions.views.view' ta_id=q.teaching_activity.id q_id=q.id %}{% if not show %}?show{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>
-    <a class="action" href="{% url 'questions.views.view_ta' ta_id=q.teaching_activity.id %}">Back to activity</a>
+    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show %}?show{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if question.pending and question.creator == user %}
+    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}">Edit question</a>
+    {% endif %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>
 
-    <h3 class="thin">Admin</h3>
-    {% if not q.approved %}
-        <a class="action" href="{% url 'questions.views.approve' ta_id=q.teaching_activity.id q_id=q.id %}">Approve question</a>        
+    {% if perms.questions.can_approve %}
+        <h3 class="thin">Admin</h3>
+        {% if not question.approved %}
+            <a class="action" href="{% url 'questions.views.approve' ta_id=question.teaching_activity.id q_id=question.id %}">Approve question</a>        
+        {% endif %}
+        {% if not question.pending %}
+            <a class="action" href="{% url 'questions.views.make_pending' ta_id=question.teaching_activity.id q_id=question.id %}">Set to pending</a>
+        {% endif %}
+        <a class="action">Delete question</a>
     {% endif %}
-    {% if not q.pending %}
-        <a class="action" href="{% url 'questions.views.make_pending' ta_id=q.teaching_activity.id q_id=q.id %}">Set to pending</a>
-    {% endif %}
-    <a class="action">Delete question</a>
 {% endblock actions %}
 
 {% block maincontent %}
-    <h1 class="thin">{{ q.teaching_activity.block.number }}.{{ q.teaching_activity.week|stringformat:"02d" }}: {{ q.teaching_activity.name }}</h1>
-    <p>Block: {{ q.teaching_activity.block }}</p>
-    <h2 class="thin spacer">Question <small class="text-{% if q.pending %}warning{% else %}success{% endif %}">{{ q.get_status_display }} {% if perms.questions.can_approve and not q.pending %} by {% endif %}</small></h2>
-    <p class="lead">{{ q.body }}</p>
+    <h1 class="thin">{{ question.teaching_activity.block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
+    <p>Block: {{ question.teaching_activity.block }}</p>
+    <h2 class="thin spacer">Question <small class="text-{% if question.pending %}warning{% else %}success{% endif %}">{{ question.get_status_display }} {% if perms.questions.can_approve and not question.pending %} by {% endif %}</small></h2>
+    <p class="lead">{{ question.body }}</p>
     <ol class="alpha">
-        {% for a in q.options_list %}
+        {% for a in question.options_list %}
             <li>{{ a }}</li>
         {% endfor %}
     </ol>
     {% if show %}
-    <p class="spacer">Answer: {{ q.answer }}</p>
-    <p>{{ q.explanation }}</p>
+    <p class="spacer">Answer: {{ question.answer }}</p>
+    <p>{{ question.explanation }}</p>
     {% endif %}
 {% endblock maincontent %}

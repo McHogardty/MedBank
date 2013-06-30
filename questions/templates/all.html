@@ -47,6 +47,7 @@
     {% for w, l in activities.iteritems %}
     {% if forloop.first %}
         <table class="table table-bordered">
+            <thead>
             <tr>
                 <th class="lead">Week</th>
                 {% for c in columns %}
@@ -55,6 +56,8 @@
                 </th>
                 {% endfor %}
             </tr>
+        </thead>
+    <tbody>
     {% endif %}
         <tr>
             <td rowspan="2" class="lead">
@@ -65,7 +68,7 @@
             {% for t in l %}
             {% if t %}
                 <td class="table-span1" id="cell_{{ t.id }}">
-                    <a href="{% url 'questions.views.view_ta' ta_id=t.id %}">{{ t.name }}</a>
+                    <a href="{% url 'questions.views.view_ta' pk=t.id %}">{{ t.name }}</a>
                 </td>
             {% else %}
                 <td class="table-span1" rowspan="2">&nbsp;</td>
@@ -86,7 +89,7 @@
                     {% endif %}
                 {% else %}
                     <div class="text-center" id="div_{{ t.id }}">
-                    <a data-url="{% url 'questions.views.signup'  ta_id=t.id %}">Assign to me</a>
+                    <a data-url="{% url 'questions.views.signup'  pk=t.id %}">Assign to me</a>
                 {% endif %}
                 </div>
             </td>
@@ -94,6 +97,7 @@
             {% endfor %}
         </tr>
     {% if forloop.last %}
+        </tbody>
         </table>
     {% endif %}
     {% empty %}

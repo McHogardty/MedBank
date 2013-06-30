@@ -1,63 +1,48 @@
-from django.shortcuts import render_to_response, redirect
+from django.shortcuts import render_to_response, redirect, get_object_or_404
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404, HttpResponseServerError
 from django.core.urlresolvers import reverse
 from django.conf import settings
+from django.core.mail import EmailMessage, get_connection
+from django.views.generic import ListView, DetailView
+from django.views.generic.edit import CreateView, UpdateView
+from django.core.exceptions import PermissionDenied
+import smtplib
 
 
 import forms
 import models
+import document
 
 import csv
 import json
 import datetime
-import docx
-from lxml import etree
-import zipfile
-import os
-import cStringIO as StringIO
 
 
-@login_required
-def home(request):
-    if request.user.has_perm('questions.can_approve'):
-        return redirect('questions.views.admin')
-    ta_sorted = {}
-    max_position = None
-    columns = []
-    try:
-        tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
-    except models.TeachingBlock.DoesNotExist:
-        tb = None
-    else:
-        ta = models.TeachingActivity.objects.filter(block=tb)
+class AllActivitiesView(ListView):
+    model = models.TeachingActivity
+    template_name = "all2.html"
 
-        if ta:
-            for t in ta:
-                l = ta_sorted.setdefault(t.week, [])
-                l.append(t)
+    def get_latest_teaching_block(self):
+        return models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
 
-            max_position = max(len(l) for l in ta_sorted.values())
+    def get_queryset(self):
+        ta = models.TeachingActivity.objects.filter(block=self.get_latest_teaching_block())
+        by_week = {}
+        for t in ta:
+            l = by_week.setdefault(t.week, [])
+            l.append(t)
 
-            for k in ta_sorted:
-                ta_sorted[k].sort(key=lambda t: t.position)
-                diff = max_position - len(ta_sorted[k])
-                ta_sorted[k] += ([""] * diff)
+        for v in by_week.values():
+            v.sort(key=lambda t: t.position)
+        return [(k, not all(t.question_writer for t in by_week[k]), by_week[k]) for k in by_week]
 
-            columns = range(1, max_position + 1)
-
-    return render_to_response(
-        "all.html",
-        {
-            'activities': ta_sorted,
-            'max_position': max_position,
-            'columns': columns,
-            'teaching_block': tb,
-        },
-        context_instance=RequestContext(request)
-    )
+    def get_context_data(self, **kwargs):
+        c = super(AllActivitiesView, self).get_context_data(**kwargs)
+        c['teaching_block'] = self.get_latest_teaching_block()
+        return c
 
 
 @permission_required('questions.can_approve')
@@ -65,43 +50,57 @@ def admin(request):
     return render_to_response('admin.html', context_instance=RequestContext(request))
 
 
-@login_required
-def new(request, ta_id, q_id=None):
-    try:
-        ta = models.TeachingActivity.objects.get(id=ta_id)
-    except models.TeachingActivity.DoesNotExist:
-        messages.error(request, "Hmm... that teaching activity could not be found.")
-        return redirect('questions.views.home')
+def check_ta_perm_for_question(ta_id, u):
+    ta = get_object_or_404(models.TeachingActivity, pk=ta_id)
 
-    initial = {'teaching_activity': ta, 'creator': request.user}
+    if not ta.question_writer == u:
+        raise PermissionDenied
 
-    if q_id:
-        try:
-            q = models.Question.objects.get(id=q_id)
-        except models.Question.DoesNotExist:
-            messages.error(request, "Hmm... that question could not be found.")
+    return ta
 
-    if request.method == "POST":
-        if ta.id != int(request.POST.get('teaching_activity')):
-            return redirect('questions.views.new', ta_id=int(ta_id))
-        if q_id:
-            form = forms.NewQuestionForm(request.POST, instance=q)
-        else:
-            form = forms.NewQuestionForm(request.POST)
-        if form.is_valid():
-            q = form.save(commit=False)
-            q.creator = request.user
-            q.save()
 
-            return redirect('questions.views.view_ta', ta_id=ta_id)
-    else:
-        if q_id:
-            form = forms.NewQuestionForm(initial=initial, instance=q)
-        else:
-            form = forms.NewQuestionForm(initial=initial)
+class NewQuestion(CreateView):
+    model = models.Question
+    form_class = forms.NewQuestionForm
+    template_name = "new.html"
 
-    return render_to_response("new.html", {'form': form, }, context_instance=RequestContext(request))
+    def dispatch(self, request, *args, **kwargs):
+        self.ta = check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
+        if models.Question.objects.filter(teaching_activity=self.ta, creator=request.user).count() >= settings.QUESTIONS_PER_USER:
+            messages.warning(request, "You have already submitted %d questions for this teaching activity." % settings.QUESTIONS_PER_USER)
+            return redirect('ta', pk=self.ta.id)
 
+        return super(NewQuestion, self).dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        i = super(NewQuestion, self).get_initial().copy()
+        i.update({'teaching_activity': self.ta, 'creator': self.request.user})
+        return i
+
+    def get_success_url(self):
+        return reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id})
+
+
+class UpdateQuestion(UpdateView):
+    model = models.Question
+    form_class = forms.NewQuestionForm
+    template_name = "new.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
+
+        return super(UpdateQuestion, self).dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return models.Question.objects.filter(teaching_activity__id=self.kwargs['ta_id'])
+
+    def get_object(self):
+        o = super(UpdateQuestion, self).get_object()
+
+        if o.creator != self.request.user:
+            raise PermissionDenied
+
+        return o
 
 @login_required
 def signup(request, ta_id):
@@ -140,35 +139,37 @@ def signup(request, ta_id):
         return HttpResponse(
             json.dumps({
                 'result': 'success',
-                'view_url': reverse('questions.views.view_ta', kwargs={'ta_id': int(ta_id)})
+                'view_url': reverse('ta', kwargs={'pk': int(ta_id)})
             }),
             mimetype="application/json"
         )
     else:
-        return redirect("questions.views.view_ta", ta_id=ta_id)
+        return redirect("ta", pk=ta_id)
 
 
-@login_required
-def new_ta(request):
-    if request.method == "POST":
-        form = forms.NewTeachingActivityForm(request.POST)
-        if form.is_valid():
-            pass
-    else:
-        form = forms.NewTeachingActivityForm()
-
-    return render_to_response("new_ta.html", {'form': form, }, context_instance=RequestContext(request))
+class NewActivity(CreateView):
+    model = models.TeachingActivity
+    template_name = "new_ta.html"
+    form_class = forms.NewTeachingActivityForm
 
 
-@login_required
-def view_ta(request, ta_id):
-    try:
-        ta = models.TeachingActivity.objects.get(id=ta_id)
-    except models.TeachingActivity.DoesNotExist:
-        messages.error(request, "That teaching activity could not be found.")
-        return redirect("questions.views.home")
+class ViewActivity(DetailView):
+    model = models.TeachingActivity
 
-    return render_to_response("view_ta.html", {'t': ta, 'max_questions': settings.QUESTIONS_PER_USER}, context_instance=RequestContext(request))
+    def get_context_data(self, **kwargs):
+        c = super(ViewActivity, self).get_context_data(**kwargs)
+        c['max_questions'] = settings.QUESTIONS_PER_USER
+        print c
+        return c
+
+
+class ViewQuestion(DetailView):
+    model = models.Question
+
+    def get_context_data(self, **kwargs):
+        c = super(ViewQuestion, self).get_context_data(**kwargs)
+        c['show'] = 'show' in self.request.GET
+        return c
 
 
 @login_required
@@ -183,6 +184,7 @@ def view(request, ta_id, q_id):
         return redirect('questions.views.home')
 
     return render_to_response("view.html", {'q': q, 'show': 'show' in request.GET}, context_instance=RequestContext(request))
+
 
 @permission_required('questions.approve')
 def approve(request, ta_id, q_id):
@@ -201,7 +203,7 @@ def approve(request, ta_id, q_id):
         q.save()
 
         messages.success(request, "Question approved.")
-    return redirect('questions.views.view', q_id=q_id, ta_id=q.teaching_activity.id)
+    return redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
 
 
 @permission_required('questions.approve')
@@ -222,127 +224,50 @@ def make_pending(request, ta_id, q_id):
 
         messages.success(request, "Question is now pending.")
 
-    return redirect('questions.views.view', q_id=q_id, ta_id=q.teaching_activity.id)
+    return redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
 
 
-@login_required
-def download(request):
+@permission_required('questions.can_approve')
+def download(request, mode):
     tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
-    document = docx.newdocument()
-    body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
-
-    body.append(docx.heading("%s - Questions" % (tb), 1))
-    qq = models.Question.objects.filter(teaching_activity__block=tb)
-    style_file = os.path.join(docx.template_dir, 'word/stylesBase.xml')
-    style_tree = etree.parse(style_file)
-    style_outfile = open(os.path.join(docx.template_dir, 'word/styles.xml'), 'w')
-    numbering_file = os.path.join(docx.template_dir, 'word/numberingBase.xml')
-    numbering_tree = etree.parse(numbering_file)
-    numbering_outfile = open(os.path.join(docx.template_dir, 'word/numbering.xml'), 'w')
-
-    namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    xhtml_namespace = "{%s}" % namespace
-
-    s = style_tree.getroot()
-    nt = numbering_tree.getroot()
-
-    for n, q in enumerate(qq):
-        style_name = 'ListUpperLetter%d' % n
-        numid = 14 + n
-        abstract_numid = 12 + n
-
-        body.append(docx.paragraph(q.body))
-        [body.append(docx.paragraph(o, style=style_name)) for o in q.options_list()]
-
-    for n in range(len(qq)):
-        abstract_numid = 12 + n
-        # Add an abstractNum element to the numbering.xml file
-        a = etree.SubElement(nt, "%sabstractNum" % xhtml_namespace)
-        a.attrib["%sabstractNumId" % xhtml_namespace] = str(abstract_numid)
-        b = etree.SubElement(a, "%slvl" % xhtml_namespace)
-        b.attrib['%silvl' % xhtml_namespace] = "0"
-        c = etree.SubElement(b, "%sstart" % xhtml_namespace)
-        c.attrib["%sval" % xhtml_namespace] = "1"
-        c = etree.SubElement(b, "%snumFmt" % xhtml_namespace)
-        c.attrib["%sval" % xhtml_namespace] = "upperLetter"
-        c = etree.SubElement(b, "%slvlText" % xhtml_namespace)
-        c.attrib["%sval" % xhtml_namespace] = "%1."
-        c = etree.SubElement(b, "%slvlJc" % xhtml_namespace)
-        c.attrib["%sval" % xhtml_namespace] = "left"
-        c = etree.SubElement(b, "%spPr" % xhtml_namespace)
-        d = etree.SubElement(c, "%stabs" % xhtml_namespace)
-        e = etree.SubElement(d, "%stab" % xhtml_namespace)
-        e.attrib["%sval" % xhtml_namespace] = "num"
-        e.attrib["%spos" % xhtml_namespace] = "360"
-        f = etree.SubElement(c, "%sind" % xhtml_namespace)
-        f.attrib["%sleft" % xhtml_namespace] = "360"
-        f.attrib["%shanging" % xhtml_namespace] = "360"
-
-    for n in range(len(qq)):
-        numid = 14 + n
-        abstract_numid = 12 + n        # Add a num element to the numbering.xml file
-        a = etree.SubElement(nt, "%snum" % xhtml_namespace)
-        a.attrib["%snumId" % xhtml_namespace] = str(numid)
-        b = etree.SubElement(a, "%sabstractNumId" % xhtml_namespace)
-        b.attrib["%sval" % xhtml_namespace] = str(abstract_numid)
-
-    for n in range(len(qq)):
-        style_name = 'ListUpperLetter%d' % n
-        numid = 14 + n
-        # Add a style element to the style.xml file
-        a = etree.SubElement(s, "%sstyle" % xhtml_namespace)
-        a.attrib['%sstyleId' % xhtml_namespace] = style_name
-        a.attrib['%stype' % xhtml_namespace] = "paragraph"
-        b = etree.SubElement(a, "%spPr" % xhtml_namespace)
-        c = etree.SubElement(b, "%snumPr" % xhtml_namespace)
-        d = etree.SubElement(c, "%snumId" % xhtml_namespace)
-        d.attrib['%sval' % xhtml_namespace] = str(numid)
-        etree.SubElement(b, "%scontextualSpacing" % xhtml_namespace)
-
-    style_tree.write(style_outfile)
-    numbering_tree.write(numbering_outfile)
-    style_outfile.close()
-    numbering_outfile.close()
-
-    title = 'Questions'
-    subject = 'A set of peer-reviewed MCQ questions for this block.'
-    creator = 'Michael Hagarty'
-    coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=[])
-    appprops = docx.appproperties()
-    contenttypes = docx.contenttypes()
-    websettings = docx.websettings()
-    relationships = docx.relationshiplist()
-    wordrelationships = docx.wordrelationships(relationships)
-    docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, 'hello.docx')
-
-    f = StringIO.StringIO()
-    docxfile = zipfile.ZipFile(f, mode='w', compression=zipfile.ZIP_DEFLATED)
-    treesandfiles = {
-        document: 'word/document.xml',
-        coreprops: 'docProps/core.xml',
-        appprops: 'docProps/app.xml',
-        contenttypes: '[Content_Types].xml',
-        websettings: 'word/webSettings.xml',
-        wordrelationships: 'word/_rels/document.xml.rels'
-    }
-    for tree in treesandfiles:
-        treestring = etree.tostring(tree, pretty_print=True)
-        docxfile.writestr(treesandfiles[tree], treestring)
-
-    files_to_ignore = ['.DS_Store', 'stylesBase.xml', 'numberingBase.xml']
-    for dirpath, dirnames, filenames in os.walk(docx.template_dir):
-        for filename in filenames:
-            if filename in files_to_ignore:
-                continue
-            templatefile = os.path.join(dirpath, filename)
-            archivename = templatefile.replace(docx.template_dir, '')[1:]
-            docxfile.write(templatefile, archivename)
-
-    docxfile.close()
+    f = document.generate_document(tb, mode == "answer")
     r = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     r['Content-Disposition'] = 'attachment; filename=questions.docx'
     f.close()
     return r
+
+
+@permission_required('questions.can_approve')
+def send(request):
+    tb = models.TeachingBlock.objects.filter(
+        start__lte=datetime.datetime.now().date
+    ).latest("start")
+
+    e = EmailMessage(
+        'Questions for %s' % unicode(tb),
+        "Hello.",
+        "michaelhagarty@gmail.com",
+        ["michaelhagarty@gmail.com"],
+    )
+    e.attach('questions.docx', document.generate_document(tb, False).getvalue())
+    e.attach('answers.docx', document.generate_document(tb, True).getvalue())
+
+    e.send()
+
+    return redirect('questions.views.admin')
+
+    print 'Getting connection'
+    f = get_connection(False)
+    con = smtplib.SMTP(f.host, f.port)
+    print "Got connection"
+    con.ehlo()
+    con.starttls()
+    con.ehlo()
+    print "TLS Started"
+    con.login(f.username, f.password)
+    print "Authenticated"
+
+    return redirect('questions.views.admin')
 
 
 @login_required

@@ -2,7 +2,7 @@
 	<fieldset id="{{ fs.auto_id }}">
 		<legend>{{ fs.legend }}</legend>
 		{% for f in fs %}
-			{% if form.is_horizontal %}
+			{% if form.is_horizontal or is_horizontal %}
 			{% include "field.html" with is_horizontal=1 %}
 			{% else %}
 				{% if form.is_inline %}
@@ -13,7 +13,7 @@
 	</fieldset>	
 {% empty %}
 	{% for f in form %}
-		{% if form.is_horizontal %}
+		{% if form.is_horizontal or is_horizontal %}
 			{% include "field.html" with is_horizontal=1 %}
 		{% else %}
 			{% if form.is_inline %}

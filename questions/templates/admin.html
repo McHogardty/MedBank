@@ -2,5 +2,8 @@
 
 {% block content %}
     <h1 class="thin">Administration</h1>
-    <p>Download a copy of the questions document: <a href="{% url 'questions.views.download' %}">Download</a></p>
+    <p>Download a copy of the questions document: <a href="{% url 'questions.views.download' mode='question' %}">Download</a></p>
+    <p><a href="{% url 'questions.views.download' mode='answer' %}">Download with answers</a></p>
+    <p>Send the questions and answers to users:</p>
+    <a href="{% url 'questions.views.send' %}">Send email</a>
 {% endblock content %}
