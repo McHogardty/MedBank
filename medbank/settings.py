@@ -5,6 +5,7 @@ except:
     pass
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TPC
 import os
+import sys
 import dj_database_url
 
 if os.environ.get('MEDBANK_PRODUCTIOn'):
@@ -37,6 +38,7 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
     SECRET_KEY = os.environ.get('MEDBANK_SECRET_KEY')
+    sys.stderr.write(SECRET_KEY)
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
