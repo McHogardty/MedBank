@@ -6,3 +6,4 @@ docx==0.2.0
 lxml==3.2.1
 wsgiref==0.1.2
 git+git://github.com/django/django-localflavor-au.git
+gunicorn==17.5
