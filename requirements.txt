@@ -6,4 +6,4 @@ docx==0.2.0
 git-remote-helpers==0.1.0
 lxml==3.2.1
 wsgiref==0.1.2
-git+git@github.com:django/django-localflavor-au.git
+git+git@github.com:django/django-localflavor-au.git==1.0
