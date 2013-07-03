@@ -1,1 +1,1 @@
-web: gunicorn medbank/wsgi.py 
+web: gunicorn myproject.wsgi:application
