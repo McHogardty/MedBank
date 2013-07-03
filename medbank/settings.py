@@ -1,10 +1,16 @@
 # Django settings for medbank project.
-from .local_settings import *
+try:
+    from .local_settings import *
+except:
+    pass
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TPC
-
+import os
 import dj_database_url
 
-DEBUG = True
+if os.environ.get('MEDBANK_PRODUCTIOn'):
+    DEBUG = False
+else:
+    DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
