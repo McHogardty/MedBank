@@ -116,8 +116,27 @@ class TeachingActivityBulkUploadForm(bsforms.BootstrapHorizontalForm):
 
 
 class NewTeachingBlockForm(bsforms.BootstrapHorizontalModelForm):
+    start = forms.DateField(widget=forms.TextInput(
+        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
+    ), help_text="The first day that students can assign themselves to activities in this block.")
+    end = forms.DateField(widget=forms.TextInput(
+        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
+    ), help_text="The last day that students can assign themselves to activities in this block.")
+
     class Meta:
         model = TeachingBlock
+
+    def clean(self):
+        c = super(NewTeachingBlockForm, self).clean()
+        s = c.get('start')
+        e = c.get('end')
+
+        if s and e:
+            if s > e:
+                self._errors["end"] = self.error_class(["The end date should not be less than the start date."])
+                del c["end"]
+
+        return c
 
 
 class NewTeachingBlockDetailsForm(bsforms.BootstrapHorizontalModelForm):

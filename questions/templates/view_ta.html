@@ -7,7 +7,8 @@
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
     {% endif %}{% if object.question_writer == user and not object.questions.count >= max_questions %}
         <a class="action" href="{% url 'new' ta_id=object.id %}">Write{% if object.questions.count %} more {% else %} {% endif %}questions</a>
-    {% endif %}{% endblock actions %}
+    {% endif %}
+{% endblock actions %}
 
 
 {% block maincontent %}

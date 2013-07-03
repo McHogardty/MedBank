@@ -1,36 +1,50 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h3>Upload teaching activities</h3>
+    <h1 class='thin'>Upload teaching activities</h1>
+    <p>You can download the teaching activities from Compass in CSV format. You need to upload them with the following columns:</p>
+    <dl>
+        <dt>ID</dt><dd>the ID number of the activity as stored in Compass</dd>
+        <dt>Name</dt><dd>the name of the activity</dd>
+        <dt>Block</dt><dd>the block number for the activity</dd>
+        <dt>Week</dt><dd>the week of the block containing the activity</dd>
+        <dt>Position</dt><dd>specifies the ordering of activities in the week. Called sequence number in Compass.</dd>
+    </dl>
+    <p>The first row of the file should be the column headings, spelt the same as above (case and ordering don't matter). Any extra columns are ignored.</p>
     {% if tab %}
     <div class="span10">
         <form method="post" class="form-horizontal">
             {% csrf_token %}
-            {% for b, f in new_blocks.iteritems %}
-            {% if forloop.first %}
-                <p>The following block{{ new_blocks|length|pluralize }} {% if new_blocks|length_is:"1" %}has{% else %}have{% endif %} not previously existed in the database. Please fill in the details below:</p>
-            {% endif %}
-                <h4>Block: {{ b }}, {{ year }}</h4>
-                <input type="hidden" name="new_block" value="{{ b }}" />
-                {% include "form.html" with form=f %}
-            {% endfor %}
-            <div {% if new_blocks %}class="spacer"{% endif %}>
+            <div>
                 <p>Please check that the following information is correct before saving it to the database.
             </div>
             <table class="table">
-                <tr><th>Name</th><th>Block</th><th>Week</th><th>Position</th></tr>
+                <tr>
+                    <th class="lead">Name</th>
+                    <th class="lead">Block</th>
+                    <th class="lead">Week</th>
+                    <th class="lead">Position</th>
+                </tr>
                 {% for b, ta in tab.iteritems %}
                     {% for t in ta %}
                         <tr>
                             <td>{{ t.name }}<input type="hidden" value="{{ t.id }}" name="id" /><input type="hidden" value="{{ t.name }}" name="name_{{ t.id}}" /></td>
-                            <td>{{ b.name }}<input type="hidden" value="{{ b.name }}" name="block_{{ t.id }}" /></td>
+                            <td>{{ b.name }}<input type="hidden" value="{{ b.number }}" name="block_{{ t.id }}" /></td>
                             <td>{{ t.week }}<input type="hidden" value="{{ t.week }}" name="week_{{ t.id }}" /></td>
                             <td>{{ t.position }}<input type="hidden" value="{{ t.position }}" name="position_{{ t.id }}" /></td>
                         </tr>
                     {% endfor %}
                 {% endfor %}
             </table>
-            <input type="hidden" name="year" value="{{ year }}">
+            {% for b in new_blocks %}
+                <input type="hidden" name="new_block" value="{{ b.number }}" />
+                <input type="hidden" name="new_block_{{ b.number }}_name" value="{{ b.name }}" />
+                <input type="hidden" name="new_block_{{ b.number }}_year" value="{{ b.year }}" />
+                <input type="hidden" name="new_block_{{ b.number }}_stage" value="{{ b.stage }}" />
+                <input type="hidden" name="new_block_{{ b.number }}_start" value="{{ b.start }}" />
+                <input type="hidden" name="new_block_{{ b.number }}_end" value="{{ b.end }}" />
+            {% endfor %}
+            <input type="hidden" name="year" value="{{ year }}" />
             <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Save</button>
             </div>
@@ -101,6 +115,16 @@
                 <p>There are no duplicates</p>
             {% endfor %}
         {% else %}
+        {% if block_errors %}
+            <h3 class="thin">Errors</h3>
+            <p>The following problems were found with the teaching blocks:</p>
+            <ul>
+                {% for b in block_errors %}
+                    <li>{{ b }}</li>                    
+                {% endfor %}
+            </ul>
+            <p>You might need to add the block first through the admin page. Otherwise, try double-checking the fie and trying again.</p>
+        {% else %}
             <form enctype="multipart/form-data" method="post" class="form-horizontal">
                 <div class="row">
                     {% csrf_token %}
@@ -110,6 +134,7 @@
                     <button type="submit" class="btn btn-primary">Upload</button>
                 </div>
             </form>
+        {% endif %}
         {% endif %}
         {% endif %}
     {% endif %}

@@ -21,13 +21,13 @@ def create_user(request):
             form.save()
             u = authenticate(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
             login(request, u)
-            return redirect("questions.views.home")
+            return redirect("home")
     else:
         form = UserCreationForm()
 
     form.is_horizontal = True
     form.fields['username'].label = u'Unikey'
-    form.fields['username'].help_text = u'Please use your Unikey so that we can email you the questions.'
+    form.fields['username'].help_text = u"We'll use your Unikey to email the questions to you when they're ready."
     return render_to_response("user.html", {'form': form}, context_instance=RequestContext(request))
 
 

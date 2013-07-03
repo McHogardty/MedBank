@@ -124,10 +124,14 @@
     {% endfor %}
     </div>
 {% else %}
-    <h1>View teaching activites</h1>
+    <h1 class="thin">View teaching activities</h1>
 
-    <p>There is no teaching block in the database yet, so no teaching activities can be displayed.</p>
-    <p class="text-center"><a class='btn btn-large btn-primary' href="{% url 'questions.views.new_ta_upload' %}">Upload teaching activities</a></p>
+    {% if perms.questions.approve %}
+        <p>There is no teaching block in the database yet, so no teaching activities can be displayed.</p>
+        <p class="text-center"><a class='btn btn-large btn-primary' href="{% url 'questions.views.new_ta_upload' %}">Upload teaching activities</a></p>
+    {% else %}
+        <p>No teaching activities have been added yet.</p>
+    {% endif %}
 {% endif %}
 {% endblock content %}
 

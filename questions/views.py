@@ -9,6 +9,7 @@ from django.core.mail import EmailMessage, get_connection
 from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
+from django.utils.decorators import method_decorator
 import smtplib
 
 
@@ -21,12 +22,39 @@ import json
 import datetime
 
 
+def class_view_decorator(function_decorator):
+    """Convert a function based decorator into a class based decorator usable
+    on class based Views.
+
+    Can't subclass the `View` as it breaks inheritance (super in particular),
+    so we monkey-patch instead.
+    """
+
+    def simple_decorator(View):
+        View.dispatch = method_decorator(function_decorator)(View.dispatch)
+        return View
+
+    return simple_decorator
+
+
+@class_view_decorator(login_required)
 class AllActivitiesView(ListView):
     model = models.TeachingActivity
     template_name = "all2.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.has_perm('questions.can_approve'):
+            return redirect('admin')
+
+        return super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
+
     def get_latest_teaching_block(self):
-        return models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
+        try:
+            tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
+        except:
+            tb = None
+
+        return tb
 
     def get_queryset(self):
         ta = models.TeachingActivity.objects.filter(block=self.get_latest_teaching_block())
@@ -47,7 +75,8 @@ class AllActivitiesView(ListView):
 
 @permission_required('questions.can_approve')
 def admin(request):
-    return render_to_response('admin.html', context_instance=RequestContext(request))
+    tb = models.TeachingBlock.objects.order_by('stage')
+    return render_to_response('admin.html', {'blocks': tb, }, context_instance=RequestContext(request))
 
 
 def check_ta_perm_for_question(ta_id, u):
@@ -59,6 +88,7 @@ def check_ta_perm_for_question(ta_id, u):
     return ta
 
 
+@class_view_decorator(login_required)
 class NewQuestion(CreateView):
     model = models.Question
     form_class = forms.NewQuestionForm
@@ -81,6 +111,7 @@ class NewQuestion(CreateView):
         return reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id})
 
 
+@class_view_decorator(login_required)
 class UpdateQuestion(UpdateView):
     model = models.Question
     form_class = forms.NewQuestionForm
@@ -101,6 +132,7 @@ class UpdateQuestion(UpdateView):
             raise PermissionDenied
 
         return o
+
 
 @login_required
 def signup(request, ta_id):
@@ -147,22 +179,44 @@ def signup(request, ta_id):
         return redirect("ta", pk=ta_id)
 
 
+@class_view_decorator(login_required)
 class NewActivity(CreateView):
     model = models.TeachingActivity
     template_name = "new_ta.html"
     form_class = forms.NewTeachingActivityForm
 
+    def get_context_data(self, **kwargs):
+        c = super(NewActivity, self).get_context_data(**kwargs)
+        c['heading'] = "activity"
+        return c
 
+
+@class_view_decorator(login_required)
+class NewBlock(CreateView):
+    model = models.TeachingBlock
+    template_name = "new_ta.html"
+    form_class = forms.NewTeachingBlockForm
+
+    def get_context_data(self, **kwargs):
+        c = super(NewBlock, self).get_context_data(**kwargs)
+        c['heading'] = "block"
+        return c
+
+    def get_success_url(self):
+        return reverse('admin')
+
+
+@class_view_decorator(login_required)
 class ViewActivity(DetailView):
     model = models.TeachingActivity
 
     def get_context_data(self, **kwargs):
         c = super(ViewActivity, self).get_context_data(**kwargs)
         c['max_questions'] = settings.QUESTIONS_PER_USER
-        print c
         return c
 
 
+@class_view_decorator(login_required)
 class ViewQuestion(DetailView):
     model = models.Question
 
@@ -256,47 +310,49 @@ def send(request):
 
     return redirect('questions.views.admin')
 
-    print 'Getting connection'
-    f = get_connection(False)
-    con = smtplib.SMTP(f.host, f.port)
-    print "Got connection"
-    con.ehlo()
-    con.starttls()
-    con.ehlo()
-    print "TLS Started"
-    con.login(f.username, f.password)
-    print "Authenticated"
 
-    return redirect('questions.views.admin')
+def copy_block(block):
+    b = models.TeachingBlock()
+
+    b.name = block.name
+    b.year = block.year
+    b.stage = block.stage
+    b.number = block.number
+    b.start = block.start
+    b.end = block.end
+
+    return b
 
 
 @login_required
 def new_ta_upload(request):
     if request.method == "POST":
         if 'id' in request.POST:
-            blocks = {}
             y = request.POST.get('year')
-            blocks = dict((b.name.lower(), b) for b in models.TeachingBlock.objects.filter(year=y))
-            b = request.POST.getlist('new_block')
             i = request.POST.getlist('id')
             r = request.POST.copy()
-            for bb in b:
-                p = ''.join(e.lower() for e in bb if e.isalnum())
-                r.update({'%s-year' % p: y, '%s-name' % p: bb})
-                f = forms.NewTeachingBlockForm(
-                    r,
-                    prefix=p
-                )
+            blocks = dict((b.number, b) for b in models.TeachingBlock.objects.filter(year=y))
+            new_blocks = request.POST.getlist('new_block')
+            for bb in new_blocks:
+                data = {
+                    'number': bb,
+                    'name': request.POST.get('new_block_%d_name' % bb),
+                    'year': request.POST.get('new_block_%d_year' % bb),
+                    'stage': request.POST.get('new_block_%d_stage' % bb),
+                    'start': request.POST.get('new_block_%d_start' % bb),
+                    'end': request.POST.get('new_block_%d_end' % bb),
+                }
+                f = forms.NewTeachingBlockForm(data)
                 if f.is_valid():
                     bb = f.save()
+                    blocks[bb.number] = bb
                 else:
-                    return redirect('questions.views.new_ta_upload')
-                blocks[bb.name] = bb
+                    raise
             for ii in i:
                 data = {
                     'id': ii,
                     'name': request.POST.get('name_%s' % ii),
-                    'block': blocks[request.POST.get('block_%s' % ii)].id,
+                    'block': [blocks[int(request.POST.get('block_%s' % ii))].id],
                     'week': request.POST.get('week_%s' % ii),
                     'position': request.POST.get('position_%s' % ii)
                 }
@@ -304,8 +360,8 @@ def new_ta_upload(request):
                 if f.is_valid():
                     f.save()
                 else:
-                    return redirect('questions.views.new_ta_upload')
-            return redirect('questions.views.home')
+                    return redirect('activity-upload')
+            return redirect('admin')
         else:
             form = forms.TeachingActivityBulkUploadForm(request.POST, request.FILES)
             if form.is_valid():
@@ -318,36 +374,49 @@ def new_ta_upload(request):
                 already_exist = []
                 blocks = list(set(dict(zip(h, row))['block'] for row in r[1:]))
                 errors = []
-                existing_blocks = dict((b.name.lower(), b) for b in models.TeachingBlock.objects.filter(year=y))
-                new_blocks = {}
+                new_blocks = []
+                existing_blocks = models.TeachingBlock.objects.filter(number__in=blocks)
                 b = {}
+                for bb in existing_blocks:
+                    d = b.setdefault(bb.number, {})
+                    d[bb.year] = bb
                 for bb in blocks:
-                    if bb.lower() in existing_blocks:
-                        bb = existing_blocks[bb.lower()]
+                    try:
+                        bb = int(bb)
+                    except:
+                        errors.append("%s is not a number" % bb)
+                    if bb in b:
+                        if y in b[bb]:
+                            bb = b[bb][y]
+                        else:
+                            bb = copy_block(b[bb][max(b[bb].keys())])
+                            bb.year = y
+                            bb.start.year = y
+                            bb.end.year = y
+                            b[bb.number][y] = bb
+                            new_blocks.append(bb)
+                        by_block[bb] = []
                     else:
-                        d = {'year': y, 'name': bb}
-                        f = forms.TeachingBlockValidationForm(d)
-                        if f.is_valid():
-                            bb = f.save(commit=False)
-                        new_blocks[d['name']] = forms.NewTeachingBlockDetailsForm(
-                            prefix=''.join(e.lower() for e in d['name'] if e.isalnum())
-                        )
-                    b[bb.name] = bb
-                    by_block[bb] = []
+                        errors.append("Block %s was not found" % bb)
+                if errors:
+                    return render_to_response("upload.html", {
+                        'block_errors': errors
+                    }, context_instance=RequestContext(request))
                 for row in r[1:]:
-                    f = forms.TeachingActivityValidationForm(dict(zip(h, row)))
+                    hr = dict(zip(h, row))
+                    f = forms.TeachingActivityValidationForm(hr)
                     if f.is_valid():
                         ta = f.save(commit=False)
                         l = by_position.setdefault((ta.week, ta.position), [])
                         l.append(ta)
                         l = by_name.setdefault(ta.name.lower(), [])
                         l.append(ta)
-                        by_block[b[dict(zip(h, row))['block']]].append(ta)
+                        by_block[b[int(hr['block'])][y]].append(ta)
                     else:
                         if str(f.errors).find("exists"):
-                            already_exist.append(dict(zip(h, row)))
+                            already_exist.append(hr)
                         else:
-                            errors.append(dict(zip(h, row)))
+                            errors.append(hr)
                 if errors or already_exist:
                     return render_to_response(
                         "upload.html",

@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 
+{% block head %}
+<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}datepicker.css">
+{% endblock head %}
+
 {% block content %}
-    <h1 class="thin">Add a new teaching activity</h1>
+    <h1 class="thin">Add a new teaching {{ heading }}</h1>
     <div class="row spacer">
     <form class="form-horizontal" method="post">
         <div class="row">
             {% csrf_token %}
-            {% include "form.html" %}
+            {% include "form.html" with is_horizontal=True %}
         </div>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Submit</button>
@@ -15,3 +19,16 @@
     </form>
     </div>
 {% endblock content %}
+
+{% block javascript %}
+    <script type="text/javascript" src="{{ STATIC_URL }}bootstrap-datepicker.js"></script>
+    <script type="text/javascript">
+        function init() {
+            $(".datepicker").datepicker()
+        }
+
+        $(document).ready(function () {
+            init()
+        })
+    </script>
+{% endblock javascript %}

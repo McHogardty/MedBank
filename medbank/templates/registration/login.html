@@ -7,22 +7,25 @@
             Please try again.
         </div>
     {% endif %}
-    <h3>Login</h3>
-    <form class="form-horizontal" method="post">
-        <div class="row">
-            {% csrf_token %}
-            <div class="control-group">
-                <label for="id_username" class="control-label required">Username</label>
-                <div class="controls">{{ form.username }}</div>
+    <h1 class='thin'>Login</h1>
+    Not registered yet? <a href="{% url 'create_user' %}">Click here</a>
+    <div class="spacer">
+        <form class="form-horizontal" method="post">
+            <div class="row">
+                {% csrf_token %}
+                <div class="control-group">
+                    <label for="id_username" class="control-label required">Username</label>
+                    <div class="controls">{{ form.username }}</div>
+                </div>
+                <div class="control-group">
+                    <label for="id_password" class="control-label required">Password</label>
+                    <div class="controls">{{ form.password }}</div>
+                </div>
             </div>
-            <div class="control-group">
-                <label for="id_password" class="control-label required">Password</label>
-                <div class="controls">{{ form.password }}</div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Submit</button>
+                <button type="button" class="btn">Cancel</button>
             </div>
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Submit</button>
-            <button type="button" class="btn">Cancel</button>
-        </div>
-    </form>
+        </form>
+    </div>
 {% endblock content %}

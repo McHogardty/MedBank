@@ -1,9 +1,54 @@
-{% extends "base.html" %}
+{% extends "base_with_actions.html" %}
 
-{% block content %}
+{% block actions %}
+    <h3 class="thin">Page actions</h3>    
+    <a class="action" href="{% url 'block-new' %}">Add a new block</a>        
+    <a class="action" href="{% url 'activity-upload' %}">Upload teaching activities</a>
+{% endblock actions %}block_new
+
+{% block maincontent %}
     <h1 class="thin">Administration</h1>
+    {% for b in blocks %}
+        {% if forloop.first %}
+            <h3 class="thin">Currently active blocks</h3>
+            <div class="spacer">
+                <table class="table">
+                    <tr>
+                        <th class="thin">Stage</th>
+                        <th class="thin">Block</th>
+                        <th class="thin">Start</th>
+                        <th class="thin">End</th>
+                        <th class="thin">Activities assigned</th>
+                        <th class="thin">Total activities</th>
+                    </tr>
+        {% endif %}
+            <tr>
+                <td>{{ b.get_stage_display }}</td>
+                <td>{{ b.name }}</td>
+                <td>{{ b.start }}</td>
+                <td>{{ b.end }}</td>
+                <td>{{ b.assigned_activities_count}}</td>
+                <td>{{ b.total_activities_count }}</td>
+            </tr>
+        {% if forloop.last %}
+                </table>
+            </div>
+        {% endif %}
+    {% empty %}
+        <h3 class="thin">Step 1: Add a block</h3>
+        <p>Before you can add any teaching activities, you need to set up a teaching block.</p>
+        <p>You can add a new block using the action on the right.</p>
+    {% endfor %}
+
+    <h3 class="thin">Step 2: Upload teaching activities</h3>
+    <p>You can upload teaching activities using the action on the right.</p>
+
+    <h3 class="thin">Step 3: Release teaching blocks and notify students</h3>
+    <p>Teaching blocks are released based on their start date. You can view the start dates for teaching blocks this year by looking in the table above.</p>
+    <p>Students can assign themselves to teaching activities up to and including the end date for that block. After the end date, they will still be able to write questions for their assigned activities.</p>
+    <h3 class="thin">Generate a questions document</h3>
     <p>Download a copy of the questions document: <a href="{% url 'questions.views.download' mode='question' %}">Download</a></p>
     <p><a href="{% url 'questions.views.download' mode='answer' %}">Download with answers</a></p>
-    <p>Send the questions and answers to users:</p>
+    <p>Send the questions and answers to yourself:</p>
     <a href="{% url 'questions.views.send' %}">Send email</a>
-{% endblock content %}
+{% endblock maincontent %}

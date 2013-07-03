@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.localflavor.au import forms as auforms
+from django_localflavor_au import forms as auforms
 from django.utils.encoding import force_unicode
 from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
