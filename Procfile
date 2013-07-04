@@ -1,1 +1,1 @@
-web: gunicorn medbank.wsgi:application
+web: python manage.py collectstatic --noinput; gunicorn medbank.wsgi:application
