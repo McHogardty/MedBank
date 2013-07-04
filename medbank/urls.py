@@ -22,3 +22,9 @@ urlpatterns = patterns(
 )
 
 handler500 = 'medbank.views.server_error'
+
+if not settings.DEBUG:
+    urlpatterns += patterns(
+        '',
+        (r'^static/(?P<path>.*)$', 'django.views.static.serve', {'document_root': settings.STATIC_ROOT}),
+    )
