@@ -1,11 +1,11 @@
 {% extends "base_with_actions.html" %}
 {% load custom_filters %}
 
-{% block actions %}{% if not object.question_writer or object.question_writer == user and not object.questions.count >= max_questions %}
+{% block actions %}{% if not object.question_writer or object.question_writer == user.student and not object.questions.count >= max_questions %}
         <h3 class="thin">Page actions</h3>    
     {% endif %}{% if not object.question_writer %}
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
-    {% endif %}{% if object.question_writer == user and not object.questions.count >= max_questions %}
+    {% endif %}{% if object.question_writer == user.student and not object.questions.count >= max_questions %}
         <a class="action" href="{% url 'new' ta_id=object.id %}">Write{% if object.questions.count %} more {% else %} {% endif %}questions</a>
     {% endif %}
 {% endblock actions %}
@@ -17,7 +17,7 @@
     {% if not object.question_writer %}
         <p>Nobody has assigned themselves to write questions for this activity yeobject.</p>
     {% endif %}
-    {% if object.question_writer == user %}
+    {% if object.question_writer == user.student %}
         {% if object.questions.count == max_questions %}
             Thankyou, you've given us enough questions for this teaching activity!
         {% else %}
@@ -41,7 +41,7 @@
         <td class="question-body">{{ q.body }}</td>
         <td><div class="{% if q.pending %}text-warning{% else %}text-success{% endif %}">{{ q.get_status_display }}</div></td>
         <td class="actions">
-            <a class="action" href="{% url 'view' ta_id=object.id pk=q.id %}{% if perms.questions.can_approve %}?show{% endif %}">View</a>{% if q.creator == user %}
+            <a class="action" href="{% url 'view' ta_id=object.id pk=q.id %}{% if perms.questions.can_approve %}?show{% endif %}">View</a>{% if q.creator == user.student %}
             <a class="action" href="{% url 'edit' ta_id=object.id pk=q.id %}">Edit</a>                
             {% endif %}
         </td>
@@ -52,7 +52,7 @@
     {% empty %}
     <p>No questions have been submitted for this teaching activity yet.</p>
     {% endfor %}
-    {% if object.question_writer == user %}
+    {% if object.question_writer == user.student %}
         <p>You can edit questions until they have been approved.</p>
     {% endif %}
 {% endblock maincontent %}

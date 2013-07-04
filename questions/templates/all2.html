@@ -110,8 +110,8 @@
                             View
                         </a>
                     </span>
-                    <span class="pull-right{% if t.question_writer %} {% if t.question_writer == user %}text-success{% else %}loading{% endif %}{% endif %}">
-                        {% if t.question_writer %}{% if t.question_writer == user %}Assigned{% else %}Unavailable{% endif %}{% else %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}
+                    <span class="pull-right{% if t.question_writer %} {% if t.question_writer == user.student %}text-success{% else %}loading{% endif %}{% endif %}">
+                        {% if t.question_writer %}{% if t.question_writer == user.student %}Assigned{% else %}Unavailable{% endif %}{% else %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}
                     </span>
                 </div>                
             {% endif %}

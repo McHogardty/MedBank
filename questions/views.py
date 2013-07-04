@@ -82,7 +82,7 @@ def admin(request):
 def check_ta_perm_for_question(ta_id, u):
     ta = get_object_or_404(models.TeachingActivity, pk=ta_id)
 
-    if not ta.question_writer == u:
+    if not ta.question_writer == u.student:
         raise PermissionDenied
 
     return ta
@@ -96,7 +96,7 @@ class NewQuestion(CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         self.ta = check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
-        if models.Question.objects.filter(teaching_activity=self.ta, creator=request.user).count() >= settings.QUESTIONS_PER_USER:
+        if models.Question.objects.filter(teaching_activity=self.ta, creator=request.user.student).count() >= settings.QUESTIONS_PER_USER:
             messages.warning(request, "You have already submitted %d questions for this teaching activity." % settings.QUESTIONS_PER_USER)
             return redirect('ta', pk=self.ta.id)
 
@@ -104,7 +104,7 @@ class NewQuestion(CreateView):
 
     def get_initial(self):
         i = super(NewQuestion, self).get_initial().copy()
-        i.update({'teaching_activity': self.ta, 'creator': self.request.user})
+        i.update({'teaching_activity': self.ta, 'creator': self.request.user.student})
         return i
 
     def get_success_url(self):
@@ -128,7 +128,7 @@ class UpdateQuestion(UpdateView):
     def get_object(self):
         o = super(UpdateQuestion, self).get_object()
 
-        if o.creator != self.request.user:
+        if o.creator != self.request.user.student:
             raise PermissionDenied
 
         return o
@@ -151,7 +151,7 @@ def signup(request, ta_id):
             messages.error(request, "Hmm... that teaching activity could not be found.")
             return redirect("questions.views.home")
 
-    if ta.question_writer and ta.question_writer != request.user:
+    if ta.question_writer and ta.question_writer != request.user.student:
         if request.is_ajax():
             return HttpResponse(
                 json.dumps({

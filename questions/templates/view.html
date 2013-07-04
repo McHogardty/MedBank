@@ -10,7 +10,7 @@
 
 {% block actions %}
     <h3 class="thin">Page actions</h3>
-    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show %}?show{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if question.pending and question.creator == user %}
+    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show %}?show{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if question.pending and question.creator == user.student %}
     <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}">Edit question</a>
     {% endif %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>
 
