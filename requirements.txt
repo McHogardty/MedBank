@@ -7,3 +7,4 @@ lxml==3.2.1
 wsgiref==0.1.2
 git+git://github.com/django/django-localflavor-au.git
 gunicorn==17.5
+psycopg2==2.5.1
