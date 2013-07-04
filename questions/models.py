@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from django.contrib.auth.models import User
 
 import json
+import datetime
 import string
 
 STAGE_ONE = 0
@@ -68,6 +69,12 @@ class TeachingActivity(models.Model):
 
     def __unicode__(self):
         return self.name
+
+    def current_block(self):
+        try:
+            return self.block.get(year=datetime.datetime.now().year)
+        except TeachingBlock.DoesNotExist:
+            return None
 
 
 class Question(models.Model):

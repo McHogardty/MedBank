@@ -1,5 +1,5 @@
 from medbank import bsforms
-from .models import Question, TeachingActivity, TeachingBlock
+from .models import Question, TeachingActivity, TeachingBlock, Student
 from django import forms
 from django.utils.safestring import mark_safe
 from django.contrib.formtools.wizard.views import CookieWizardView
@@ -91,7 +91,7 @@ class NewQuestionForm(bsforms.BootstrapHorizontalModelForm):
     options = QuestionOptionsField()
     answer = forms.ChoiceField(choices=ANSWER_CHOICES, widget=forms.Select(attrs={'class': 'span1'}))
     explanation = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
-    creator = forms.ModelChoiceField(queryset=auth.models.User.objects.all(), widget=forms.HiddenInput())
+    creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     teaching_activity = forms.ModelChoiceField(queryset=TeachingActivity.objects.all(), widget=forms.HiddenInput())
 
     class Meta:

@@ -12,8 +12,8 @@
 
 
 {% block maincontent %}
-    <h1 class="thin">{{ object.block.number }}.{{ object.week|stringformat:"02d" }}: {{ object.name }}</h1>
-    <p>Block: {{ object.block }}</p>
+    <h1 class="thin">{{ object.current_block.number }}.{{ object.week|stringformat:"02d" }}: {{ object.name }}</h1>
+    <p>Block: {{ object.current_block }}</p>
     {% if not object.question_writer %}
         <p>Nobody has assigned themselves to write questions for this activity yeobject.</p>
     {% endif %}
