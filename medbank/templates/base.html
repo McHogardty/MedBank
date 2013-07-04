@@ -97,11 +97,14 @@
             <h1 class="muted">MedBank</h1>
         </div>
         <div>
+            <span class='actions'>
+            <a class="action" href="{% url 'home' %}">Home</a>
             {% if user.is_anonymous %}
-                <a href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
+                <a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
             {% else %}
-                <span style="border-right:1px solid rgb(240,240,240);padding-right:5px;margin-right:5px;">Welcome, {{ user.username }}</span><a href="{% url 'logout' %}">Logout</a>
+                <span style="border-right:1px solid rgb(240,240,240);padding:0 10px;">Welcome, {{ user.username }}</span><a class='action' href="{% url 'logout' %}">Logout</a>
             {% endif %}
+            </span>
         </div>
     </div>
     <hr>
