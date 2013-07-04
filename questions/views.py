@@ -165,7 +165,7 @@ def signup(request, ta_id):
             messages.error(request, "Sorry, that activity is already assigned to somebody else.")
             return redirect("questions.views.home")
 
-    ta.question_writer = request.user
+    ta.question_writer = request.user.student
     ta.save()
     if request.is_ajax():
         return HttpResponse(
