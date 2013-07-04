@@ -8,7 +8,7 @@ import os
 import sys
 import dj_database_url
 
-if os.environ.get('MEDBANK_PRODUCTIOn'):
+if os.environ.get('MEDBANK_PRODUCTION'):
     DEBUG = False
 else:
     DEBUG = True
@@ -38,9 +38,6 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
     SECRET_KEY = os.environ.get('MEDBANK_SECRET_KEY')
-    sys.stderr.write("Secret key! ")
-    sys.stderr.write(SECRET_KEY)
-    sys.stderr.flush()
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
