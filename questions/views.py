@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.http import HttpResponse, Http404, HttpResponseServerError
 from django.core.urlresolvers import reverse
 from django.conf import settings
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import EmailMessage
 from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
@@ -16,10 +16,13 @@ import smtplib
 import forms
 import models
 import document
+from queue import base as q
+import tasks
 
 import csv
 import json
 import datetime
+
 
 
 def class_view_decorator(function_decorator):
@@ -37,6 +40,23 @@ def class_view_decorator(function_decorator):
     return simple_decorator
 
 
+class AllBlocksView(ListView):
+    model = models.TeachingBlock
+    template_name = "choose.html"
+
+    def get_queryset(self):
+        return models.TeachingBlock.objects.filter(year=datetime.datetime.now().year)
+
+
+def test(request):
+    from queue import base as q
+    from tasks import SimpleTask3
+
+    t = SimpleTask()
+    q.add_task(t)
+    return redirect("home")
+
+
 @class_view_decorator(login_required)
 class AllActivitiesView(ListView):
     model = models.TeachingActivity
@@ -48,16 +68,12 @@ class AllActivitiesView(ListView):
 
         return super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
 
-    def get_latest_teaching_block(self):
-        try:
-            tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
-        except:
-            tb = None
-
+    def get_teaching_block(self):
+        tb = models.TeachingBlock.objects.get(number=self.kwargs['number'], year=self.kwargs['year'])
         return tb
 
     def get_queryset(self):
-        ta = models.TeachingActivity.objects.filter(block=self.get_latest_teaching_block())
+        ta = models.TeachingActivity.objects.filter(block__number=self.kwargs['number'], block__year=self.kwargs['year'])
         by_week = {}
         for t in ta:
             l = by_week.setdefault(t.week, [])
@@ -69,7 +85,7 @@ class AllActivitiesView(ListView):
 
     def get_context_data(self, **kwargs):
         c = super(AllActivitiesView, self).get_context_data(**kwargs)
-        c['teaching_block'] = self.get_latest_teaching_block()
+        c['teaching_block'] = self.get_teaching_block()
         return c
 
 
@@ -293,21 +309,9 @@ def download(request, mode):
 
 @permission_required('questions.can_approve')
 def send(request):
-    tb = models.TeachingBlock.objects.filter(
-        start__lte=datetime.datetime.now().date
-    ).latest("start")
-
-    e = EmailMessage(
-        'Questions for %s' % unicode(tb),
-        "Hello.",
-        "michaelhagarty@gmail.com",
-        ["michaelhagarty@gmail.com"],
-    )
-    e.attach('questions.docx', document.generate_document(tb, False).getvalue())
-    e.attach('answers.docx', document.generate_document(tb, True).getvalue())
-
-    e.send()
-
+    t = tasks.DocumentEmailTask()
+    q.add_task(t)
+    messages.success(request, "The email was successfully queued to be sent!")
     return redirect('questions.views.admin')
 
 

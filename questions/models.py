@@ -55,6 +55,10 @@ class TeachingBlock(models.Model):
     def total_activities_count(self):
         return self.activities.count()
 
+    def can_write_questions(self):
+        return self.start <= datetime.datetime.now().date() <= self.end
+    can_write_questions = property(can_write_questions)
+
 
 class TeachingActivity(models.Model):
     id = models.IntegerField(primary_key=True, verbose_name=u'ID')

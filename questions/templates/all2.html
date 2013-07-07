@@ -64,6 +64,11 @@
             font-size:17.5px;
             padding:10px;
         }
+        @media (max-width: 767px) {
+            div.activity {
+                text-align:center;
+            }
+        }
 
         .week-heading .close, .week-heading h3 {
             display:inline-block;
@@ -90,27 +95,28 @@
 {% block content %}
 {% if teaching_block %}
     <h1 class="thin">{{ teaching_block }}</h1>
-    <p>Click on a week below to see the classes available for that week.</p>
+    <p class="hidden-phone">Click on a week below to see the classes available for that week.</p>
+    <p class="visible-phone">Tap on a week below to see the classes available for that week. Tap on a class to assign yourself to it.</p>
     <div class="row span10 spacer">
     {% for w, a, l in object_list %}
     {% if forloop.first %}{% endif %}
     <div class="week">
-        <div class="week-heading{% if not a %} loading{% endif %}" data-toggle="collapse" data-target="#week-activities-{{ w }}">
+        <div class="week-heading{% if not a %} loading{% endif %} collapse-trigger" data-target="#week-activities-{{ w }}">
             <h3 class="thin">Week {{ w }}</h3>
             <h3 class="thin pull-right text-{% if a %}success{% endif %}">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>
             <i class="icon-angle-down"></i>
         </div>
-        <div class="week-activities collapse" id="week-activities-{{ w }}">
+        <div class="week-activities collapse in" id="week-activities-{{ w }}">
             {% for t in l %}
             {% if t %}
-                <div class="activity">
+                <div class="activity {% if t.question_writer %}hidden-phone{% endif %}">
                     <span>{{ t }}</span>
-                    <span class="actions">
+                    <span class="actions hidden-phone">
                         <a class="action" href="{% url 'ta' pk=t.id %}">
                             View
                         </a>
                     </span>
-                    <span class="pull-right{% if t.question_writer %} {% if t.question_writer == user.student %}text-success{% else %}loading{% endif %}{% endif %}">
+                    <span class="pull-right{% if t.question_writer %} {% if t.question_writer == user.student %}text-success{% else %}loading{% endif %}{% endif %} hidden-phone">
                         {% if t.question_writer %}{% if t.question_writer == user.student %}Assigned{% else %}Unavailable{% endif %}{% else %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}
                     </span>
                 </div>                
@@ -138,46 +144,85 @@
 {% block javascript %}
 {% if teaching_block %}
     <script type="text/javascript">
+        function unclickable(cls, handler) {
+            $(cls).off("click",handler)
+        }
+        function clickable(cls, handler) {
+            $(cls).on("click", handler)
+        }
+        enquire.register("screen and (max-width: 767px)", {
+            match: function () {
+                clickable(".activity", assign)
+            },
+            unmatch: function () {
+                unclickable(".activity", assign)
+            }
+        })
         function remove_popover(e) {
             e.popover('destroy')
         }
         function assign() {
             a = $(this)
+            is_mobile = a.attr("data-url") == undefined
             a.addClass("loading")
-            $.get($(this).attr("data-url"), function (data) {
+            if (is_mobile) {
+                url = $(this).find(".pull-right a").attr("data-url")
+                a.html("Loading...")
+            } else {
+                url = $(this).attr("data-url");
+            }
+            $.get(url, function (data) {
                 switch(data.result) {
                     case "success":
-                        a.parent().addClass("text-success")
-                        a.replaceWith("Assigned")
+                        if (is_mobile) {
+                            a.addClass("text-success")
+                            a.html("Assigned")
+                            a.removeClass("loading")
+                        } else {
+                            a.parent().addClass('text-success')
+                            a.replaceWith("Assigned")
+                        }
                         break;
                     case "error":
-                        s = a.parent()
-                        tr = s.parent()
-                        s.addClass("text-error")
-                        a.replaceWith(data.blurb)
-                        i = 'close-' + ($(".close").length + 1)
-                        tr.popover({
-                            html: true,
-                            container: 'div.container',
-                            trigger: 'manual',
-                            placement: 'right',
-                            content: function () {
-                                return '<button id="' + i + '" type="button" class="close">&times;</button>' + data.explanation
-                            }
-                        })
-                        tr.popover('show')
-                        $("#" + i).click(function () {remove_popover(tr)})
-                        tr.parent().prev().click(function () {remove_popover(tr)})
+                        if (!is_mobile) {
+                            s = a.parent()
+                            tr = s.parent()
+                            s.addClass("text-error")
+                            a.replaceWith(data.blurb)
+                            i = 'close-' + ($(".close").length + 1)
+                            tr.popover({
+                                html: true,
+                                container: 'div.container',
+                                trigger: 'manual',
+                                placement: 'right',
+                                content: function () {
+                                    return '<button id="' + i + '" type="button" class="close">&times;</button>' + data.explanation
+                                }
+                            })
+                            tr.popover('show')
+                            $("#" + i).click(function () {remove_popover(tr)})
+                            tr.parent().prev().click(function () {remove_popover(tr)})
+                        } else {
+                            a.addClass("text-error")
+                            a.html(data.explanation)
+                            a.removeClass("loading")
+                        }
+                        break;
                     default:
                         return
                 }
             })
         }
         $(document).ready(function () {
+            $(".collapse-trigger").each(function () {
+                $($(this).attr("data-target")).collapse()
 
-            $("div.activity a").click(assign)
+                $(this).click(function () {
+                    $($(this).attr("data-target")).collapse("toggle")
+                })
+            })
+            $("div.activity a[data-url]").click(assign)
         })
-
     </script>
 {% endif %}
 {% endblock javascript %}

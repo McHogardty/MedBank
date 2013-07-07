@@ -37,7 +37,7 @@ def generate_document(tb, answer):
         if answer:
             body.append(docx.paragraph("Answer: %s" % q.answer))
             body.append(docx.paragraph(q.explanation))
-            body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity.current_block.number, q.teaching_activity.week, q.teaching_activity.position, q.teaching_activity.name)))
+            body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity.current_block().number, q.teaching_activity.week, q.teaching_activity.position, q.teaching_activity.name)))
             body.append(docx.paragraph(""))
 
     for n in range(len(qq)):

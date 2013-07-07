@@ -1,14 +1,19 @@
 from django.conf.urls import patterns, include, url
 
 from .forms import TeachingActivityBulkUploadWizard, NewTeachingBlockForm
-from .views import AllActivitiesView, ViewActivity, NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock
+from .views import AllBlocksView, AllActivitiesView, ViewActivity, NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock
 
 # Uncomment the next two lines to enable the admin:
 # from django.contrib import admin
 # admin.autodiscover()
 
-urlpatterns = patterns('questions.views',
-    url(r'^$', AllActivitiesView.as_view(), name='home'),
+from queue import base
+
+urlpatterns = patterns(
+    'questions.views',
+    url(r'^$', AllBlocksView.as_view(), name='home'),
+    url(r'^test/$', 'test'),
+    url(r'^block/(?P<number>\d{1,2})/(?P<year>\d{4})/$', AllActivitiesView.as_view(), name='activity-list'),
     url(r'^admin/$', 'admin', name='admin'),
     url(r'^download/(?P<mode>[a-z]+)/$', 'download'),
     url(r'^send/$', 'send'),
