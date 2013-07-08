@@ -24,7 +24,6 @@ import json
 import datetime
 
 
-
 def class_view_decorator(function_decorator):
     """Convert a function based decorator into a class based decorator usable
     on class based Views.

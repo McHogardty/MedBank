@@ -92,8 +92,8 @@
         {% for b in object_list %}
             <div class="week">
                 <div class="week-heading"{% if b.can_write_questions%} onclick="location.href='{% url 'activity-list' year=b.year number=b.number %}'"{% endif %}>
-                    <h3 class="thin">{{ b }}</h3>
-                    <h3 class="thin pull-right text-{% if b.can_write_questions %}success{% endif %}">{% if b.can_write_questions %}Open{% else %}Not available yet{% endif %}</h3>
+                    <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
+                    <h3 class="thin pull-right hidden-phone{% if b.can_write_questions %} text-success{% endif %}">{% if b.can_write_questions %}Open{% else %}Not available yet{% endif %}</h3>
                 </div>
             </div>
             {% if forloop.last %}{% endif %}

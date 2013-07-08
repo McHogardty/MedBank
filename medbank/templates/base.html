@@ -85,6 +85,42 @@
     .close {
         font-weight: 200;
     }
+    @media(min-width: 768px) {
+        .nav .action {
+            display:inline-block;
+        }
+    }
+    span.username {
+        border-right:1px solid rgb(240,240,240);
+        padding:0 10px;
+    }
+    @media (max-width: 767px) {
+        .nav .action {
+            display: block;
+            text-align:center;
+            border-top: 1px solid rgb(240,240,240);
+            border-right:none;
+            padding:10px 0;
+        }
+        body hr {
+            margin-top:0;
+        }
+
+        h1.muted {
+            text-align:center;
+        }
+        span.username {
+            display:block;
+            padding:10px 0;
+            border-top:1px solid rgb(240,240,240);
+            text-align:center;
+            border-right:none;
+        }
+        .cross-out {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+    }
     </style>
     <link rel="stylesheet" type="text/css" media="screen" href="{{ STATIC_URL }}css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" media="screen" href="{{ STATIC_URL }}css/bootstrap-responsive.min.css">
@@ -97,12 +133,12 @@
             <h1 class="muted">MedBank</h1>
         </div>
         <div>
-            <span class='actions'>
+            <span class='actions nav'>
             <a class="action" href="{% url 'home' %}">Home</a>
             {% if user.is_anonymous %}
                 <a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
             {% else %}
-                <span style="border-right:1px solid rgb(240,240,240);padding:0 10px;">Welcome, {{ user.username }}</span><a class='action' href="{% url 'logout' %}">Logout</a>
+                <span class="username">Welcome, {{ user.username }}</span><a class='action' href="{% url 'logout' %}">Logout</a>
             {% endif %}
             </span>
         </div>
