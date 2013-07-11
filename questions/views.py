@@ -57,6 +57,22 @@ def test(request):
 
 
 @class_view_decorator(login_required)
+class MyActivitiesView(ListView):
+    model = models.TeachingActivity
+    template_name = "mine.html"
+
+    def get_queryset(self):
+        ret = {}
+        ta = models.TeachingActivity.objects.filter(question_writer=self.request.user).order_by('week', 'position')
+        for t in ta:
+            l = ret.setdefault(t.current_block(), [])
+            l.append(t)
+        ret = ret.items()
+        ret.sort(key=lambda a: a[0].number)
+        return ret
+
+
+@class_view_decorator(login_required)
 class AllActivitiesView(ListView):
     model = models.TeachingActivity
     template_name = "all2.html"

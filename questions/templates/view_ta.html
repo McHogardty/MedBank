@@ -12,7 +12,7 @@
 
 
 {% block maincontent %}
-    <h1 class="thin">{{ object.current_block.number }}.{{ object.week|stringformat:"02d" }}: {{ object.name }}</h1>
+    <h1 class="thin">{{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
     <p>Block: {{ object.current_block }}</p>
     {% if not object.question_writer %}
         <p>Nobody has assigned themselves to write questions for this activity yeobject.</p>
@@ -25,25 +25,26 @@
         {% endif %}
     {% else %}
     {% endif %}
-    <h3 class="thin">Questions</h3>
     {% for q in object.questions.all %}
     {% if forloop.first %}
-    <table class="table questions">
+    <table class="table questions spacer">
         <thead>
             <tr>
                 <th class="lead">Question</th>
-                <th class="lead">Status</th>
-                <th class="lead actions">Actions</th>
+                <th class="lead hidden-phone">Status</th>
+                <th class="lead actions"><div class="text-center">Actions</div></th>
             </tr>
         </thead>
     {% endif %}
     <tr>
         <td class="question-body">{{ q.body }}</td>
-        <td><div class="{% if q.pending %}text-warning{% else %}text-success{% endif %}">{{ q.get_status_display }}</div></td>
+        <td class="hidden-phone"><div class="{% if q.pending %}text-warning{% else %}text-success{% endif %}">{{ q.get_status_display }}</div></td>
         <td class="actions">
+            <div class="text-center">
             <a class="action" href="{% url 'view' ta_id=object.id pk=q.id %}{% if perms.questions.can_approve %}?show{% endif %}">View</a>{% if q.creator == user.student %}
             <a class="action" href="{% url 'edit' ta_id=object.id pk=q.id %}">Edit</a>                
             {% endif %}
+            </div>
         </td>
     </tr>
     {% if forloop.last %}

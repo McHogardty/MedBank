@@ -55,6 +55,9 @@ class TeachingBlock(models.Model):
     def total_activities_count(self):
         return self.activities.count()
 
+    def has_started(self):
+        return self.start <= datetime.datetime.now().date()
+
     def can_write_questions(self):
         return self.start <= datetime.datetime.now().date() <= self.end
     can_write_questions = property(can_write_questions)

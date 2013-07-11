@@ -1,2 +1,4 @@
 - Handle unique field combinations in model forms
 - Error handling in all2.html
+- Mobile version of view_ta.html
+- Mobile version of view.html
