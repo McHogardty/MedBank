@@ -21,7 +21,7 @@ def create_user(request):
             form.save()
             u = authenticate(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
             login(request, u)
-            return redirect("home")
+            return redirect("activity-mine")
     else:
         form = UserCreationForm()
 
