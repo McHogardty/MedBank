@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_with_actions.html" %}
 
 {% block head %}
     <style type="text/css">
@@ -85,22 +85,21 @@
     </style>
 {% endblock head %}
 
-
-{% block content %}
-    <h1 class="thin">Choose a block</h1>
-    <div class="row span10 spacer">
-        {% for b in object_list %}
-            {% if b.has_started %}
-                <div class="week">
-                    <div class="week-heading"{% if b.can_write_questions%} onclick="location.href='{% url 'activity-list' year=b.year number=b.number %}'"{% endif %}>
-                        <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
-                        <h3 class="thin pull-right hidden-phone{% if b.can_write_questions %} text-success{% endif %}">{% if b.can_write_questions %}Open{% else %}Not available yet{% endif %}</h3>
-                    </div>
-                </div>
-            {% endif %}
-            {% if forloop.last %}{% endif %}
-            {% empty %}
-            <p>There are currently no blocks in the database.</p>
-        {% endfor %}
-    </div>
-{% endblock content %}
+{% block maincontent %}
+	<h1 class="thin">Approve Questions</h1>
+		Please choose a block to continue.
+	    <div class="row span10 spacer">
+	        {% for b in object_list %}
+	            {% if b.questions_need_approval %}
+	                <div class="week">
+	                    <div class="week-heading" onclick="location.href='{% url 'admin-approve' pk=b.id %}'">
+	                        <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
+	                    </div>
+	                </div>
+	            {% endif %}
+	            {% if forloop.last %}{% endif %}
+	            {% empty %}
+	            <p>There are currently no blocks in the database.</p>
+	        {% endfor %}
+	    </div>
+{% endblock maincontent %}

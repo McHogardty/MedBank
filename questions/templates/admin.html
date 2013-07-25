@@ -2,8 +2,13 @@
 
 {% block actions %}
     <h3 class="thin">Page actions</h3>    
-    <a class="action" href="{% url 'block-new' %}">Add a new block</a>        
-    <a class="action" href="{% url 'activity-upload' %}">Upload teaching activities</a>
+    <a class="action" href="{% url 'block-new' %}">Add a new block</a>
+    {% if blocks %}
+        <a class="action" href="{% url 'activity-upload' %}">Upload teaching activities</a>
+    {% endif %}
+    {% if questions_pending %}
+        <a class="action" href="{% url 'admin-approve-choose' %}">Approve questions</a>
+    {% endif %}
 {% endblock actions %}block_new
 
 {% block maincontent %}
@@ -46,6 +51,32 @@
     <h3 class="thin">Step 3: Release teaching blocks and notify students</h3>
     <p>Teaching blocks are released based on their start date. You can view the start dates for teaching blocks this year by looking in the table above.</p>
     <p>Students can assign themselves to teaching activities up to and including the end date for that block. After the end date, they will still be able to write questions for their assigned activities.</p>
+
+    <h3 class="thin">Step 4: Approve questions</h3>
+    <p>Approve questions by clicking "Approve questions" in the action panel. You'll need to approve all the questions before you can generate the questions document.</p>
+    {% for b in blocks %}
+    {% if forloop.first %}
+        <div class="spacer">
+            <table class="table">
+                <tr>
+                    <th class="thin">Stage</th>
+                    <th class="thin">Block</th>
+                    <th class="thin">Questions approved</th>
+                    <th class="thin">Questions pending</th>
+                </tr>
+    {% endif %}
+        <tr>
+            <td>{{ b.get_stage_display }}</td>
+            <td>{{ b.name }}</td>
+            <td>{{ b.questions_approved_count}}</td>
+            <td>{{ b.questions_pending_count }}</td>
+        </tr>
+    {% if forloop.last %}
+            </table>
+        </div>
+    {% endif %}
+    {% endfor %}
+
     <h3 class="thin">Generate a questions document</h3>
     <p>Download a copy of the questions document: <a href="{% url 'questions.views.download' mode='question' %}">Download</a></p>
     <p><a href="{% url 'questions.views.download' mode='answer' %}">Download with answers</a></p>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load custom_filters %}
 
 {% block content %}
     <h1 class='thin'>Upload teaching activities</h1>
@@ -9,6 +10,7 @@
         <dt>Block</dt><dd>the block number for the activity</dd>
         <dt>Week</dt><dd>the week of the block containing the activity</dd>
         <dt>Position</dt><dd>specifies the ordering of activities in the week. Called sequence number in Compass.</dd>
+        <dt>Teaching Activity Type</dt><dd>the type of activity. Currently accepts {{ accepted_types|humanize_list }}</dd>
     </dl>
     <p>The first row of the file should be the column headings, spelt the same as above (case and ordering don't matter). Any extra columns are ignored.</p>
     {% if tab %}
@@ -24,6 +26,7 @@
                     <th class="lead">Block</th>
                     <th class="lead">Week</th>
                     <th class="lead">Position</th>
+                    <th class="lead">Type</th>
                 </tr>
                 {% for b, ta in tab.iteritems %}
                     {% for t in ta %}
@@ -32,6 +35,7 @@
                             <td>{{ b.name }}<input type="hidden" value="{{ b.number }}" name="block_{{ t.id }}" /></td>
                             <td>{{ t.week }}<input type="hidden" value="{{ t.week }}" name="week_{{ t.id }}" /></td>
                             <td>{{ t.position }}<input type="hidden" value="{{ t.position }}" name="position_{{ t.id }}" /></td>
+                            <td>{{ t.get_activity_type_display }}<input type="hidden" value="{{ t.activity_type }}" name="activity_type_{{ t.id }}" /></td>
                         </tr>
                     {% endfor %}
                 {% endfor %}
@@ -42,6 +46,7 @@
                 <input type="hidden" name="new_block_{{ b.number }}_year" value="{{ b.year }}" />
                 <input type="hidden" name="new_block_{{ b.number }}_stage" value="{{ b.stage }}" />
                 <input type="hidden" name="new_block_{{ b.number }}_start" value="{{ b.start }}" />
+                <input type="hidden" name="new_block_{{ b.number }}_end" value="{{ b.end }}" />
                 <input type="hidden" name="new_block_{{ b.number }}_end" value="{{ b.end }}" />
             {% endfor %}
             <input type="hidden" name="year" value="{{ year }}" />
@@ -112,7 +117,7 @@
                     {% endfor %}
                 </table>
             {% empty %}
-                <p>There are no duplicates</p>
+                <p>There are no duplicates by position</p>
             {% endfor %}
         {% else %}
         {% if block_errors %}

@@ -1,9 +1,8 @@
 from django.conf.urls import patterns, include, url
 
-from .forms import TeachingActivityBulkUploadWizard, NewTeachingBlockForm
 from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock,
-    MyActivitiesView)
+    MyActivitiesView, UnassignView, ApproveQuestionsView, StartApprovalView)
 
 # Uncomment the next two lines to enable the admin:
 # from django.contrib import admin
@@ -17,6 +16,8 @@ urlpatterns = patterns(
     url(r'^test/$', 'test'),
     url(r'^block/(?P<number>\d{1,2})/(?P<year>\d{4})/$', AllActivitiesView.as_view(), name='activity-list'),
     url(r'^admin/$', 'admin', name='admin'),
+    url(r'^admin/approve/$', AllBlocksView.as_view(template_name="approve.html"), name='admin-approve-choose'),
+    url(r'^admin/approve/(?P<pk>\d{1,2})/$', StartApprovalView.as_view(), name='admin-approve'),
     url(r'^download/(?P<mode>[a-z]+)/$', 'download'),
     url(r'^send/$', 'send'),
     url(r'^ta/$', MyActivitiesView.as_view(), name='activity-mine'),
@@ -30,4 +31,5 @@ urlpatterns = patterns(
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/pending/$', 'make_pending'),
     url(r'^ta/upload/$', 'new_ta_upload', name='activity-upload'),
     url(r'^ta/(?P<ta_id>\d+)/signup/$', 'signup'),
+    url(r'^ta/(?P<pk>\d+)/unassign/$', UnassignView.as_view(), name='activity-unassign'),
 )

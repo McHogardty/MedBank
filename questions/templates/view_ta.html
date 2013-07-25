@@ -1,59 +1,219 @@
 {% extends "base_with_actions.html" %}
 {% load custom_filters %}
 
-{% block actions %}{% if not object.question_writer or object.question_writer == user.student and not object.questions.count >= max_questions %}
+{% block head %}
+    <style type="text/css">
+        td.options-menu {
+            border-top-color:rgb(240,240,240);
+        }
+
+        td.lead {
+            vertical-align: middle;
+        }
+
+        .loading {
+            opacity: 0.5;
+        }
+
+        h1.thin {
+            font-weight:200;
+        }
+
+        .table th.lead {
+            font-weight:200;
+        }
+
+        @media (min-width: 1200px) {
+            .table td.table-span1, .table th.table-span1 {
+                min-width:90px;
+            }
+        }
+
+        @media (max-width: 1199px) {
+            .table td.table-span1, .table th.table-span1 {
+                min-width:90px;
+            }
+        }
+
+        .close {
+            font-weight: 200;
+        }
+
+        div.week, div.activity {
+            border-top:1px solid rgb(240,240,240);
+        }
+
+        div.week-activities {
+            padding:0 10px;
+        }
+        div.week-heading {
+            font-weight: 200;
+            padding:0 10px;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        div.week-heading:hover {
+            background-color:rgb(249,249,249);
+        }
+
+        div.activity {
+            font-size:17.5px;
+            padding:10px;
+        }
+        @media (max-width: 767px) {
+            div.activity {
+                text-align:center;
+            }
+        }
+
+        .week-heading .close, .week-heading h3 {
+            display:inline-block;
+        }
+
+        .week-heading .close {
+            font-size:40px;
+            line-height:40px;
+            font-weight:200;
+            margin-top:5px;
+        }
+
+        .icon-angle-down {
+            width:25px;
+            height:25px;
+            background-image:none;
+        }
+    @media (max-width: 767px) {
+        .week-heading {
+            text-align:center;
+        }
+
+        .loading .icon-angle-down {
+            opacity:0
+        }
+    }
+    .activity .body {
+        max-width:400px;
+    }
+
+    @media (max-width:979px) {
+        .activity .body {
+            width:100%;
+            max-width: none;
+        }
+    }
+
+    @media (min-width:1200px) {
+        .activity .body {
+            max-width:550px;
+        }
+    }
+
+    @media (max-width:767px) {
+
+    }
+    </style>
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
+{% endblock head %}
+
+{% block actions %}
+    {% questions_left user=user activity=object as remaining %}
+    {% questions_list_by_year user=user activity=object as question_list %}
+    {% if not object.question_writers.count or user.student in object.question_writers.all and remaining %}
         <h3 class="thin">Page actions</h3>    
-    {% endif %}{% if not object.question_writer %}
+    {% endif %}{% if not object.question_writers.count %}
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
-    {% endif %}{% if object.question_writer == user.student and not object.questions.count >= max_questions %}
+    {% endif %}{% if user.student in object.question_writers.all and remaining %}
         <a class="action" href="{% url 'new' ta_id=object.id %}">Write{% if object.questions.count %} more {% else %} {% endif %}questions</a>
+    {% endif %}{% if user.student in object.question_writers.all and not question_list %}
+        <a class="action" href="{% url 'activity-unassign' pk=object.id %}">Unassign from me</a>
     {% endif %}
 {% endblock actions %}
 
 
 {% block maincontent %}
-    <h1 class="thin">{{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
+    {% questions_left user=user activity=object as remaining %}
+    {% questions_list_by_year user=user activity=object as question_list %}
+    <h1 class="thin">{{ object.get_activity_type_display }} - {{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
     <p>Block: {{ object.current_block }}</p>
-    {% if not object.question_writer %}
-        <p>Nobody has assigned themselves to write questions for this activity yeobject.</p>
+    {% if not object.question_writers.count %}
+        <p>Nobody has assigned themselves to write questions for this activity yet.</p>
     {% endif %}
-    {% if object.question_writer == user.student %}
-        {% if object.questions.count == max_questions %}
-            Thankyou, you've given us enough questions for this teaching activity!
+    {% if user.student in object.question_writers.all %}
+        {% if remaining %}
+            <p>You have {{ remaining }} question{{ remaining|pluralize }} left to write.</p>
         {% else %}
-            You have {{ max_questions|subtract:object.questions.count }} question{{ max_questions|pluralize }} left to write.
+            <p>Thankyou! You've given us enough questions for this teaching activity.</p>
         {% endif %}
-    {% else %}
     {% endif %}
-    {% for q in object.questions.all %}
-    {% if forloop.first %}
-    <table class="table questions spacer">
-        <thead>
-            <tr>
-                <th class="lead">Question</th>
-                <th class="lead hidden-phone">Status</th>
-                <th class="lead actions"><div class="text-center">Actions</div></th>
-            </tr>
-        </thead>
-    {% endif %}
-    <tr>
-        <td class="question-body">{{ q.body }}</td>
-        <td class="hidden-phone"><div class="{% if q.pending %}text-warning{% else %}text-success{% endif %}">{{ q.get_status_display }}</div></td>
-        <td class="actions">
-            <div class="text-center">
-            <a class="action" href="{% url 'view' ta_id=object.id pk=q.id %}{% if perms.questions.can_approve %}?show{% endif %}">View</a>{% if q.creator == user.student %}
-            <a class="action" href="{% url 'edit' ta_id=object.id pk=q.id %}">Edit</a>                
-            {% endif %}
-            </div>
-        </td>
-    </tr>
-    {% if forloop.last %}
-    </table>
-    {% endif %}
+    <div class="spacer">
+    {% for y, qq in question_list.iteritems %}
+    <div class="week">
+        <div class="week-heading collapse-trigger" data-target="#week-activities-{{ y }}">
+            <h3 class="thin">{{ y }}</h3>
+            <i class="icon-angle-down"></i>
+            <h3 class="thin pull-right{% if a %} text-success{% endif %} hidden-phone">{{ qq|length }} question{{ qq|pluralize }}</h3>
+        </div>
+        <div class="week-activities collapse in" id="week-activities-{{ y }}">
+            {% for q in qq %}
+                <div class="activity">
+                    <span style="float:left; overflow:hidden; white-space:nowrap;text-overflow:ellipsis;" class="body">{{ q.body }}</span>
+                    <span class="actions pull-right text-right" style="display:block; width:250px; position:absolute; right:0;">
+                        <span class="visible-desktop">
+                        <span class="text-{% if q.approved %}success{% elif q.pending %}warning{% endif %}">{{ q.get_status_display }}</span>
+                        <a class="action view" href="{% url 'view' pk=q.id ta_id=object.id %}{% if perms.questions.can_approve %}?show{% endif %}">
+                            View
+                        </a>
+                        <a class="action" href="{% url 'edit' pk=q.id ta_id=object.id %}">
+                            Edit
+                        </a>
+                    </span>
+                    </span>
+                    <div class="clearfix"></div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% if forloop.last %}{% endif %}
     {% empty %}
-    <p>No questions have been submitted for this teaching activity yet.</p>
+    <p>There are currently not questions in the database.</p>
     {% endfor %}
-    {% if object.question_writer == user.student %}
-        <p>You can edit questions until they have been approved.</p>
-    {% endif %}
+    </div>
 {% endblock maincontent %}
+
+{% block javascript %}
+    <script type="text/javascript">
+        function go_to_question() {
+            location.href = $(this).find(".view").attr("href")
+        }
+        function unclickable(cls, handler) {
+            $(cls).off("click",handler)
+        }
+        function clickable(cls, handler) {
+            $(cls).on("click", handler)
+        }
+        enquire.register("screen and (max-width: 767px)", {
+            match: function () {
+                clickable(".activity", go_to_question)
+            },
+            unmatch: function () {
+                unclickable(".activity", go_to_question)
+            }
+        })
+        $(document).ready(function () {
+            $(".collapse-trigger").each(function () {
+                $($(this).attr("data-target")).collapse()
+
+                $(this).click(function () {
+                    $($(this).attr("data-target")).collapse("toggle")
+                })
+            })
+        })
+    </script>
+{% endblock javascript %}

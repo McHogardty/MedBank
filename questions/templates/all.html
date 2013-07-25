@@ -79,8 +79,8 @@
             {% for t in l %}
                 {% if t %}
             <td class="options-menu table-span1">
-                {% if t.question_writer %}
-                    {% if user.student == t.question_writer %}
+                {% if t.question_writers.count() %}
+                    {% if user.student in t.question_writers.all %}
                         <div class="text-center text-success assigned" id="div_{{ t.id }}">
                             Assigned
                     {% else %}

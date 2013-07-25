@@ -7,6 +7,7 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.views.generic import ListView, DetailView
+from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
 from django.utils.decorators import method_decorator
@@ -22,6 +23,7 @@ import tasks
 import csv
 import json
 import datetime
+import collections
 
 
 def class_view_decorator(function_decorator):
@@ -63,7 +65,7 @@ class MyActivitiesView(ListView):
 
     def get_queryset(self):
         ret = {}
-        ta = models.TeachingActivity.objects.filter(question_writer=self.request.user).order_by('week', 'position')
+        ta = models.TeachingActivity.objects.filter(question_writers=self.request.user).order_by('week', 'position')
         for t in ta:
             l = ret.setdefault(t.current_block(), [])
             l.append(t)
@@ -77,12 +79,6 @@ class AllActivitiesView(ListView):
     model = models.TeachingActivity
     template_name = "all2.html"
 
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.has_perm('questions.can_approve'):
-            return redirect('admin')
-
-        return super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
-
     def get_teaching_block(self):
         tb = models.TeachingBlock.objects.get(number=self.kwargs['number'], year=self.kwargs['year'])
         return tb
@@ -95,8 +91,8 @@ class AllActivitiesView(ListView):
             l.append(t)
 
         for v in by_week.values():
-            v.sort(key=lambda t: t.position)
-        return [(k, not all(t.question_writer for t in by_week[k]), by_week[k]) for k in by_week]
+            v.sort(key=lambda t: (t.activity_type, t.position))
+        return [(k, not all(t.enough_writers() for t in by_week[k]), by_week[k]) for k in by_week]
 
     def get_context_data(self, **kwargs):
         c = super(AllActivitiesView, self).get_context_data(**kwargs)
@@ -107,13 +103,48 @@ class AllActivitiesView(ListView):
 @permission_required('questions.can_approve')
 def admin(request):
     tb = models.TeachingBlock.objects.order_by('stage')
-    return render_to_response('admin.html', {'blocks': tb, }, context_instance=RequestContext(request))
+    questions_pending = any(b.questions_need_approval() for b in tb)
+    return render_to_response('admin.html', {'blocks': tb, 'questions_pending': questions_pending}, context_instance=RequestContext(request))
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class StartApprovalView(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, pk):
+        try:
+            b = models.TeachingBlock.objects.get(pk=pk)
+        except models.TeachingBlock.DoesNotExist:
+            messages.error(self.request, "That teaching block does not exist.")
+            return reverse('admin')
+        tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
+
+        try:
+            q = models.Question.objects.filter(teaching_activity__block=b, status=models.Question.PENDING_STATUS).order_by('date_created')[:1].get()
+        except models.Question.DoesNotExist:
+            messages.success(self.request, 'All questions for that block have been approved.')
+            return reverse('admin')
+        return "%s?show&approve" % reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity.id})
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class ApproveQuestionsView(ListView):
+    model = models.Question
+    template_name = "approve.html"
+
+    def get_query_set(self):
+        return models.Question.objects.filter(teaching_activity__block=self.kwargs['pk'])
+
+    def get_context_data(self, **kwargs):
+        c = super(ApproveQuestionsView, self).get_context_data(**kwargs)
+        c['questions'] = self.get_queryset()
+        return c
 
 
 def check_ta_perm_for_question(ta_id, u):
     ta = get_object_or_404(models.TeachingActivity, pk=ta_id)
 
-    if not ta.question_writer == u.student:
+    if not u.student in ta.question_writers.all():
         raise PermissionDenied
 
     return ta
@@ -165,6 +196,26 @@ class UpdateQuestion(UpdateView):
         return o
 
 
+@class_view_decorator(login_required)
+class UnassignView(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, pk):
+        try:
+            ta = models.TeachingActivity.objects.get(pk=pk)
+        except models.TeachingActivity.DoesNotExist:
+            return reverse('medbank.views.home')
+        if not ta.question_writers.filter(user=self.request.user).count():
+            return reverse('ta', kwargs={'pk': pk})
+
+        if ta.questions_for(self.request.user).count():
+            messages.error(self.request, "Once you have started writing questions for an activity, you can't unassign yourself from it.")
+            return reverse('ta', kwargs={'pk': pk})
+
+        ta.question_writers.remove(self.request.user.student)
+        return reverse('ta', kwargs={'pk': pk})
+
+
 @login_required
 def signup(request, ta_id):
     try:
@@ -182,7 +233,7 @@ def signup(request, ta_id):
             messages.error(request, "Hmm... that teaching activity could not be found.")
             return redirect("questions.views.home")
 
-    if ta.question_writer and ta.question_writer != request.user.student:
+    if ta.enough_writers() and request.user.student not in ta.question_writers.all():
         if request.is_ajax():
             return HttpResponse(
                 json.dumps({
@@ -196,7 +247,7 @@ def signup(request, ta_id):
             messages.error(request, "Sorry, that activity is already assigned to somebody else.")
             return redirect("questions.views.home")
 
-    ta.question_writer = request.user.student
+    ta.question_writers.add(request.user.student)
     ta.save()
     if request.is_ajax():
         return HttpResponse(
@@ -241,19 +292,25 @@ class NewBlock(CreateView):
 class ViewActivity(DetailView):
     model = models.TeachingActivity
 
-    def get_context_data(self, **kwargs):
-        c = super(ViewActivity, self).get_context_data(**kwargs)
-        c['max_questions'] = settings.QUESTIONS_PER_USER
-        return c
-
 
 @class_view_decorator(login_required)
 class ViewQuestion(DetailView):
     model = models.Question
 
+    def get(self, request, *args, **kwargs):
+        r = super(ViewQuestion, self).get(self, request, *args, **kwargs)
+
+        if self.object.pending and not self.object.user_is_creator(self.request.user):
+            raise Http404
+        if self.object.deleted and not self.request.user.has_perm("can_approve"):
+            raise Http404
+
+        return r
+
     def get_context_data(self, **kwargs):
         c = super(ViewQuestion, self).get_context_data(**kwargs)
         c['show'] = 'show' in self.request.GET
+        c['approval_mode'] = 'approve' in self.request.GET
         return c
 
 
@@ -283,12 +340,19 @@ def approve(request, ta_id, q_id):
         messages.error(request, "Sorry, an unknown error occurred. Please try again.")
         return redirect('questions.views.home')
 
-    if not q.approved():
+    if not q.approved:
         q.status = models.Question.APPROVED_STATUS
+        q.approver = request.user.student
         q.save()
 
-        messages.success(request, "Question approved.")
-    return redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
+        if 'approve' not in request.GET:
+            messages.success(request, "Question approved.")
+
+    r = redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
+    if 'approve' in request.GET:
+        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id)
+
+    return r
 
 
 @permission_required('questions.approve')
@@ -345,6 +409,12 @@ def copy_block(block):
 
 @login_required
 def new_ta_upload(request):
+    accepted_types = collections.defaultdict(None)
+    if not models.TeachingBlock.objects.count():
+        messages.error(request, "You can't upload teaching activities without first having created a teaching block.")
+        return redirect('admin')
+    for k, v in models.TeachingActivity.TYPE_CHOICES:
+        accepted_types[v] = k
     if request.method == "POST":
         if 'id' in request.POST:
             y = request.POST.get('year')
@@ -373,7 +443,8 @@ def new_ta_upload(request):
                     'name': request.POST.get('name_%s' % ii),
                     'block': [blocks[int(request.POST.get('block_%s' % ii))].id],
                     'week': request.POST.get('week_%s' % ii),
-                    'position': request.POST.get('position_%s' % ii)
+                    'position': request.POST.get('position_%s' % ii),
+                    'activity_type': request.POST.get('activity_type_%s' % ii),
                 }
                 f = forms.NewTeachingActivityForm(data)
                 if f.is_valid():
@@ -386,7 +457,7 @@ def new_ta_upload(request):
             if form.is_valid():
                 y = form.cleaned_data['year']
                 r = list(csv.reader(form.cleaned_data['ta_file'].read().splitlines()))
-                h = [hh.lower() for hh in r[0]]
+                h = [hh.lower().replace(" ", "_") for hh in r[0]]
                 by_position = {}
                 by_name = {}
                 by_block = {}
@@ -423,10 +494,11 @@ def new_ta_upload(request):
                     }, context_instance=RequestContext(request))
                 for row in r[1:]:
                     hr = dict(zip(h, row))
+                    hr['activity_type'] = accepted_types[hr['teaching_activity_type']]
                     f = forms.TeachingActivityValidationForm(hr)
                     if f.is_valid():
                         ta = f.save(commit=False)
-                        l = by_position.setdefault((ta.week, ta.position), [])
+                        l = by_position.setdefault((ta.week, ta.position, ta.activity_type), [])
                         l.append(ta)
                         l = by_name.setdefault(ta.name.lower(), [])
                         l.append(ta)
@@ -464,10 +536,18 @@ def new_ta_upload(request):
                                 'tab': by_block,
                                 'blocks': b.keys(),
                                 'year': y,
-                                'new_blocks': new_blocks
+                                'new_blocks': new_blocks,
+                                'accepted_types': accepted_types.keys(),
                             },
                             context_instance=RequestContext(request)
                         )
     else:
         form = forms.TeachingActivityBulkUploadForm()
-    return render_to_response("upload.html", {'form': form, }, context_instance=RequestContext(request))
+    return render_to_response(
+        "upload.html",
+        {
+            'form': form,
+            'accepted_types': accepted_types.keys(),
+        },
+        context_instance=RequestContext(request)
+    )

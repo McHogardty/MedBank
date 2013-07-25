@@ -96,7 +96,7 @@ class NewQuestionForm(bsforms.BootstrapHorizontalModelForm):
 
     class Meta:
         model = Question
-        exclude = ('status')
+        exclude = ('status', 'approver')
 
 
 class TeachingActivityValidationForm(bsforms.BootstrapHorizontalModelForm):
@@ -149,40 +149,3 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
     class Meta:
         model = TeachingBlock
         exclude = ('stage', 'number', 'start', 'end')
-
-
-def generate_new_teaching_blocks_formset(blocks):
-    pass
-
-
-class TeachingActivityBulkUploadWizard(CookieWizardView):
-    file_storage = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'file_uploads'))
-
-    def get_template_names(self):
-        return 'upload/step1.html'
-
-    def process_step_files(self, form):
-        ff = self.get_form_step_files(form)
-
-        if self.steps.current == '0':
-            r = csv.reader(ff['0-file'].read().splitlines())
-            r.next()
-            self.storage.blocks = list(set(row[4] for row in r))
-
-        return ff
-
-    def get_form(self, step=None, data=None, files=None):
-        form = super(TeachingActivityBulkUploadWizard, self).get_form(step, data, files)
-
-        if not step:
-            step = self.steps.current
-
-        if step == "1":
-            if len(self.storage.blocks) > 1:
-                # Do something, otherwise don't worry.
-                pass
-
-        return form
-
-    def done(self, form_list, **kwargs):
-        return redirect('questions.views.home')

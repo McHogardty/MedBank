@@ -3,6 +3,6 @@
 {% block content %}
 <div class="row">
     <div class="span9">{% block maincontent %}{% endblock maincontent %}</div>
-    <div class="span3 pull-right"><div class="text-center page-actions">{% block actions %}{% endblock actions %}</div></div>
+    <div class="span3 pull-right"><div class="text-center page-actions">{% spaceless %}{% block actions %}{% endblock actions %}{% endspaceless %}</div></div>
 </div>
 {% endblock content %}

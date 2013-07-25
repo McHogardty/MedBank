@@ -118,15 +118,16 @@
         <div class="week-activities collapse in" id="week-activities-{{ w }}">
             {% for t in l %}
             {% if t %}
-                <div class="activity {% if t.question_writer %}hidden-phone{% endif %}">
+                <div class="activity {% if t.enough_writers %}hidden-phone{% endif %}">
+                    <span class="loading pull-left">{{ t.get_activity_type_display.0 }}</span>&nbsp;
                     <span>{{ t }}</span>
                     <span class="actions hidden-phone">
                         <a class="action" href="{% url 'ta' pk=t.id %}">
                             View
                         </a>
                     </span>
-                    <span class="pull-right{% if t.question_writer %} {% if t.question_writer == user.student %}text-success{% else %}loading{% endif %}{% endif %} hidden-phone">
-                        {% if t.question_writer %}{% if t.question_writer == user.student %}Assigned{% else %}Unavailable{% endif %}{% else %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}
+                    <span class="pull-right{% if user.student in t.question_writers.all %} text-success{% else %}{% if t.enough_writers %} loading{% endif %}{% endif %} hidden-phone">
+                        {% if user.student in t.question_writers.all %}Assigned{% else %}{% if t.enough_writers %}Unavailable{% else %}{% if t.has_writers %}<span class="loading"><span class='visible-desktop'>Assigned to {{ t.question_writers.count }}</span></span> {% endif %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}{% endif %}
                     </span>
                 </div>                
             {% endif %}
@@ -167,9 +168,6 @@
                 unclickable(".activity", assign)
             }
         })
-        function remove_popover(e) {
-            e.popover('destroy')
-        }
         function assign() {
             a = $(this)
             is_mobile = a.attr("data-url") == undefined
@@ -189,7 +187,7 @@
                             a.removeClass("loading")
                         } else {
                             a.parent().addClass('text-success')
-                            a.replaceWith("Assigned")
+                            a.parent().html("Assigned")
                         }
                         break;
                     case "error":
@@ -198,19 +196,6 @@
                             tr = s.parent()
                             s.addClass("text-error")
                             a.replaceWith(data.blurb)
-                            i = 'close-' + ($(".close").length + 1)
-                            tr.popover({
-                                html: true,
-                                container: 'div.container',
-                                trigger: 'manual',
-                                placement: 'right',
-                                content: function () {
-                                    return '<button id="' + i + '" type="button" class="close">&times;</button>' + data.explanation
-                                }
-                            })
-                            tr.popover('show')
-                            $("#" + i).click(function () {remove_popover(tr)})
-                            tr.parent().prev().click(function () {remove_popover(tr)})
                         } else {
                             a.addClass("text-error")
                             a.html(data.explanation)

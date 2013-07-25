@@ -10,26 +10,36 @@
 
 {% block actions %}
     <h3 class="thin">Page actions</h3>
-    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show %}?show{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if question.pending and question.creator == user.student %}
+    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show %}?show{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if not approval_mode and question.pending and question.creator == user.student %}
     <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}">Edit question</a>
-    {% endif %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>
+    {% endif %}
+    {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>{% endif %}
 
     {% if perms.questions.can_approve %}
         <h3 class="thin">Admin</h3>
         {% if not question.approved %}
-            <a class="action" href="{% url 'questions.views.approve' ta_id=question.teaching_activity.id q_id=question.id %}">Approve question</a>        
+            {% if approval_mode %}
+                <a class="action" href="{% url 'questions.views.approve' ta_id=question.teaching_activity.id q_id=question.id %}?approve">Approve question</a>
+            {% else %}
+                <a class="action" href="{% url 'questions.views.approve' ta_id=question.teaching_activity.id q_id=question.id %}">Approve question</a>
+            {% endif %}
         {% endif %}
         {% if not question.pending %}
             <a class="action" href="{% url 'questions.views.make_pending' ta_id=question.teaching_activity.id q_id=question.id %}">Set to pending</a>
         {% endif %}
-        <a class="action">Delete question</a>
+        {% if not question.deleted %}
+            <a class="action">Delete question</a>        
+        {% endif %}
+        {% if approval_mode %}
+            <a class="action">Skip question</a>
+        {% endif %}
     {% endif %}
 {% endblock actions %}
 
 {% block maincontent %}
     <h1 class="thin">{{ question.teaching_activity.current_block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
     <p>Block: {{ question.teaching_activity.current_block }}</p>
-    <h2 class="thin spacer">Question <small class="text-{% if question.pending %}warning{% else %}success{% endif %}">{{ question.get_status_display }} {% if perms.questions.can_approve and not question.pending %} by {% endif %}</small></h2>
+    <h2 class="thin spacer">Question <small class="text-{% if question.pending %}warning{% else %}success{% endif %}">{{ question.get_status_display }} {% if perms.questions.can_approve and not question.pending %} by {{ question.approver }}{% endif %}</small></h2>
     <p class="lead">{{ question.body }}</p>
     <ol class="alpha">
         {% for a in question.options_list %}

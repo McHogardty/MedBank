@@ -57,6 +57,13 @@
     .actions .actions {
         text-align:center;
     }
+
+    @media (min-width: 768px) {
+        span.username {
+            border-right:1px solid rgb(240,240,240);
+            padding:0 10px;
+        }
+    }
     
     @media (max-width: 767px) {
         .nav .action {
@@ -97,26 +104,31 @@
     .table th.lead, .close {
         font-weight:200;
     }
-
-    span.username {
-        border-right:1px solid rgb(240,240,240);
-        padding:0 10px;
+    @media (max-width: 767px) {
+        .page-actions {
+            margin-top:20px;
+        }
     }
     </style>
     <link rel="stylesheet" type="text/css" media="screen" href="{{ STATIC_URL }}css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" media="screen" href="{{ STATIC_URL }}css/bootstrap-responsive.min.css">
-
+    <title>SUMS MedBank</title>
     {% block head %}{% endblock head %}
 </head>
 <body>
     <div class='container'>
         <div>
-            <h1 class="muted">MedBank</h1>
+            <h1 class="muted">SUMS MedBank</h1>
         </div>
         <div>
             <span class='actions nav'>
             <a class="action" href="{% url 'activity-mine' %}">Home</a>
-            {% if user.is_anonymous %}<a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>{% else %}<span class="username">Welcome, {{ user.username }}</span><a class='action' href="{% url 'logout' %}">Logout</a>{% endif %}
+            {% if user.is_anonymous %}
+            <a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
+            {% else %}
+            <span class="username">Welcome, {{ user.username }}</span>
+            {% if perms.questions.approve %}<a class='action' href="{% url 'admin' %}">Admin</a>{% endif %}
+            <a class='action' href="{% url 'logout' %}">Logout</a>{% endif %}
             </span>
         </div>
     </div>
