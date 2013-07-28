@@ -9,7 +9,7 @@
     {% if questions_pending %}
         <a class="action" href="{% url 'admin-approve-choose' %}">Approve questions</a>
     {% endif %}
-{% endblock actions %}block_new
+{% endblock actions %}
 
 {% block maincontent %}
     <h1 class="thin">Administration</h1>
@@ -28,7 +28,7 @@
                     </tr>
         {% endif %}
             <tr>
-                <td>{{ b.get_stage_display }}</td>
+                <td>{{ b.stage }}</td>
                 <td>{{ b.name }}</td>
                 <td>{{ b.start }}</td>
                 <td>{{ b.end }}</td>
@@ -66,7 +66,7 @@
                 </tr>
     {% endif %}
         <tr>
-            <td>{{ b.get_stage_display }}</td>
+            <td>{{ b.stage }}</td>
             <td>{{ b.name }}</td>
             <td>{{ b.questions_approved_count}}</td>
             <td>{{ b.questions_pending_count }}</td>

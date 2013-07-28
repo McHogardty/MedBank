@@ -87,7 +87,7 @@ ANSWER_CHOICES = ((x, x) for x in string.ascii_uppercase[:5])
 
 class NewQuestionForm(bsforms.BootstrapHorizontalModelForm):
     """A form for creation and editing of questions."""
-    body = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
+    body = forms.CharField(label="Question body", widget=forms.Textarea(attrs={'class': 'span6'}))
     options = QuestionOptionsField()
     answer = forms.ChoiceField(choices=ANSWER_CHOICES, widget=forms.Select(attrs={'class': 'span1'}))
     explanation = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))

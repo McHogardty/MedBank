@@ -5,6 +5,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate
 from django.http import HttpResponseServerError
 
+import forms
 
 def home(request):
     return render_to_response("base.html", context_instance=RequestContext(request))
@@ -16,14 +17,17 @@ def server_error(request):
 
 def create_user(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = forms.StudentCreationForm(request.POST)
         if form.is_valid():
-            form.save()
+            u = form.save(commit=False)
+            print u
+            u._stage = form.cleaned_data['stage']
+            u.save()
             u = authenticate(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
             login(request, u)
             return redirect("activity-mine")
     else:
-        form = UserCreationForm()
+        form = forms.StudentCreationForm()
 
     form.is_horizontal = True
     form.fields['username'].label = u'Unikey'

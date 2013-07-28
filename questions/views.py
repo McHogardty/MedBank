@@ -46,7 +46,7 @@ class AllBlocksView(ListView):
     template_name = "choose.html"
 
     def get_queryset(self):
-        return models.TeachingBlock.objects.filter(year=datetime.datetime.now().year)
+        return models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage=self.request.user.student.get_current_stage())
 
 
 def test(request):
@@ -79,8 +79,17 @@ class AllActivitiesView(ListView):
     model = models.TeachingActivity
     template_name = "all2.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        r = super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
+        b = self.teaching_block
+        s = self.request.user.student
+        if not b.stage == s.get_current_stage() or not b.question_count_for_student(s):
+            raise Http404
+        return r
+
     def get_teaching_block(self):
         tb = models.TeachingBlock.objects.get(number=self.kwargs['number'], year=self.kwargs['year'])
+        self.teaching_block = tb
         return tb
 
     def get_queryset(self):
@@ -181,7 +190,6 @@ class UpdateQuestion(UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
-
         return super(UpdateQuestion, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -190,7 +198,7 @@ class UpdateQuestion(UpdateView):
     def get_object(self):
         o = super(UpdateQuestion, self).get_object()
 
-        if o.creator != self.request.user.student:
+        if o.creator != self.request.user.student and not self.request.user.has_perm('questions.can_approve'):
             raise PermissionDenied
 
         return o
@@ -297,8 +305,8 @@ class ViewActivity(DetailView):
 class ViewQuestion(DetailView):
     model = models.Question
 
-    def get(self, request, *args, **kwargs):
-        r = super(ViewQuestion, self).get(self, request, *args, **kwargs)
+    def dispatch(self, request, *args, **kwargs):
+        r = super(ViewQuestion, self).dispatch(self, request, *args, **kwargs)
 
         if self.object.pending and not self.object.user_is_creator(self.request.user):
             raise Http404

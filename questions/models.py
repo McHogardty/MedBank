@@ -7,26 +7,66 @@ import json
 import datetime
 import string
 
-STAGE_ONE = 0
-STAGE_TWO = 1
-STAGE_THREE = 2
-STAGE_CHOICES = (
-    (STAGE_ONE, "Stage 1"),
-    (STAGE_TWO, "Stage 2"),
-    (STAGE_THREE, "Stage 3"),
-)
+
+class classproperty(property):
+    def __get__(self, cls, owner):
+        return self.fget.__get__(None, owner)()
 
 
 class Stage(models.Model):
-    number = models.IntegerField(choices=STAGE_CHOICES)
+    stage_cache = {}
+
+    number = models.IntegerField()
+
+    def __unicode__(self):
+        return u"Stage %s" % (self.number, )
+
+    @classmethod
+    def get_stage(self, n):
+        if n in self.stage_cache:
+            return self.stage_cache[n]
+        else:
+            s = self.objects.get(number=n)
+            self.stage_cache[n] = s
+            return s
+
+    @classmethod
+    def stage_one(self):
+        return self.get_stage(1)
+    STAGE_ONE = classproperty(stage_one)
+
+    @classmethod
+    def stage_two(self):
+        return self.get_stage(2)
+    STAGE_TWO = classproperty(stage_two)
+
+    @classmethod
+    def stage_three(self):
+        return self.get_stage(3)
+    STAGE_THREE = classproperty(stage_three)
 
 
 class Student(models.Model):
     user = models.OneToOneField(User)
-    stage = models.IntegerField(choices=STAGE_CHOICES)
+    stages = models.ManyToManyField(Stage, through='questions.Year')
 
     def __unicode__(self):
         return self.user.username
+
+    def get_current_stage(self):
+        return self.stages.latest('year')
+
+
+class Year(models.Model):
+    stage = models.ForeignKey(Stage)
+    student = models.ForeignKey(Student)
+    year = models.IntegerField()
+
+    class Meta:
+        unique_together = ('student', 'year')
+
+    def __unicode__(self):
+        return "%s: %s, %d" % (self.student, self.stage, self.year)
 
 
 @receiver(models.signals.post_save, sender=User)
@@ -34,14 +74,21 @@ def user_created(sender, **kwargs):
     if kwargs['created']:
         s = Student()
         s.user = kwargs['instance']
-        s.stage = STAGE_ONE
         s.save()
+        y = Year()
+        y.student = s
+        if kwargs['instance'].username == 'michael':
+            y.stage = Stage.STAGE_ONE
+        else:
+            y.stage = kwargs['instance']._stage
+        y.year = datetime.datetime.now().year
+        y.save()
 
 
 class TeachingBlock(models.Model):
     name = models.CharField(max_length=50)
     year = models.IntegerField()
-    stage = models.IntegerField(choices=STAGE_CHOICES)
+    stage = models.ForeignKey(Stage)
     number = models.IntegerField(verbose_name=u'Block number')
     start = models.DateField(verbose_name=u'Start date')
     end = models.DateField(verbose_name=u'End date')
@@ -74,6 +121,9 @@ class TeachingBlock(models.Model):
 
     def questions_pending_count(self):
         return Question.objects.filter(teaching_activity__block=self, status=Question.PENDING_STATUS).count()
+
+    def question_count_for_student(self, s):
+        return Question.objects.filter(teaching_activity__block=self, creator=s).count()
 
 
 class TeachingActivity(models.Model):
