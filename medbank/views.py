@@ -20,7 +20,7 @@ def create_user(request):
         form = forms.StudentCreationForm(request.POST)
         if form.is_valid():
             u = form.save(commit=False)
-            print u
+            u.email = "%s@sydney.edu.au" % (u.username, )
             u._stage = form.cleaned_data['stage']
             u.save()
             u = authenticate(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
@@ -30,8 +30,8 @@ def create_user(request):
         form = forms.StudentCreationForm()
 
     form.is_horizontal = True
-    form.fields['username'].label = u'Unikey'
-    form.fields['username'].help_text = u"We'll use your Unikey to email the questions to you when they're ready."
+    if request.method == 'POST':
+        form.fields['username'].help_text = u""
     return render_to_response("user.html", {'form': form}, context_instance=RequestContext(request))
 
 
