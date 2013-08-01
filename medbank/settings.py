@@ -1,12 +1,8 @@
 # Django settings for medbank project.
-try:
-    from .local_settings import *
-except:
-    pass
+
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TPC
 import os
 import sys
-import dj_database_url
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
@@ -183,3 +179,8 @@ FORMAT_MODULE_PATH = 'medbank.formats'
 
 QUESTIONS_PER_USER = 3
 USERS_PER_ACTIVITY = 2
+
+try:
+    from .local_settings import *
+except:
+    pass

@@ -83,7 +83,7 @@ class AllActivitiesView(ListView):
         r = super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
         b = self.teaching_block
         s = self.request.user.student
-        if not b.stage == s.get_current_stage() or not b.question_count_for_student(s):
+        if not b.stage == s.get_current_stage() and not b.question_count_for_student(s):
             raise Http404
         return r
 

@@ -1,3 +1,3 @@
-INSERT INTO questions_stage (id, number) values (0, 1);
-INSERT INTO questions_stage (id, number) values (1, 2);
-INSERT INTO questions_stage (id, number) values (2, 3);
+INSERT INTO questions_stage (number) values (1);
+INSERT INTO questions_stage (number) values (2);
+INSERT INTO questions_stage (number) values (3);
