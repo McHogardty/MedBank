@@ -161,8 +161,8 @@ LOGGING = {
     }
 }
 
-BASE_URL = '/medbank/'
-LOCAL_LOGIN_URL = 'login/'
+BASE_URL = '/medbank'
+LOCAL_LOGIN_URL = '/login/'
 LOGIN_URL = '%s%s' % (BASE_URL, LOCAL_LOGIN_URL)
 TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
