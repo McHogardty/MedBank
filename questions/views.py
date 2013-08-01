@@ -306,7 +306,7 @@ class ViewQuestion(DetailView):
     model = models.Question
 
     def dispatch(self, request, *args, **kwargs):
-        r = super(ViewQuestion, self).dispatch(self, request, *args, **kwargs)
+        r = super(ViewQuestion, self).dispatch(request, *args, **kwargs)
 
         if self.object.pending and not self.object.user_is_creator(self.request.user):
             raise Http404
