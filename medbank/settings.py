@@ -6,10 +6,11 @@ import sys
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
-if os.environ.get('MEDBANK_PRODUCTION'):
-    DEBUG = False
-else:
-    DEBUG = True
+DEBUG = True
+#if os.environ.get('MEDBANK_PRODUCTION'):
+#    DEBUG = False
+#else:
+#    DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
@@ -31,12 +32,9 @@ DATABASES = {
     }
 }
 
-if not DEBUG:
-    DATABASES["default"] = dj_database_url.config()
+#if not DEBUG:
+#    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-    SECRET_KEY = os.environ.get('MEDBANK_SECRET_KEY')
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
@@ -163,7 +161,7 @@ LOGGING = {
     }
 }
 
-LOGIN_URL = '/login/'
+LOGIN_URL = '/medbank/login/'
 
 TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
