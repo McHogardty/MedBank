@@ -9,7 +9,7 @@ admin.autodiscover()
 urlpatterns = patterns(
     '',
     url(r'^$', 'medbank.views.home'),
-    url(r'^%s$' % settings.LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', name="login"),
+    url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', name="login"),
     url(r'^logout/$', 'medbank.views.logout_view', name="logout"),
     url(r'^newuser/$', 'medbank.views.create_user', name="create_user"),
     url(r'^questions/', include('questions.urls')),
