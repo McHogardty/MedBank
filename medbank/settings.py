@@ -168,11 +168,8 @@ TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
 )
 
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_HOST_USER = "michaelhagarty@gmail.com"
-EMAIL_HOST_PASSWORD = 'afjtnnjmugsbypdi'
-EMAIL_USE_TLS = True
+EMAIL_HOST = "localhost"
+EMAIL_PORT = 25
 
 FORMAT_MODULE_PATH = 'medbank.formats'
 
