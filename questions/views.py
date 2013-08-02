@@ -189,7 +189,7 @@ class UpdateQuestion(UpdateView):
     template_name = "new.html"
 
     def dispatch(self, request, *args, **kwargs):
-        check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
+        self.ta = check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
         return super(UpdateQuestion, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
