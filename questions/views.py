@@ -203,6 +203,9 @@ class UpdateQuestion(UpdateView):
 
         return o
 
+    def get_success_url(self):
+        return reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id})
+
 
 @class_view_decorator(login_required)
 class UnassignView(RedirectView):
