@@ -7,11 +7,6 @@ import models
 import datetime
 
 
-class SimpleTask(Task):
-    def run(self):
-        print "It works!"
-
-
 class DocumentEmailTask(Task):
     def run(self):
         tb = models.TeachingBlock.objects.filter(
