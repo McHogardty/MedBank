@@ -142,8 +142,10 @@
     {% questions_list_by_year user=user activity=object as question_list %}
     <h1 class="thin">{{ object.get_activity_type_display }} - {{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
     <p>Block: {{ object.current_block }}</p>
-    {% if not object.question_writers.count %}
+    {% if not object.has_writers %}
         <p>Nobody has assigned themselves to write questions for this activity yet.</p>
+    {% elif not object.enough_writers and user.student not in object.question_writers.all %}
+        <p><strong>{{ object.question_writers.count }} {% if object.question_writers.count == 1 %}person has{% else %}people have{% endif %} assigned themselves to this question.</strong></p>
     {% endif %}
     {% if user.student in object.question_writers.all %}
         {% if remaining %}
@@ -182,7 +184,7 @@
     </div>
     {% if forloop.last %}{% endif %}
     {% empty %}
-    <p>There are currently not questions in the database.</p>
+    <p>There are currently no questions in the database.</p>
     {% endfor %}
     </div>
 {% endblock maincontent %}

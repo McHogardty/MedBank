@@ -1,14 +1,15 @@
 from django.shortcuts import render_to_response, redirect
 from django.template import RequestContext, loader
 from django.contrib.auth import logout
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate
 from django.http import HttpResponseServerError
+from django.core.urlresolvers import reverse
+
 
 import forms
 
 def home(request):
-    return render_to_response("base.html", context_instance=RequestContext(request))
+    return render_to_response("base.html", {'next_url': reverse('activity-mine')}, context_instance=RequestContext(request))
 
 
 def server_error(request):
