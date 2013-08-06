@@ -32,4 +32,5 @@ urlpatterns = patterns(
     url(r'^ta/upload/$', 'new_ta_upload', name='activity-upload'),
     url(r'^ta/(?P<ta_id>\d+)/signup/$', 'signup'),
     url(r'^ta/(?P<pk>\d+)/unassign/$', UnassignView.as_view(), name='activity-unassign'),
+    url(r'^testemail/$', 'email_test'),
 )

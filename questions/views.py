@@ -410,6 +410,9 @@ def send(request):
     messages.success(request, "The email was successfully queued to be sent!")
     return redirect('questions.views.admin')
 
+@permission_required('questions.can_approve')
+def email_test(request):
+    raise
 
 def copy_block(block):
     b = models.TeachingBlock()

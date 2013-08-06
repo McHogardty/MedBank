@@ -154,7 +154,7 @@
             <p>Thankyou! You've given us enough questions for this teaching activity.</p>
         {% endif %}
     {% endif %}
-    <p>Questions for this activity are due by {{ object.current_block.end }}</p>
+    <p>Questions for this activity are due by {{ object.current_block.close }}</p>
     <div class="spacer">
     {% for y, qq in question_list.iteritems %}
     <div class="week">

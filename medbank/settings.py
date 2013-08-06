@@ -6,7 +6,7 @@ import sys
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
-DEBUG = True
+DEBUG = False
 #if os.environ.get('MEDBANK_PRODUCTION'):
 #    DEBUG = False
 #else:
@@ -38,7 +38,7 @@ DATABASES = {
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ['gentle-eyrie-5227.herokuapp.com', ]
+ALLOWED_HOSTS = ['173.254.7.219', ]
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -170,6 +170,9 @@ TEMPLATE_CONTEXT_PROCESSORS = TPC + (
 
 EMAIL_HOST = "localhost"
 EMAIL_PORT = 25
+EMAIL_HOST_USER = 'medbank@sydneymedsoc.org.au'
+EMAIL_HOST_PASSWORD = 'ajU16qlBZwUMAYQJza'
+EMAIL_USE_TLS = True
 
 FORMAT_MODULE_PATH = 'medbank.formats'
 
