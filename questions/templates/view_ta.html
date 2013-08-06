@@ -130,7 +130,7 @@
     {% endif %}{% if not object.enough_writers and user.student not in object.question_writers.all %}
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
     {% endif %}{% if user.student in object.question_writers.all and remaining %}
-        <a class="action" href="{% url 'new' ta_id=object.id %}">Write{% if object.questions.count %} more {% else %} {% endif %}questions</a>
+        <a class="action" href="{% url 'new' ta_id=object.id %}">Write questions</a>
     {% endif %}{% if user.student in object.question_writers.all and not question_list %}
         <a class="action" href="{% url 'activity-unassign' pk=object.id %}">Unassign from me</a>
     {% endif %}

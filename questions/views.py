@@ -244,22 +244,26 @@ def signup(request, ta_id):
             messages.error(request, "Hmm... that teaching activity could not be found.")
             return redirect("questions.views.home")
 
-    if ta.enough_writers() and request.user.student not in ta.question_writers.all():
-        if request.is_ajax():
-            return HttpResponse(
-                json.dumps({
-                    'result': 'error',
-                    'blurb': 'Taken',
-                    'explanation': 'Sorry, this activity is already assigned to somebody else.'
-                }),
-                mimetype="application/json"
-            )
-        else:
-            messages.error(request, "Sorry, that activity is already assigned to somebody else.")
-            return redirect("questions.views.home")
+    already_assigned = request.user.student in ta.question_writers.all()
 
-    ta.question_writers.add(request.user.student)
-    ta.save()
+    if not already_assigned:
+        if ta.enough_writers():
+            if request.is_ajax():
+                return HttpResponse(
+                    json.dumps({
+                        'result': 'error',
+                        'blurb': 'Taken',
+                        'explanation': 'Sorry, this activity is already assigned to somebody else.'
+                    }),
+                    mimetype="application/json"
+                )
+            else:
+                messages.error(request, "Sorry, that activity is already assigned to somebody else.")
+                return redirect("questions.views.home")
+
+        ta.question_writers.add(request.user.student)
+        ta.save()
+
     if request.is_ajax():
         return HttpResponse(
             json.dumps({
