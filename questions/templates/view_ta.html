@@ -127,7 +127,7 @@
     {% questions_list_by_year user=user activity=object as question_list %}
     {% if not object.enough_writers or user.student in object.question_writers.all and remaining %}
         <h3 class="thin">Page actions</h3>    
-    {% endif %}{% if not object.enough_writers and if not user.student in object.question_writers.all %}
+    {% endif %}{% if not object.enough_writers and user.student not in object.question_writers.all %}
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
     {% endif %}{% if user.student in object.question_writers.all and remaining %}
         <a class="action" href="{% url 'new' ta_id=object.id %}">Write{% if object.questions.count %} more {% else %} {% endif %}questions</a>
