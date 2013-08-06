@@ -5,6 +5,7 @@ import document
 import models
 
 import datetime
+import time
 
 
 class DocumentEmailTask(Task):
@@ -21,5 +22,9 @@ class DocumentEmailTask(Task):
         )
         e.attach('questions.docx', document.generate_document(tb, False).getvalue())
         e.attach('answers.docx', document.generate_document(tb, True).getvalue())
-
-        e.send()
+        try:
+            e.send()
+        except Exception as e:
+            f = open('email.%s' % time.time(), 'w')
+            f.write(sys.exc_info())
+            f.close()

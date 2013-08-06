@@ -104,6 +104,8 @@
 {% block content %}
 {% if teaching_block %}
     <h1 class="thin">{{ teaching_block }}</h1>
+    <p class="lead">You can sign up for activities in this block from {{ teaching_block.start }} until {{ teaching_block.end }}.</p>
+    <p class="lead">You will be able to write questions for activities until  {{ teaching_block.close }}</p>
     <p class="hidden-phone">Click on a week below to see the classes available for that week.</p>
     <p class="visible-phone">Tap on a week below to see the classes available for that week. Tap on a class to assign yourself to it.</p>
     <div class="row span10 spacer">
@@ -127,7 +129,7 @@
                         </a>
                     </span>
                     <span class="pull-right{% if user.student in t.question_writers.all %} text-success{% else %}{% if t.enough_writers %} loading{% endif %}{% endif %} hidden-phone">
-                        {% if user.student in t.question_writers.all %}Assigned{% else %}{% if t.enough_writers %}Unavailable{% else %}{% if t.has_writers %}<span class="loading"><span class='visible-desktop'>Assigned to {{ t.question_writers.count }}</span></span> {% endif %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}{% endif %}
+                        {% if user.student in t.question_writers.all %}Assigned{% else %}{% if t.can_sign_up %}{% if t.enough_writers %}Unavailable{% else %}{% if t.has_writers %}<span class="loading"><span class='visible-desktop'>Assigned to {{ t.question_writers.count }}</span></span> {% endif %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}{% endif %}{% endif %}
                     </span>
                 </div>                
             {% endif %}

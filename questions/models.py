@@ -109,9 +109,16 @@ class TeachingBlock(models.Model):
     def has_started(self):
         return self.start <= datetime.datetime.now().date()
 
+    def has_ended(self):
+        return self.end <= datetime.datetime.now().date()
+
     def can_write_questions(self):
-        return self.start <= datetime.datetime.now().date() <= self.end
+        return self.start <= datetime.datetime.now().date() <= self.close
     can_write_questions = property(can_write_questions)
+
+    def can_sign_up(self):
+        return self.start <= datetime.datetime.now().date() <= self.end
+    can_sign_up = property(can_sign_up)
 
     def questions_need_approval(self):
         return bool(self.activities.filter(questions__status=Question.PENDING_STATUS).count())
@@ -187,6 +194,10 @@ class TeachingActivity(models.Model):
                 models.Q(creator=user.student) | models.Q(status=Question.APPROVED_STATUS)
             )
         return r
+
+    def can_sign_up(self):
+        return self.current_block().can_sign_up
+    can_sign_up = property(can_sign_up)
 
 
 class Question(models.Model):

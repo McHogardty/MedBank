@@ -167,10 +167,12 @@ class NewQuestion(CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         self.ta = check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
+        if not self.ta.current_block().can_write_questions:
+            messages.warning(request, "You are not currently able to write questions for this teaching activity.")
+            return redirect('ta', pk=self.ta.id)
         if models.Question.objects.filter(teaching_activity=self.ta, creator=request.user.student).count() >= settings.QUESTIONS_PER_USER:
             messages.warning(request, "You have already submitted %d questions for this teaching activity." % settings.QUESTIONS_PER_USER)
             return redirect('ta', pk=self.ta.id)
-
         return super(NewQuestion, self).dispatch(request, *args, **kwargs)
 
     def get_initial(self):

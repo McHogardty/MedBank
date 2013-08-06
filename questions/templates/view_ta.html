@@ -129,7 +129,7 @@
         <h3 class="thin">Page actions</h3>    
     {% endif %}{% if not object.enough_writers and user.student not in object.question_writers.all %}
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
-    {% endif %}{% if user.student in object.question_writers.all and remaining %}
+    {% endif %}{% if user.student in object.question_writers.all and remaining and object.current_block.can_write_questions %}
         <a class="action" href="{% url 'new' ta_id=object.id %}">Write questions</a>
     {% endif %}{% if user.student in object.question_writers.all and not question_list %}
         <a class="action" href="{% url 'activity-unassign' pk=object.id %}">Unassign from me</a>
@@ -143,7 +143,7 @@
     <h1 class="thin">{{ object.get_activity_type_display }} - {{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
     <p>Block: {{ object.current_block }}</p>
     {% if not object.has_writers %}
-        <p>Nobody has assigned themselves to write questions for this activity yet.</p>
+        <p>Nobody has assigned themselves to write questions for this activity.</p>
     {% elif not object.enough_writers and user.student not in object.question_writers.all %}
         <p><strong>{{ object.question_writers.count }} {% if object.question_writers.count == 1 %}person has{% else %}people have{% endif %} assigned themselves to this question.</strong></p>
     {% endif %}
@@ -154,6 +154,7 @@
             <p>Thankyou! You've given us enough questions for this teaching activity.</p>
         {% endif %}
     {% endif %}
+    <p>Questions for this activity are due by {{ object.current_block.end }}</p>
     <div class="spacer">
     {% for y, qq in question_list.iteritems %}
     <div class="week">
