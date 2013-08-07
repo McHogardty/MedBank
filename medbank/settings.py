@@ -161,18 +161,9 @@ LOGGING = {
     }
 }
 
-BASE_URL = '/medbank'
-LOCAL_LOGIN_URL = '/login/'
-LOGIN_URL = '%s%s' % (BASE_URL, LOCAL_LOGIN_URL)
 TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
 )
-
-EMAIL_HOST = "localhost"
-EMAIL_PORT = 25
-EMAIL_HOST_USER = 'medbank@sydneymedsoc.org.au'
-EMAIL_HOST_PASSWORD = 'ajU16qlBZwUMAYQJza'
-EMAIL_USE_TLS = True
 
 FORMAT_MODULE_PATH = 'medbank.formats'
 

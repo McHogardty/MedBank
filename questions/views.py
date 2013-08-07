@@ -391,7 +391,7 @@ def delete(request, ta_id, q_id):
         q.save()
 
         if 'approve' not in request.GET:
-            messages.success(request, "Question approved.")
+            messages.success(request, "Question deleted.")
 
     r = redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
     if 'approve' in request.GET:
