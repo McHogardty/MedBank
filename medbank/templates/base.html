@@ -126,7 +126,7 @@
             {% if user.is_anonymous %}
             <a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
             {% else %}
-            <span class="username">Welcome, {{ user.username }}</span>
+            <span class="username">Welcome, {{ user.username }} ({{ user.student.get_current_stage }})</span>
             {% if perms.questions.approve %}<a class='action' href="{% url 'admin' %}">Admin</a>{% endif %}
             <a class='action' href="{% url 'logout' %}">Logout</a>{% endif %}
             </span>
