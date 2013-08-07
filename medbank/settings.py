@@ -6,7 +6,7 @@ import sys
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
-DEBUG = False
+DEBUG = True
 #if os.environ.get('MEDBANK_PRODUCTION'):
 #    DEBUG = False
 #else:

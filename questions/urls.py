@@ -28,6 +28,7 @@ urlpatterns = patterns(
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/edit/$', UpdateQuestion.as_view(), name='edit'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/$', ViewQuestion.as_view(template_name="view.html"), name='view'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/approve/$', 'approve'),
+    url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/delete/$', 'delete'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/pending/$', 'make_pending'),
     url(r'^ta/upload/$', 'new_ta_upload', name='activity-upload'),
     url(r'^ta/(?P<ta_id>\d+)/signup/$', 'signup'),

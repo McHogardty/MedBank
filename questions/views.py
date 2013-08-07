@@ -373,6 +373,32 @@ def approve(request, ta_id, q_id):
 
     return r
 
+@permission_required('questions.approve')
+def delete(request, ta_id, q_id):
+    try:
+        q = models.Question.objects.get(id=q_id)
+    except models.Question.DoesNotExist:
+        messages.error(request, "Hmm... that question could not be found.")
+        return redirect('questions.views.home')
+
+    if q.teaching_activity.id != int(ta_id):
+        messages.error(request, "Sorry, an unknown error occurred. Please try again.")
+        return redirect('questions.views.home')
+
+    if not q.deleted:
+        q.status = models.Question.DELETED_STATUS
+        q.approver = request.user.student
+        q.save()
+
+        if 'approve' not in request.GET:
+            messages.success(request, "Question approved.")
+
+    r = redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
+    if 'approve' in request.GET:
+        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id)
+
+    return r
+
 
 @permission_required('questions.approve')
 def make_pending(request, ta_id, q_id):

@@ -188,7 +188,7 @@ class TeachingActivity(models.Model):
         return r
 
     def questions_for(self, user):
-        r = self.questions.all()
+        r = self.questions.exclude(status=Question.DELETED_STATUS)
         if not user.has_perm('questions.can.approve'):
             r = r.filter(
                 models.Q(creator=user.student) | models.Q(status=Question.APPROVED_STATUS)
