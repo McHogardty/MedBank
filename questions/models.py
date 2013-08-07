@@ -177,7 +177,7 @@ class TeachingActivity(models.Model):
         # Max number of questions to write.
         m = settings.QUESTIONS_PER_USER
         # Current question count.
-        c = self.questions.filter(creator=user.student).count()
+        c = self.questions.filter(creator=user.student).exclude(status=Question.DELETED_STATUS).count()
         # User is a question writer?
         u = self.question_writers.filter(id=user.student.id).count()
         r = 0
