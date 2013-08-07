@@ -219,6 +219,7 @@ class UnassignView(RedirectView):
         except models.TeachingActivity.DoesNotExist:
             return reverse('medbank.views.home')
         if not ta.question_writers.filter(user=self.request.user).count():
+            messages.warning(self.request, "You weren't signed up to that activity")
             return reverse('ta', kwargs={'pk': pk})
 
         if ta.questions_for(self.request.user).count():
@@ -226,6 +227,7 @@ class UnassignView(RedirectView):
             return reverse('ta', kwargs={'pk': pk})
 
         ta.question_writers.remove(self.request.user.student)
+        messages.success(self.request, "You have been unassigned from that activity")
         return reverse('ta', kwargs={'pk': pk})
 
 
