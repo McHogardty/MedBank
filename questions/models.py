@@ -54,7 +54,7 @@ class Student(models.Model):
         return self.user.username
 
     def get_current_stage(self):
-        return self.stages.latest('year')
+        return self.stages.get(year__year__exact=datetime.datetime.now().year)
 
 
 class Year(models.Model):
