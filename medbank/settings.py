@@ -6,6 +6,7 @@ import sys
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
+MAINTENANCE_MODE = True
 DEBUG = True
 #if os.environ.get('MEDBANK_PRODUCTION'):
 #    DEBUG = False
@@ -101,6 +102,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'maintenancemode.middleware.MaintenanceModeMiddleware',
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
