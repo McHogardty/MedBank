@@ -15,6 +15,8 @@ from django.contrib.auth.models import User
 
 
 import forms
+from queue import base as q
+
 
 
 def home(request):
@@ -94,7 +96,10 @@ class ResetPasswordRequest(FormView):
         }
 
         body = loader.render_to_string('password/email.html', c)
-        send_mail("Test subject goes here", body, "root@localhost", ['michaelhagarty@gmail.com'])
+
+        from .tasks import ChangePasswordEmailTask
+        t = ChangePasswordEmailTask(body, self.user.email)
+        q.add_task(t)
 
     def form_valid(self, form):
         self.user = form.cleaned_data['user']

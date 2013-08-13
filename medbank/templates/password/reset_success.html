@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block loginnext %}{% url 'medbank.views.home' %}{% endblock %}
+
 {% block content %}
 	<h1 class="thin">Password reset</h1>
 

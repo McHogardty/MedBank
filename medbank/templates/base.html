@@ -122,7 +122,7 @@
         </div>
         <div>
             <span class='actions nav'>
-            <a class="action" href="{% url 'activity-mine' %}">Home</a>
+            <a class="action" href="{% if user.is_anonymous %}{% url 'medbank.views.home' %}{% else %}{% url 'activity-mine' %}{% endif %}">Home</a>
             {% if user.is_anonymous %}
             <a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
             {% else %}
