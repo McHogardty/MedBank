@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1 class="thin">Password reset</h1>
+	Please enter your new password below.
+
+	<div class="spacer">
+    <form class="form-horizontal" method="post">
+        {% csrf_token %}
+        {% include "form.html" %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+    </form>
+	</div>
+{% endblock content %}
