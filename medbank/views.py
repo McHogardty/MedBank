@@ -15,7 +15,7 @@ from django.contrib.auth.models import User
 
 
 import forms
-from queue import base as q
+import queue
 
 
 
@@ -99,7 +99,7 @@ class ResetPasswordRequest(FormView):
 
         from .tasks import ChangePasswordEmailTask
         t = ChangePasswordEmailTask(body, self.user.email)
-        q.add_task(t)
+        queue.add_task(t)
 
     def form_valid(self, form):
         self.user = form.cleaned_data['user']

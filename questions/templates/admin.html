@@ -77,9 +77,29 @@
     {% endif %}
     {% endfor %}
 
-    <h3 class="thin">Generate a questions document</h3>
-    <p>Download a copy of the questions document: <a href="{% url 'questions.views.download' mode='question' %}">Download</a></p>
-    <p><a href="{% url 'questions.views.download' mode='answer' %}">Download with answers</a></p>
+    <h3 class="thin">Step 5: Generate a questions document</h3>
+    {% for b in blocks %}
+    {% if forloop.first %}
+        <div class="spacer">
+            <table class="table">
+                <tr>
+                    <th class="thin">Stage</th>
+                    <th class="thin">Block</th>
+                    <th class="thin">Questions only</th>
+                    <th class="thin">Questions and answers</th>
+                </tr>
+    {% endif %}
+        <tr>
+            <td>{{ b.stage }}</td>
+            <td>{{ b.name }}</td>
+            <td><a href="{% url 'questions.views.download' pk=b.pk mode='question' %}">Download</a></td>
+            <td><a href="{% url 'questions.views.download' pk=b.pk mode='answer' %}">Download</a></td>
+        </tr>
+    {% if forloop.last %}
+            </table>
+        </div>
+    {% endif %}
+    {% endfor %}
     <p>Send the questions and answers to yourself:</p>
     <a href="{% url 'questions.views.send' %}">Send email</a>
 {% endblock maincontent %}

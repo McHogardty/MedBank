@@ -5,6 +5,36 @@ import os
 import docx
 import cStringIO as StringIO
 import zipfile
+import math
+
+def build_answer_table(data, n=3):
+    ret = []
+    l = int(math.ceil(len(data)/float(n)))
+
+    for i in range(n-1):
+        for j, d in enumerate(data[i*l:(i+1)*l]):
+            ll = []
+            try:
+                ll = ret[j]
+            except:
+                ret.insert(j, ll)
+
+            ll += [unicode(j + 1 + i*l), d.answer]
+
+    for j, d in enumerate(data[(n-1)*l:]):
+        ll = []
+        try:
+            ll = ret[j]
+        except:
+            ret.insert(j, ll)
+
+        ll += [unicode(j + 1 + (n-1)*l), d.answer]        
+
+    head = []
+    for i in range(0, len(ret[0]), 2):
+        head += ["Question", "Answer"]
+    ret.insert(0, head)
+    return ret
 
 
 def generate_document(tb, answer):
@@ -12,7 +42,7 @@ def generate_document(tb, answer):
     body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 
     body.append(docx.heading("%s - Questions" % (tb), 1))
-    qq = models.Question.objects.filter(teaching_activity__block=tb)
+    qq = list(models.Question.objects.filter(teaching_activity__block=tb))
     style_file = os.path.join(docx.template_dir, 'word/stylesBase.xml')
     style_tree = etree.parse(style_file)
     style_outfile = open(os.path.join(docx.template_dir, 'word/styles.xml'), 'w')
@@ -25,7 +55,13 @@ def generate_document(tb, answer):
 
     s = style_tree.getroot()
     nt = numbering_tree.getroot()
-
+    if answer:
+        body.append(docx.heading("Answer grid", 1))
+        body.append(docx.table(build_answer_table(qq), heading=False, borders={
+            'all': {'color': '#000000', 'sz': 1, 'space': 0, 'val': 'single'},
+        }))
+        body.append(docx.pagebreak(type='page', orient='portrait'))
+        body.append(docx.heading("Individual explanations for each question", 1))
     for n, q in enumerate(qq):
         style_name = 'ListUpperLetter%d' % n
         numid = 14 + n

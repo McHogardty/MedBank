@@ -11,13 +11,14 @@ from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
 from django.utils.decorators import method_decorator
+from django import db
 import smtplib
 
 
 import forms
 import models
 import document
-from queue import base as q
+import queue
 import tasks
 
 import csv
@@ -50,11 +51,6 @@ class AllBlocksView(ListView):
 
 
 def test(request):
-    from queue import base as q
-    from tasks import SimpleTask3
-
-    t = SimpleTask()
-    q.add_task(t)
     return redirect("home")
 
 
@@ -120,7 +116,7 @@ def admin(request):
 class StartApprovalView(RedirectView):
     permanent = False
 
-    def get_redirect_url(self, pk):
+    def get_redirect_url(self, pk, q_id=None):
         try:
             b = models.TeachingBlock.objects.get(pk=pk)
         except models.TeachingBlock.DoesNotExist:
@@ -128,8 +124,20 @@ class StartApprovalView(RedirectView):
             return reverse('admin')
         tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
 
+        previous_q = None
         try:
-            q = models.Question.objects.filter(teaching_activity__block=b, status=models.Question.PENDING_STATUS).order_by('date_created')[:1].get()
+            previous_q = models.Question.objects.get(pk=q_id)
+        except models.Question.DoesNotExist:
+            pass
+        q = models.Question.objects.filter(teaching_activity__block=b).filter(
+                db.models.Q(status=models.Question.PENDING_STATUS) | db.models.Q(pk=q_id)
+            )
+
+        try:
+            if previous_q:
+                q = q.filter(date_created__gte=previous_q.date_created).order_by('date_created')[1:2].get()
+            else:
+                q = q.order_by('date_created')[:1].get()
         except models.Question.DoesNotExist:
             messages.success(self.request, 'All questions for that block have been approved.')
             return reverse('admin')
@@ -369,7 +377,7 @@ def approve(request, ta_id, q_id):
 
     r = redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
     if 'approve' in request.GET:
-        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id)
+        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id, q_id=q.id)
 
     return r
 
@@ -395,7 +403,7 @@ def delete(request, ta_id, q_id):
 
     r = redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
     if 'approve' in request.GET:
-        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id)
+        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id, q_id=q.id)
 
     return r
 
@@ -422,8 +430,12 @@ def make_pending(request, ta_id, q_id):
 
 
 @permission_required('questions.can_approve')
-def download(request, mode):
-    tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
+def download(request, pk, mode):
+    try:
+        tb = models.TeachingBlock.objects.get(pk=pk)
+    except models.TeachingBlock.DoesNotExist:
+        messages.error(request, 'That block does not exist.')
+        return redirect('admin')
     f = document.generate_document(tb, mode == "answer")
     r = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     r['Content-Disposition'] = 'attachment; filename=questions.docx'
@@ -434,7 +446,7 @@ def download(request, mode):
 @permission_required('questions.can_approve')
 def send(request):
     t = tasks.DocumentEmailTask()
-    q.add_task(t)
+    queue.add_task(t)
     messages.success(request, "The email was successfully queued to be sent!")
     return redirect('questions.views.admin')
 

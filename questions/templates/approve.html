@@ -92,7 +92,7 @@
 	        {% for b in object_list %}
 	            {% if b.questions_need_approval %}
 	                <div class="week">
-	                    <div class="week-heading" onclick="location.href='{% url 'admin-approve' pk=b.id %}'">
+	                    <div class="week-heading" onclick="location.href='{% url 'admin-approve-start' pk=b.id %}'">
 	                        <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
 	                    </div>
 	                </div>

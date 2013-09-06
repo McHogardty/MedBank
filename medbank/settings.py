@@ -7,19 +7,12 @@ import sys
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
 MAINTENANCE_MODE = False
-DEBUG = False
+DEBUG = True
 #if os.environ.get('MEDBANK_PRODUCTION'):
 #    DEBUG = False
 #else:
 #    DEBUG = True
 TEMPLATE_DEBUG = DEBUG
-
-ADMINS = (
-    ("Michael Hagarty", "michaelhagarty@gmail.com"),
-    # ('Your Name', 'your_email@example.com'),
-)
-
-MANAGERS = ADMINS
 
 DATABASES = {
     'default': {
@@ -146,11 +139,6 @@ LOGGING = {
             '()': 'django.utils.log.RequireDebugFalse'
         }
     },
-    'formatters': {
-        'simple': {
-            'format': '%(levelname)s %(message)s'
-        },
-    },
     'handlers': {
         'mail_admins': {
             'level': 'ERROR',
@@ -158,23 +146,12 @@ LOGGING = {
             'class': 'django.utils.log.AdminEmailHandler',
             'include_html': True,
         },
-        'file_handler': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'formatter': 'simple',
-            'filename': os.path.join(current_path, 'logs', 'queue.log')
-        }
     },
     'loggers': {
         'django.request': {
             'handlers': ['mail_admins'],
             'level': 'ERROR',
             'propagate': True,
-        },
-        'queue.queue': {
-            'handlers': ['file_handler'],
-            'level': 'INFO',
-            'propagate': False,
         },
     }
 }

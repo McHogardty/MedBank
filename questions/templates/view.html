@@ -31,7 +31,7 @@
             <a class="action" href="{% url 'questions.views.delete' ta_id=question.teaching_activity.id q_id=question.id %}{% if approval_mode %}?approve{% endif %}">Delete question</a>        
         {% endif %}
         {% if approval_mode %}
-            <a class="action">Skip question</a>
+            <a class="action" href="{% url 'admin-approve' pk=question.teaching_activity.current_block.id q_id=question.id %}">Skip question</a>
         {% endif %}
     {% endif %}
 {% endblock actions %}
