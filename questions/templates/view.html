@@ -10,8 +10,8 @@
 
 {% block actions %}
     <h3 class="thin">Page actions</h3>
-    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show %}?show{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if not approval_mode and question.pending and question.creator == user.student %}
-    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}">Edit question</a>
+    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
+    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}{% if show or approval_mode %}?{% endif %}{% if show %}show{% endif %}{% if show and approval_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}">Edit question</a>
     {% endif %}
     {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>{% endif %}
 
@@ -40,7 +40,7 @@
     <h1 class="thin">{{ question.teaching_activity.current_block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
     <p>Block: {{ question.teaching_activity.current_block }}</p>
     <h2 class="thin spacer">Question <small class="text-{% if question.pending %}warning{% else %}success{% endif %}">{{ question.get_status_display }} {% if perms.questions.can_approve and not question.pending %} by {{ question.approver }}{% endif %}</small></h2>
-    <h4 class="thin" style="">Written by {{ question.creator }}</h4>
+    {% if perms.questions.can_approve %}<h4 class="thin" style="">Written by {{ question.creator }}</h4>{% endif %}
     <p class="lead">{{ question.body }}</p>
     <ol class="alpha">
         {% for a in question.options_list %}

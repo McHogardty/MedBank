@@ -201,6 +201,20 @@ class UpdateQuestion(UpdateView):
     form_class = forms.NewQuestionForm
     template_name = "new.html"
 
+    def query_string(self):
+        g = self.request.GET
+        if not g:
+            return ""
+        qs = "?"
+        if 'show' in g:
+            qs += 'show'
+            if 'approve' in g:
+                qs += "&"
+        if 'approve' in g:
+            qs += "approve"
+
+        return qs
+
     def dispatch(self, request, *args, **kwargs):
         self.ta = check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
         return super(UpdateQuestion, self).dispatch(request, *args, **kwargs)
@@ -217,7 +231,7 @@ class UpdateQuestion(UpdateView):
         return o
 
     def get_success_url(self):
-        return reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id})
+        return "%s%s" % (reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id}), self.query_string())
 
 
 @class_view_decorator(login_required)
@@ -423,7 +437,7 @@ def make_pending(request, ta_id, q_id):
         messages.error(request, "Sorry, an unknown error occurred. Please try again.")
         return redirect('questions.views.home')
 
-    if not q.pending():
+    if not q.pending:
         q.status = models.Question.PENDING_STATUS
         q.save()
 
