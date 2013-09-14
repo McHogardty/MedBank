@@ -164,7 +164,7 @@ class ApproveQuestionsView(ListView):
 def check_ta_perm_for_question(ta_id, u):
     ta = get_object_or_404(models.TeachingActivity, pk=ta_id)
 
-    if not u.student in ta.question_writers.all():
+    if not u.student in ta.question_writers.all() or u.has_perm("questions.can_approve"):
         raise PermissionDenied
 
     return ta
