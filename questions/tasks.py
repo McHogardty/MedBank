@@ -9,6 +9,10 @@ import time
 
 
 class DocumentEmailTask(Task):
+    def __init__(self, pk, *args, **kwargs):
+        self.pk = pk
+        return super(DocumentEmailTask, self).__init__(*args, **kwargs)
+
     def run(self):
         tb = models.TeachingBlock.objects.filter(
             start__lte=datetime.datetime.now().date
@@ -17,7 +21,7 @@ class DocumentEmailTask(Task):
         e = EmailMessage(
             'Questions for %s' % unicode(tb),
             "Hello.",
-            "michaelhagarty@gmail.com",
+            "medbank@sydneymedsoc.org.au",
             ["michaelhagarty@gmail.com"],
         )
         e.attach('questions.docx', document.generate_document(tb, False).getvalue())

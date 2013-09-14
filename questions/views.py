@@ -5,8 +5,8 @@ from django.contrib import messages
 from django.http import HttpResponse, Http404, HttpResponseServerError
 from django.core.urlresolvers import reverse
 from django.conf import settings
-from django.core.mail import EmailMessage
-from django.views.generic import ListView, DetailView
+from django.core.mail import EmailMessage, send_mail
+from django.views.generic import ListView, DetailView, FormView
 from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
@@ -81,6 +81,9 @@ class AllActivitiesView(ListView):
         s = self.request.user.student
         if not b.stage == s.get_current_stage() and not b.question_count_for_student(s):
             raise Http404
+        if not b.can_write_questions or b.email_sent:
+            messages.error(request, "That block cannot be accessed right now.")
+            return redirect('block-list')
         return r
 
     def get_teaching_block(self):
@@ -444,11 +447,29 @@ def download(request, pk, mode):
 
 
 @permission_required('questions.can_approve')
-def send(request):
-    t = tasks.DocumentEmailTask()
+def send(request, pk):
+    t = tasks.DocumentEmailTask(pk=pk)
     queue.add_task(t)
     messages.success(request, "The email was successfully queued to be sent!")
     return redirect('questions.views.admin')
+
+
+class EmailView(FormView):
+    template_name = "email.html"
+    form_class = forms.EmailForm
+
+    def form_valid(self, form):
+        c = form.cleaned_data
+
+        send_mail(
+            "[MedBank] %s" % c['subject'],
+            c['email'],
+            "medbank@sydneymedsoc.org.au",
+            ["michaelhagarty@gmail.com"],
+            fail_silently=False,
+        )
+
+        return redirect('questions.views.admin')
 
 @permission_required('questions.can_approve')
 def email_test(request):

@@ -2,7 +2,8 @@ from django.conf.urls import patterns, include, url
 
 from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock,
-    MyActivitiesView, UnassignView, ApproveQuestionsView, StartApprovalView)
+    MyActivitiesView, UnassignView, ApproveQuestionsView, StartApprovalView,
+    EmailView)
 
 # Uncomment the next two lines to enable the admin:
 # from django.contrib import admin
@@ -16,11 +17,12 @@ urlpatterns = patterns(
     url(r'^test/$', 'test'),
     url(r'^block/(?P<number>\d{1,2})/(?P<year>\d{4})/$', AllActivitiesView.as_view(), name='activity-list'),
     url(r'^admin/$', 'admin', name='admin'),
+    url(r'^admin/email/$', EmailView.as_view(), name='email'),
     url(r'^admin/approve/$', AllBlocksView.as_view(template_name="approve.html"), name='admin-approve-choose'),
     url(r'^admin/approve/(?P<pk>\d{1,2})/$', StartApprovalView.as_view(), name='admin-approve-start'),
     url(r'^admin/approve/(?P<pk>\d{1,2})/(?P<q_id>\d+)/$', StartApprovalView.as_view(), name='admin-approve'),
     url(r'^download/(?P<pk>\d{1,2})/(?P<mode>[a-z]+)/$', 'download'),
-    url(r'^send/$', 'send'),
+    url(r'^send/(?P<pk>\d{1,2})/$', 'send'),
     url(r'^ta/$', MyActivitiesView.as_view(), name='activity-mine'),
     url(r'^ta/new/$', NewActivity.as_view(), name='activity-new'),
     url(r'^block/new/$', NewBlock.as_view(), name='block-new'),

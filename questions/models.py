@@ -116,6 +116,10 @@ class TeachingBlock(models.Model):
         return self.start <= datetime.datetime.now().date() <= self.close
     can_write_questions = property(can_write_questions)
 
+    def email_sent(self):
+        return False
+    email_sent = property(email_sent)
+
     def can_sign_up(self):
         return self.start <= datetime.datetime.now().date() <= self.end
     can_sign_up = property(can_sign_up)

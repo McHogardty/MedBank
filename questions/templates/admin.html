@@ -63,6 +63,7 @@
                     <th class="thin">Block</th>
                     <th class="thin">Questions approved</th>
                     <th class="thin">Questions pending</th>
+                    <th class="thin">Contact participants</th>
                 </tr>
     {% endif %}
         <tr>
@@ -70,6 +71,7 @@
             <td>{{ b.name }}</td>
             <td>{{ b.questions_approved_count}}</td>
             <td>{{ b.questions_pending_count }}</td>
+            <td><a href="">Email</a></td>
         </tr>
     {% if forloop.last %}
             </table>
@@ -77,7 +79,7 @@
     {% endif %}
     {% endfor %}
 
-    <h3 class="thin">Step 5: Generate a questions document</h3>
+    <h3 class="thin">Step 5: Generate a questions document and email it to students</h3>
     {% for b in blocks %}
     {% if forloop.first %}
         <div class="spacer">
@@ -87,6 +89,7 @@
                     <th class="thin">Block</th>
                     <th class="thin">Questions only</th>
                     <th class="thin">Questions and answers</th>
+                    <th class="thin">Email</th>
                 </tr>
     {% endif %}
         <tr>
@@ -94,12 +97,11 @@
             <td>{{ b.name }}</td>
             <td><a href="{% url 'questions.views.download' pk=b.pk mode='question' %}">Download</a></td>
             <td><a href="{% url 'questions.views.download' pk=b.pk mode='answer' %}">Download</a></td>
+            <td><a href="{% url 'questions.views.send' pk=b.pk %}">Email</a></td>
         </tr>
     {% if forloop.last %}
             </table>
         </div>
     {% endif %}
     {% endfor %}
-    <p>Send the questions and answers to yourself:</p>
-    <a href="{% url 'questions.views.send' %}">Send email</a>
 {% endblock maincontent %}
