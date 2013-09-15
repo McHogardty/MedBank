@@ -1,31 +1,32 @@
-{% extends "base.html" %}
+{% extends "base-no-nav.html" %}
+
+{% block alert %}
+	{% if form.errors %}
+		<div class="alert alert-danger">
+		    <div class="container text-center">
+		            Please try again.
+		    </div>
+		</div>
+	{% endif %}
+{% endblock alert %}
 
 {% block content %}
     {% if form.errors %}
-        <div class="alert alert-error">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
-            Please try again.
-        </div>
     {% endif %}
-    <h1 class='thin'>Login</h1>
-    Not registered yet? <a href="{% url 'create_user' %}">Click here</a>
-    <div class="spacer">
-        <form class="form-horizontal" method="post">
-            <div class="row">
-                {% csrf_token %}
-                <div class="control-group">
-                    <label for="id_username" class="control-label required">Username</label>
-                    <div class="controls">{{ form.username }}</div>
-                </div>
-                <div class="control-group">
-                    <label for="id_password" class="control-label required">Password</label>
-                    <div class="controls">{{ form.password }}</div>
-                </div>
-            </div>
-            Forgot your password? You can reset your password <a href="{% url 'reset_password_request' %}">here</a>.
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Submit</button>
-            </div>
-        </form>
-    </div>
+	<div class="starter-template"><h1>Log in</h1>
+	<div style="width: 300px; margin:auto;">
+   	<form class="" method="post">
+		{% csrf_token %}
+		<div class="form-group text-center">
+			{{ form.username }}
+		</div>
+		<div class="form-group text-center">
+			{{ form.password }}
+		</div>
+		<button type="submit" class="btn btn-lg btn-primary btn-block">Submit</button>
+		<button type="button" class="btn btn-lg btn-default btn-block">Sign me up</button>
+		<button type="button" class="btn btn-lg btn-default btn-block">I forgot my password</button>
+	</form>
+	</div>
+	</div>
 {% endblock content %}

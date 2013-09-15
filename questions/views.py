@@ -164,7 +164,7 @@ class ApproveQuestionsView(ListView):
 def check_ta_perm_for_question(ta_id, u):
     ta = get_object_or_404(models.TeachingActivity, pk=ta_id)
 
-    if not u.student in ta.question_writers.all() or not u.has_perm("questions.can_approve"):
+    if not u.student in ta.question_writers.all() and not u.has_perm("questions.can_approve"):
         raise PermissionDenied
 
     return ta
@@ -472,16 +472,28 @@ class EmailView(FormView):
     template_name = "email.html"
     form_class = forms.EmailForm
 
+    def dispatch(self, request, *args, **kwargs):
+        self.tb = models.TeachingBlock.objects.get(number=self.kwargs['pk'], year=self.kwargs['year'])
+        r = super(EmailView, self).dispatch(request, *args, **kwargs)
+        return r
+
+    def get_initial(self):
+        i = super(EmailView,self).get_initial()
+        i.update({ 'block': self.tb, })
+        return i
+
     def form_valid(self, form):
         c = form.cleaned_data
+        recipients = models.Student.objects.filter(teachingactivity__block=self.tb).distinct()
+        recipients = [s.user.email for s in recipients]
 
-        send_mail(
+        t = tasks.EmailTask(
             "[MedBank] %s" % c['subject'],
             c['email'],
-            "medbank@sydneymedsoc.org.au",
             ["michaelhagarty@gmail.com"],
-            fail_silently=False,
         )
+
+        queue.add_task(t)
 
         return redirect('questions.views.admin')
 

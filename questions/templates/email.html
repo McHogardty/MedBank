@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<h1 class="thin">Email participants</h1>
+    <div class="row spacer">
+    <form class="form-horizontal" method="post">
+        <div class="row">
+            {% csrf_token %}
+            {% include "form.html" with is_horizontal=True %}
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Email</button>
+        </div>
+    </form>
+    </div>
+{% endblock content %}

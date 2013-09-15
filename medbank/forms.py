@@ -17,6 +17,17 @@ class BootstrapAuthenticationForm(AuthenticationForm):
         self.is_horizontal = True
 
 
+class BootstrapAuthenticationForm(AuthenticationForm):
+    username = bsforms.CharField(max_length=254, widget=forms.TextInput(attrs={'class':'input-lg', 'placeholder':'Unikey'}))
+    password = bsforms.CharField(label=_("Password"), widget=forms.PasswordInput(attrs={'class':'input-lg', 'placeholder':'Password'}))
+    def __init__(self, *args, **kwargs):
+        super(BootstrapAuthenticationForm, self).__init__(*args, **kwargs)
+        self.required = False
+        if any(fs.field.required for fs in self):
+                self.required = True
+        self.is_horizontal = True
+
+
 class StudentCreationForm(UserCreationForm):
     username = forms.RegexField(label=_("Unikey"), max_length=20,
         regex=r'^([a-z]{4}\d{4})|[a-z]+$',

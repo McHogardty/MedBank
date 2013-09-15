@@ -1,0 +1,37 @@
+{% extends "base-no-nav.html" %}
+
+{% block head %}
+      <style type="text/css">
+      .starter-template {
+        padding: 40px 15px;
+        text-align: center;
+      }
+    </style>
+{% endblock head %}
+
+{% block nav %}
+  <div class="container">
+    <div class="header">
+      <h1 class="text-muted" style="font-weight:500;">SUMS MedBank</h3>
+    </div>
+    <div>
+      <span class='actions nav'>
+      <a class="action" href="{% if user.is_anonymous %}{% url 'medbank.views.home' %}{% else %}{% url 'activity-mine' %}{% endif %}">Home</a>
+      {% if user.is_anonymous %}
+      <a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
+      {% else %}
+      <span class="username">Welcome, {{ user.username }} ({{ user.student.get_current_stage }})</span>
+      {% if perms.questions.approve %}<a class='action' href="{% url 'admin' %}">Admin</a>{% endif %}
+      <a class='action' href="{% url 'logout' %}">Logout</a>{% endif %}
+      </span>
+  </div>
+  </div>
+  <hr>
+{% endblock nav %}
+
+{% block content %}
+  <div class="starter-template">
+    <h1>Bootstrap starter template</h1>
+    <p class="lead">Use this document as a way to quickly start any new project.<br> All you get is this text and a mostly barebones HTML document.</p>
+  </div>
+{% endblock content %}

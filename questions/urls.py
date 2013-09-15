@@ -17,7 +17,7 @@ urlpatterns = patterns(
     url(r'^test/$', 'test'),
     url(r'^block/(?P<number>\d{1,2})/(?P<year>\d{4})/$', AllActivitiesView.as_view(), name='activity-list'),
     url(r'^admin/$', 'admin', name='admin'),
-    url(r'^admin/email/$', EmailView.as_view(), name='email'),
+    url(r'^admin/email/(?P<pk>\d{1,2})/(?P<year>\d{4})/$', EmailView.as_view(), name='email'),
     url(r'^admin/approve/$', AllBlocksView.as_view(template_name="approve.html"), name='admin-approve-choose'),
     url(r'^admin/approve/(?P<pk>\d{1,2})/$', StartApprovalView.as_view(), name='admin-approve-start'),
     url(r'^admin/approve/(?P<pk>\d{1,2})/(?P<q_id>\d+)/$', StartApprovalView.as_view(), name='admin-approve'),

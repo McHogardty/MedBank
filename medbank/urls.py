@@ -1,6 +1,7 @@
 from django.conf.urls import patterns, include, url
 
 from django.conf import settings
+import forms
 
 # Uncomment the next two lines to enable the admin:
 from django.contrib import admin
@@ -12,7 +13,7 @@ from django.views.generic import TemplateView
 urlpatterns = patterns(
     '',
     url(r'^$', 'medbank.views.home'),
-    url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', name="login"),
+    url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', {'authentication_form': forms.BootstrapAuthenticationForm}, name="login"),
     url(r'^logout/$', 'medbank.views.logout_view', name="logout"),
     url(r'^newuser/$', 'medbank.views.create_user', name="create_user"),
     url(r'^password/reset/sent/$', TemplateView.as_view(template_name="password/reset_email_success.html"), name="reset_password_sent"),

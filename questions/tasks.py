@@ -1,4 +1,4 @@
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, send_mail
 
 from queue.task import Task
 import document
@@ -19,7 +19,7 @@ class DocumentEmailTask(Task):
         ).latest("start")
 
         e = EmailMessage(
-            'Questions for %s' % unicode(tb),
+            '[MedBank] Questions for %s' % unicode(tb),
             "Hello.",
             "medbank@sydneymedsoc.org.au",
             ["michaelhagarty@gmail.com"],
@@ -32,3 +32,17 @@ class DocumentEmailTask(Task):
             f = open('email.%s' % time.time(), 'w')
             f.write(sys.exc_info())
             f.close()
+
+class EmailTask(Task):
+    def __init__(self, subject, body, recipients):
+        self.subject = subject
+        self.body = body
+        self.recipients = recipients
+
+    def run(self):
+        send_mail(
+            self.subject,
+            self.body,
+            "medbank@sydneymedsoc.org.au",
+            self.recipients,
+        )

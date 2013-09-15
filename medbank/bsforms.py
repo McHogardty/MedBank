@@ -219,3 +219,18 @@ class BootstrapCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
             option_label = conditional_escape(force_unicode(option_label))
             output.append(u'<label class="checkbox"%s>%s %s</label>' % (label_for, rendered_cb, option_label))
         return mark_safe(u'\n'.join(output))
+
+class BootstrapField(forms.Field):
+    def widget_attrs(self, widget):
+        if 'class' in widget.attrs:
+            l = widget.attrs['class'].split()
+            l.append("form-control")
+            widget.attrs['class'] = " ".join(l)
+        return super(BootstrapField, self).widget_attrs(widget)
+
+class RegexField(BootstrapField, forms.RegexField):
+    pass
+
+class CharField(BootstrapField, forms.CharField):
+    pass
+
