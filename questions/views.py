@@ -473,7 +473,12 @@ class EmailView(FormView):
     form_class = forms.EmailForm
 
     def dispatch(self, request, *args, **kwargs):
-        self.tb = models.TeachingBlock.objects.get(number=self.kwargs['pk'], year=self.kwargs['year'])
+        try:
+            self.tb = models.TeachingBlock.objects.get(number=self.kwargs['pk'], year=self.kwargs['year'])
+        except models.TeachingBlock.DoesNotExist:
+            messages.error(request, "That teaching block does not exist.")
+            return redirect("questions.views.admin")
+
         r = super(EmailView, self).dispatch(request, *args, **kwargs)
         return r
 
