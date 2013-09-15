@@ -43,6 +43,6 @@ class EmailTask(Task):
         send_mail(
             self.subject,
             self.body,
-            "MedBank <medbank@sydneymedsoc.org.au>",
+            "SUMS MedBank <medbank@sydneymedsoc.org.au>",
             self.recipients,
         )
