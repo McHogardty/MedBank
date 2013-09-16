@@ -500,7 +500,7 @@ class EmailView(FormView):
         t = tasks.EmailTask(
             "[MedBank] %s" % c['subject'],
             c['email'],
-            ["michaelhagarty@gmail.com"],
+            recipients,
         )
 
         queue.add_task(t)
