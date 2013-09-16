@@ -71,7 +71,7 @@
             <td>{{ b.name }}</td>
             <td>{{ b.questions_approved_count}}</td>
             <td>{{ b.questions_pending_count }}</td>
-            <td><a href="">Email</a></td>
+            <td><a href="{% url 'email' pk=b.number year=b.year %}">Email</a></td>
         </tr>
     {% if forloop.last %}
             </table>
