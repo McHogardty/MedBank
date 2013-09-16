@@ -1,7 +1,43 @@
 {% extends "base.html" %}
 
+{% block head %}
+    <style type="text/css">
+    #editor {
+        height:300px;
+        overflow: scroll;
+        border:1px solid #ccc;
+        -webkit-box-shadow:inset 0 1px 1px rgba(0,0,0,0.075);
+        -moz-box-shadow:inset 0 1px 1px rgba(0,0,0,0.075);
+        box-shadow: inset 0 1px 1px rgba(0,0,0,0.075);
+        -webkit-transition:border linear .2s,box-shadow linear .2s;
+        -moz-transition: border linear .2s,box-shadow linear .2s;
+        -o-transition:border linear .2s,box-shadow linear .2s;
+        transition: border linear .2s,box-shadow linear .2s;
+        color:#555;
+        --webkit-border-radius:4px;
+        --moz-border-radius:4px;
+        border-radius:4px;
+        background-color: #fff;
+        padding:4px 6px;
+    }
+
+    #editor:focus {
+        border-color: #66afe9;
+        outline: 0;
+        -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+        box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+    }
+    
+    #editor[class*="span"] {
+      float: none;
+      margin-left: 0;
+    }
+    </style>
+{% endblock head %}
+
 {% block content %}
 	<h1 class="thin">Email participants</h1>
+    <p>This email will be sent to all participants of the block {{ tb }}</p>
     <div class="row spacer">
     <form class="form-horizontal" method="post">
         <div class="row">
@@ -14,3 +50,11 @@
     </form>
     </div>
 {% endblock content %}
+
+{% block javascript %}
+    <script type="text/javascript" src="{{ STATIC_URL }}jquery.hotkeys.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}bootstrap-wysiwyg.js"></script>
+    <script type="text/javascript">
+        $('#editor').wysiwyg();
+    </script>
+{% endblock javascript %}

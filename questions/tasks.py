@@ -1,4 +1,4 @@
-from django.core.mail import EmailMessage, send_mail
+from django.core.mail import EmailMessage, send_mass_mail
 
 from queue.task import Task
 import document
@@ -40,9 +40,11 @@ class EmailTask(Task):
         self.recipients = recipients
 
     def run(self):
-        send_mail(
-            self.subject,
+        messages = (
+            (self.subject,
             self.body,
-            "SUMS MedBank <medbank@sydneymedsoc.org.au>",
-            self.recipients,
-        )
+            "SUMS MedBank <medbank@sydneymedsoc.org.au",
+            [r, ]) 
+        for r in self.recipients)
+
+        send_mass_mail(messages)

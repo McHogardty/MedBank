@@ -482,6 +482,11 @@ class EmailView(FormView):
         r = super(EmailView, self).dispatch(request, *args, **kwargs)
         return r
 
+    def get_context_data(self, **kwargs):
+        c = super(EmailView, self).get_context_data(**kwargs)
+        c.update({'tb': self.tb, })
+        return c
+
     def get_initial(self):
         i = super(EmailView,self).get_initial()
         i.update({ 'block': self.tb, })

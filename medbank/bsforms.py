@@ -4,6 +4,10 @@ from django.utils.encoding import force_unicode
 from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 
+from django.forms.util import flatatt
+from django.utils.html import format_html
+from django.utils.encoding import force_text
+
 from itertools import chain
 
 
@@ -234,3 +238,11 @@ class RegexField(BootstrapField, forms.RegexField):
 class CharField(BootstrapField, forms.CharField):
     pass
 
+
+class WYSIWYGArea(forms.Textarea):
+    def render(self, name, value, attrs=None):
+        if value is None: value = ''
+        final_attrs = self.build_attrs(attrs, name=name)
+        return format_html('<textarea{0}>\r\n{1}</textarea><div id="editor" class="span6"></div>',
+                           flatatt(final_attrs),
+                           force_text(value))
