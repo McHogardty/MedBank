@@ -491,8 +491,7 @@ class EmailView(FormView):
     def get_initial(self):
         i = super(EmailView,self).get_initial()
         i.update({ 'block': self.tb, })
-        print self.request.GET
-        if 'type' in self.request.GET and 'document' in self.request.GET['type']:
+        if 'document' in self.request.GET:
             i.update({'email' : "Link to questions document: %s\nLink to document with answers: %s" % (
                 self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'question'})),
                 self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'answer'})),
