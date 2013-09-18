@@ -43,7 +43,7 @@ class EmailTask(Task):
         messages = (
             (self.subject,
             self.body,
-            "SUMS MedBank <medbank@sydneymedsoc.org.au",
+            "SUMS MedBank <medbank@sydneymedsoc.org.au>",
             [r, ]) 
         for r in self.recipients)
 

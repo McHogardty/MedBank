@@ -484,12 +484,19 @@ class EmailView(FormView):
 
     def get_context_data(self, **kwargs):
         c = super(EmailView, self).get_context_data(**kwargs)
-        c.update({'tb': self.tb, })
+        c.update({'tb': self.tb, 'recipients': models.Student.objects.filter(teachingactivity__block=self.tb).distinct()
+})
         return c
 
     def get_initial(self):
         i = super(EmailView,self).get_initial()
         i.update({ 'block': self.tb, })
+        print self.request.GET
+        if 'type' in self.request.GET and 'document' in self.request.GET['type']:
+            i.update({'email' : "Link to questions document: %s\nLink to document with answers: %s" % (
+                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'question'})),
+                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'answer'})),
+            )})
         return i
 
     def form_valid(self, form):
@@ -500,7 +507,7 @@ class EmailView(FormView):
         t = tasks.EmailTask(
             "[MedBank] %s" % c['subject'],
             c['email'],
-            recipients,
+            ['michaelhagarty@gmail.com',],
         )
 
         queue.add_task(t)

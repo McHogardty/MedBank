@@ -37,7 +37,12 @@
 
 {% block content %}
 	<h1 class="thin">Email participants</h1>
-    <p>This email will be sent to all participants of the block {{ tb }}</p>
+    <p>This email will be sent to all participants of the block {{ tb }}. It will be sent to the following recipients:
+        <ul>
+            {% for each in recipients %}
+                <li>{{ each.user.email }}</li>
+            {% endfor %}
+        </ul></p>
     <div class="row spacer">
     <form class="form-horizontal" method="post">
         <div class="row">

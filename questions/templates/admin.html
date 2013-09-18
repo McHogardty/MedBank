@@ -97,7 +97,7 @@
             <td>{{ b.name }}</td>
             <td><a href="{% url 'questions.views.download' pk=b.pk mode='question' %}">Download</a></td>
             <td><a href="{% url 'questions.views.download' pk=b.pk mode='answer' %}">Download</a></td>
-            <td><a href="{% url 'questions.views.send' pk=b.pk %}">Email</a></td>
+            <td><a href="{% url 'email' pk=b.number year=b.year %}?type=document">Email</a></td>
         </tr>
     {% if forloop.last %}
             </table>
