@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "newbase.html" %}
 
 {% block head %}
     <style type="text/css">
@@ -44,13 +44,13 @@
             {% endfor %}
         </ul></p>
     <div class="row spacer">
-    <form class="form-horizontal" method="post">
-        <div class="row">
+    <form class="form-horizontal" method="post" role="form">
             {% csrf_token %}
-            {% include "form.html" with is_horizontal=True %}
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Email</button>
+            {{ form.as_bootstrap }}
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-6">
+                <button type="submit" class="btn btn-primary">Email</button>
+            </div>
         </div>
     </form>
     </div>

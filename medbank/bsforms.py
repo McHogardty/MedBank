@@ -224,6 +224,57 @@ class BootstrapCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
             output.append(u'<label class="checkbox"%s>%s %s</label>' % (label_for, rendered_cb, option_label))
         return mark_safe(u'\n'.join(output))
 
+
+class BoundField(forms.forms.BoundField):
+    def label_tag(self, contents=None, attrs=None):
+        if attrs:
+            if 'class' in attrs:
+                c = attrs['class'].split()
+                c.append('control-label')
+                c.append('col-md-2')
+                attrs['class'] = " ".join(c)
+            else:
+                attrs['class'] = 'control-label col-md-2'
+        else:
+            attrs = {'class': 'control-label col-md-2'}
+
+        return super(BoundField, self).label_tag(contents, attrs)
+
+    def as_widget(self, widget=None, attrs=None, only_initial=False):
+        if attrs:
+            if 'class' in attrs:
+                c = attrs['class'].split()
+                c.append('form-control')
+                attrs['class'] = " ".join(c)
+            else:
+                attrs['class'] = 'form-control'
+        else:
+            attrs = {'class': 'form-control'}
+
+        return super(BoundField, self).as_widget(widget, attrs, only_initial)
+
+
+class NewBootstrapForm(BootstrapForm):
+    def __str__(self):
+        return self.as_bootstrap()
+
+    def __getitem__(self, name):
+        try:
+            field = self.fields[name]
+        except KeyError:
+            raise KeyError('Key %r not found in Form' % name)
+        return BoundField(self, field, name)
+
+    def as_bootstrap(self):
+        return self._html_output(
+            normal_row="<div class='form-group'>%(label)s<div class='col-md-6'>%(field)s%(help_text)s</div></div>",
+            error_row="%s",
+            row_ender="</div>",
+            help_text_html="%s",
+            errors_on_separate_row=True
+        )
+
+
 class BootstrapField(forms.Field):
     def widget_attrs(self, widget):
         if 'class' in widget.attrs:
@@ -232,8 +283,10 @@ class BootstrapField(forms.Field):
             widget.attrs['class'] = " ".join(l)
         return super(BootstrapField, self).widget_attrs(widget)
 
+
 class RegexField(BootstrapField, forms.RegexField):
     pass
+
 
 class CharField(BootstrapField, forms.CharField):
     pass

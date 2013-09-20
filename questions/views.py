@@ -502,6 +502,8 @@ class EmailView(FormView):
         c = form.cleaned_data
         recipients = models.Student.objects.filter(teachingactivity__block=self.tb).distinct()
         recipients = [s.user.email for s in recipients]
+        if self.request.user.email not in recipients:
+            recipients.append(self.request.user.email)
 
         t = tasks.EmailTask(
             "[MedBank] %s" % c['subject'],

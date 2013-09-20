@@ -150,7 +150,7 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
         model = TeachingBlock
         exclude = ('stage', 'number', 'start', 'end')
 
-class EmailForm(bsforms.BootstrapHorizontalForm):
-    subject = forms.CharField(widget=forms.TextInput(attrs={'class': 'span6'}))
-    email = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
+class EmailForm(bsforms.NewBootstrapForm):
+    subject = bsforms.CharField(widget=forms.TextInput(attrs={'class': 'span6'}))
+    email = bsforms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.all(), widget=forms.HiddenInput())
