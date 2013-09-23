@@ -9,18 +9,34 @@ from django.views.generic import ListView, DetailView, FormView, TemplateView
 from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core import signing
-from django.template import loader
-from django.core.mail import send_mail
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.utils.decorators import method_decorator
 
 
 import forms
 import queue
+from questions import tasks
 
+
+def class_view_decorator(function_decorator):
+    """Convert a function based decorator into a class based decorator usable
+    on class based Views.
+
+    Can't subclass the `View` as it breaks inheritance (super in particular),
+    so we monkey-patch instead.
+    """
+
+    def simple_decorator(View):
+        View.dispatch = method_decorator(function_decorator)(View.dispatch)
+        return View
+
+    return simple_decorator
 
 
 def home(request):
-    return render_to_response("base.html", {'next_url': reverse('activity-mine')}, context_instance=RequestContext(request))
+    return render_to_response("base-no-nav.html", {'next_url': reverse('activity-mine')}, context_instance=RequestContext(request))
 
 
 def server_error(request):
@@ -105,3 +121,21 @@ class ResetPasswordRequest(FormView):
         self.user = form.cleaned_data['user']
         self.send_email()
         return super(ResetPasswordRequest, self).form_valid(form)
+
+
+@class_view_decorator(login_required)
+class FeedbackView(FormView):
+    template_name = "feedback.html"
+    form_class = forms.FeedbackForm
+
+    def form_valid(self, form):
+        c = form.cleaned_data
+        t = tasks.EmailTask(
+            "[MedBank] Feedback received from %s" % self.request.user.username,
+            c['feedback'],
+            ['michaelhagarty@gmail.com',],
+        )
+
+        queue.add_task(t)
+        messages.success(self.request, "Your email has been sent successfully.")
+        return redirect('medbank.views.home')

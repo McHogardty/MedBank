@@ -9,6 +9,7 @@
     {% if questions_pending %}
         <a class="action" href="{% url 'admin-approve-choose' %}">Approve questions</a>
     {% endif %}
+        <a class="action" href="">Approve flagged questions</a>
 {% endblock actions %}
 
 {% block maincontent %}
@@ -61,8 +62,9 @@
                 <tr>
                     <th class="thin">Stage</th>
                     <th class="thin">Block</th>
-                    <th class="thin">Questions approved</th>
-                    <th class="thin">Questions pending</th>
+                    <th class="thin">Approved</th>
+                    <th class="thin">Pending</th>
+                    <th class="thin">Flagged</th>
                     <th class="thin">Contact participants</th>
                 </tr>
     {% endif %}
@@ -71,6 +73,7 @@
             <td>{{ b.name }}</td>
             <td>{{ b.questions_approved_count}}</td>
             <td>{{ b.questions_pending_count }}</td>
+            <td>{{ b.questions_flagged_count }}</td>
             <td><a href="{% url 'email' pk=b.number year=b.year %}">Email</a></td>
         </tr>
     {% if forloop.last %}

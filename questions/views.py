@@ -42,6 +42,7 @@ def class_view_decorator(function_decorator):
     return simple_decorator
 
 
+@class_view_decorator(login_required)
 class AllBlocksView(ListView):
     model = models.TeachingBlock
     template_name = "choose.html"
@@ -119,6 +120,22 @@ def admin(request):
 class StartApprovalView(RedirectView):
     permanent = False
 
+    def query_string(self, initial):
+        g = self.request.GET
+        if initial:
+            return "?show&approve"
+        elif not g:
+            return ""
+        qs = "?"
+        if 'show' in g:
+            qs += 'show'
+            if 'approve' in g:
+                qs += "&"
+        if 'approve' in g:
+            qs += "approve"
+
+        return qs
+
     def get_redirect_url(self, pk, q_id=None):
         try:
             b = models.TeachingBlock.objects.get(pk=pk)
@@ -144,7 +161,7 @@ class StartApprovalView(RedirectView):
         except models.Question.DoesNotExist:
             messages.success(self.request, 'All questions for that block have been approved.')
             return reverse('admin')
-        return "%s?show&approve" % reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity.id})
+        return "%s%s" % (reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity.id}), self.query_string(previous_q == None))
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -372,78 +389,71 @@ def view(request, ta_id, q_id):
     return render_to_response("view.html", {'q': q, 'show': 'show' in request.GET}, context_instance=RequestContext(request))
 
 
-@permission_required('questions.approve')
-def approve(request, ta_id, q_id):
-    try:
-        q = models.Question.objects.get(id=q_id)
-    except models.Question.DoesNotExist:
-        messages.error(request, "Hmm... that question could not be found.")
-        return redirect('questions.views.home')
+class QueryStringMixin(object):
+    def query_string(self):
+        g = self.request.GET
+        if not g:
+            return ""
+        qs = "?"
+        if 'show' in g:
+            qs += 'show'
+            if 'approve' in g:
+                qs += "&"
+        if 'approve' in g:
+            qs += "approve"
 
-    if q.teaching_activity.id != int(ta_id):
-        messages.error(request, "Sorry, an unknown error occurred. Please try again.")
-        return redirect('questions.views.home')
-
-    if not q.approved:
-        q.status = models.Question.APPROVED_STATUS
-        q.approver = request.user.student
-        q.save()
-
-        if 'approve' not in request.GET:
-            messages.success(request, "Question approved.")
-
-    r = redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
-    if 'approve' in request.GET:
-        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id, q_id=q.id)
-
-    return r
-
-@permission_required('questions.approve')
-def delete(request, ta_id, q_id):
-    try:
-        q = models.Question.objects.get(id=q_id)
-    except models.Question.DoesNotExist:
-        messages.error(request, "Hmm... that question could not be found.")
-        return redirect('questions.views.home')
-
-    if q.teaching_activity.id != int(ta_id):
-        messages.error(request, "Sorry, an unknown error occurred. Please try again.")
-        return redirect('questions.views.home')
-
-    if not q.deleted:
-        q.status = models.Question.DELETED_STATUS
-        q.approver = request.user.student
-        q.save()
-
-        if 'approve' not in request.GET:
-            messages.success(request, "Question deleted.")
-
-    r = redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
-    if 'approve' in request.GET:
-        r = redirect('admin-approve', pk=q.teaching_activity.current_block().id, q_id=q.id)
-
-    return r
+        return qs        
 
 
-@permission_required('questions.approve')
-def make_pending(request, ta_id, q_id):
-    try:
-        q = models.Question.objects.get(id=q_id)
-    except models.Question.DoesNotExist:
-        messages.error(request, "Hmm... that question could not be found.")
-        return redirect('questions.views.home')
+class ChangeStatus(RedirectView):
+    permanent = False
 
-    if q.teaching_activity.id != int(ta_id):
-        messages.error(request, "Sorry, an unknown error occurred. Please try again.")
-        return redirect('questions.views.home')
+    def query_string(self):
+        g = self.request.GET
+        if not g:
+            return ""
+        qs = "?"
+        if 'show' in g:
+            qs += 'show'
+            if 'approve' in g:
+                qs += "&"
+        if 'approve' in g:
+            qs += "approve"
 
-    if not q.pending:
-        q.status = models.Question.PENDING_STATUS
-        q.save()
+        return qs
 
-        messages.success(request, "Question is now pending.")
+    def get_redirect_url(self, ta_id, q_id, action):
+        print "Using status change view"
+        actions_to_props = {
+            'approve': 'approved',
+            'pending': 'pending',
+            'delete': 'deleted',
+            'flag': 'flagged'
+        }
+        try:
+            q = models.Question.objects.get(id=q_id)
+        except models.Question.DoesNotExist:
+            messages.error(self.request, "Hmm... that question could not be found.")
+            return redirect('questions.views.home')
 
-    return redirect('view', pk=q_id, ta_id=q.teaching_activity.id)
+        if q.teaching_activity.id != int(ta_id):
+            messages.error(self.request, "Sorry, an unknown error occurred. Please try again.")
+            return redirect('questions.views.home')
+
+        print getattr(q, actions_to_props[action])
+        if not getattr(q, actions_to_props[action]):
+            print getattr(models.Question, '%s_STATUS' % actions_to_props[action].upper())
+            q.status = getattr(models.Question, '%s_STATUS' % actions_to_props[action].upper())
+            q.approver = self.request.user.student
+            q.save()
+
+        r = "%s%%s"
+        if 'approve' in self.request.GET:
+            r = r % reverse('admin-approve', kwargs={'pk': q.teaching_activity.current_block().id, 'q_id': q.id})
+        else:
+            r = r % reverse('view', kwargs={'pk': q_id, 'ta_id': q.teaching_activity.id})
+        r = r % self.query_string()
+        return r
 
 
 @permission_required('questions.can_approve')

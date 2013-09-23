@@ -23,9 +23,28 @@
 
   <body>
     {% block nav %}{% endblock nav %}
-    {% block alert %}{% endblock alert %}
+    {% block alert %}
+        <div class="alert alert-info alert-dismissable{% if not messages %} last{% endif %}">
+          <button type="button" class="close" data-dismiss="alert">&times;</button>
+          <strong>Announcement</strong> We are currently giving the site a facelift. If you have any feedback, <a href="{% url 'feedback' %}" class="alert-link">let us know about it!</a>
+        </div>
+      {% for m in messages %}
+        <div class="alert{% if m.tags %} alert-{{ m.tags}}{% endif %}{% if forloop.last%} last {% endif %}">
+            {{ m }}
+        </div>
+      {% endfor %}
+      <hr>
+    {% endblock alert %}
     <div class="container">
       {% block content %}
+        <div class="starter-template">
+          <h1>SUMS MedBank</h1>
+          <p class="lead">MedBank is a peer-reviewed database of practice exam questions written by students in the Sydney Medical Program.</p>
+          <div class="col-md-4 col-md-offset-4">
+            <a class="btn btn-lg btn-primary btn-block" href="{% url 'activity-mine' %}">Start writing questions</a>
+            <a class="btn btn-lg btn-default btn-block" href="{% url 'create_user' %}">I don't have an account yet</a>
+          </div>
+        </div>
       {% endblock content %}
     </div><!-- /.container -->
 

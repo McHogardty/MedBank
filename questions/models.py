@@ -133,6 +133,9 @@ class TeachingBlock(models.Model):
     def questions_pending_count(self):
         return Question.objects.filter(teaching_activity__block=self, status=Question.PENDING_STATUS).count()
 
+    def questions_flagged_count(self):
+        return Question.objects.filter(teaching_activity__block=self, status=Question.FLAGGED_STATUS).count()
+
     def question_count_for_student(self, s):
         return Question.objects.filter(teaching_activity__block=self, creator=s).count()
 
@@ -208,10 +211,12 @@ class Question(models.Model):
     APPROVED_STATUS = 0
     PENDING_STATUS = 1
     DELETED_STATUS = 2
+    FLAGGED_STATUS = 3
     STATUS_CHOICES = (
         (APPROVED_STATUS, 'Approved'),
         (PENDING_STATUS, 'Pending'),
-        (DELETED_STATUS, 'Deleted')
+        (DELETED_STATUS, 'Deleted'),
+        (FLAGGED_STATUS, 'Flagged')
     )
     body = models.TextField()
     options = models.TextField(blank=True)
@@ -223,17 +228,20 @@ class Question(models.Model):
     teaching_activity = models.ForeignKey(TeachingActivity, related_name="questions")
     status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS)
 
-    def approved(self):
-        return self.status == self.APPROVED_STATUS
-    approved = property(approved)
+    def __init__(self, *args, **kwargs):
+        super(Question, self).__init__(*args, **kwargs)
+        # Adds properties to the model to check the status, e.g. self.approved, self.flagged
+        for k in self.__class__.__dict__.keys():
+            if not "_STATUS" in k or hasattr(self, k.split("_")[0].lower()):
+                continue
 
-    def pending(self):
-        return self.status == self.PENDING_STATUS
-    pending = property(pending)
+            self.add_model_status_property_method(k)
 
-    def deleted(self):
-        return self.status == self.DELETED_STATUS
-    deleted = property(deleted)
+    def add_model_status_property_method(self, k):
+        def check_status_function(self):
+            return self.status == getattr(self, k)
+
+        setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
     def options_list(self):
         l = list(json.loads(self.options).iteritems())

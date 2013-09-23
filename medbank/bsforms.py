@@ -80,6 +80,8 @@ class BootstrapModelForm(forms.ModelForm):
                     hasattr(self, 'get_%s_display' % (f.html_name, )):
                 self.add_model_get_FOO_display_method(f)
 
+        print "Form init"
+
     def add_model_get_FOO_display_method(self, f):
         def model_get_FOO_display_method():
             for k, c in f.field.choices:
@@ -241,20 +243,39 @@ class BoundField(forms.forms.BoundField):
         return super(BoundField, self).label_tag(contents, attrs)
 
     def as_widget(self, widget=None, attrs=None, only_initial=False):
-        if attrs:
-            if 'class' in attrs:
-                c = attrs['class'].split()
-                c.append('form-control')
-                attrs['class'] = " ".join(c)
-            else:
-                attrs['class'] = 'form-control'
+        if widget:
+            a = widget.attrs
         else:
-            attrs = {'class': 'form-control'}
+            a = self.field.widget.attrs
+
+        if a and 'class' in a:
+            c = a['class'].split()
+            c.append('form-control')
+            a['class'] = " ".join(c)
+        else:
+            a.update({'class': 'form-control'})
 
         return super(BoundField, self).as_widget(widget, attrs, only_initial)
 
 
-class NewBootstrapForm(BootstrapForm):
+class ErrorList(forms.util.ErrorList):
+    def __str__(self):
+        return self.as_paragraph()
+
+    def as_ul(self):
+        return super(ErrorList, self).as_ul()
+
+    def as_paragraph(self):
+        if not self: return ''
+
+        return ' '.join(['* %s' % force_text(e) for e in self])
+
+
+class NewBootstrapFormMixin(object):
+    def __init__(self, *args, **kwargs):
+        super(NewBootstrapFormMixin, self).__init__(*args, **kwargs)
+        self.error_class = ErrorList
+
     def __str__(self):
         return self.as_bootstrap()
 
@@ -268,27 +289,18 @@ class NewBootstrapForm(BootstrapForm):
     def as_bootstrap(self):
         return self._html_output(
             normal_row="<div class='form-group'>%(label)s<div class='col-md-6'>%(field)s%(help_text)s</div></div>",
-            error_row="%s",
+            error_row="<span>%s</span>",
             row_ender="</div>",
-            help_text_html="%s",
+            help_text_html="<span class='help-block'>%s</span>",
             errors_on_separate_row=True
         )
 
 
-class BootstrapField(forms.Field):
-    def widget_attrs(self, widget):
-        if 'class' in widget.attrs:
-            l = widget.attrs['class'].split()
-            l.append("form-control")
-            widget.attrs['class'] = " ".join(l)
-        return super(BootstrapField, self).widget_attrs(widget)
-
-
-class RegexField(BootstrapField, forms.RegexField):
+class NewBootstrapForm(NewBootstrapFormMixin, BootstrapForm):
     pass
 
 
-class CharField(BootstrapField, forms.CharField):
+class NewBootstrapModelForm(NewBootstrapFormMixin, BootstrapModelForm):
     pass
 
 

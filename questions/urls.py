@@ -3,7 +3,7 @@ from django.conf.urls import patterns, include, url
 from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock,
     MyActivitiesView, UnassignView, ApproveQuestionsView, StartApprovalView,
-    EmailView)
+    EmailView, ChangeStatus)
 
 # Uncomment the next two lines to enable the admin:
 # from django.contrib import admin
@@ -30,9 +30,7 @@ urlpatterns = patterns(
     url(r'^ta/(?P<ta_id>\d+)/question/new/$', NewQuestion.as_view(), name='new'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/edit/$', UpdateQuestion.as_view(), name='edit'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/$', ViewQuestion.as_view(template_name="view.html"), name='view'),
-    url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/approve/$', 'approve'),
-    url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/delete/$', 'delete'),
-    url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/pending/$', 'make_pending'),
+    url(r'^ta/(?P<ta_id>\d+)/question/(?P<q_id>\d+)/(?P<action>[a-z]+)/$', ChangeStatus.as_view(), name="question-status"),
     url(r'^ta/upload/$', 'new_ta_upload', name='activity-upload'),
     url(r'^ta/(?P<ta_id>\d+)/signup/$', 'signup'),
     url(r'^ta/(?P<pk>\d+)/unassign/$', UnassignView.as_view(), name='activity-unassign'),

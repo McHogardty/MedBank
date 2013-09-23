@@ -115,13 +115,15 @@ class TeachingActivityBulkUploadForm(bsforms.BootstrapHorizontalForm):
     year = forms.IntegerField()
 
 
-class NewTeachingBlockForm(bsforms.BootstrapHorizontalModelForm):
-    start = forms.DateField(widget=forms.TextInput(
-        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
-    ), help_text="The first day that students can assign themselves to activities in this block.")
-    end = forms.DateField(widget=forms.TextInput(
-        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
-    ), help_text="The last day that students can assign themselves to activities in this block.")
+class NewTeachingBlockForm(bsforms.NewBootstrapModelForm):
+#    start = forms.DateField(widget=forms.TextInput(
+#        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
+#    ), help_text="The first day that students can assign themselves to activities in this block.")
+#    end = forms.DateField(widget=forms.TextInput(
+#        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
+#    ), help_text="The last day that students can assign themselves to activities in this block.")
+    start = forms.DateField(widget=forms.TextInput(), help_text="The first day that students can assign themselves to activities in this block.")
+    end = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can assign themselves to activities in this block.")
 
     class Meta:
         model = TeachingBlock
@@ -151,6 +153,6 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
         exclude = ('stage', 'number', 'start', 'end')
 
 class EmailForm(bsforms.NewBootstrapForm):
-    subject = bsforms.CharField(widget=forms.TextInput(attrs={'class': 'span6'}))
-    email = bsforms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
+    subject = forms.CharField(widget=forms.TextInput(attrs={'class': 'span6'}))
+    email = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.all(), widget=forms.HiddenInput())

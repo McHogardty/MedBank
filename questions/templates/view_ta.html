@@ -169,7 +169,7 @@
                     <span style="float:left; overflow:hidden; white-space:nowrap;text-overflow:ellipsis;" class="body">{{ q.body }}</span>
                     <span class="actions pull-right text-right" style="display:block; width:250px; position:absolute; right:0;">
                         <span class="visible-desktop">
-                        <span class="text-{% if q.approved %}success{% elif q.pending %}warning{% endif %}">{{ q.get_status_display }}</span>
+                        <span class="text-{% if q.approved %}success{% elif q.pending %}warning{% elif q.flagged %}{% if perms.questions.can_approve %}info{% else %}warning{% endif %}{% endif %}">{% if q.flagged and not perms.questions.can_approve %}Pending{% else %}{{ q.get_status_display }}{% endif %}</span>
                         <a class="action view" href="{% url 'view' pk=q.id ta_id=object.id %}{% if perms.questions.can_approve %}?show{% endif %}">
                             View
                         </a>

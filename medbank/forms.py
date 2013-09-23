@@ -8,18 +8,9 @@ import bsforms
 from questions import models
 
 
-class BootstrapAuthenticationForm(AuthenticationForm):
-    def __init__(self, *args, **kwargs):
-        super(BootstrapAuthenticationForm, self).__init__(self, *args, **kwargs)
-        self.required = False
-        if any(fs.field.required for fs in self):
-                self.required = True
-        self.is_horizontal = True
-
-
-class BootstrapAuthenticationForm(AuthenticationForm):
-    username = bsforms.CharField(max_length=254, widget=forms.TextInput(attrs={'class':'input-lg', 'placeholder':'Unikey'}))
-    password = bsforms.CharField(label=_("Password"), widget=forms.PasswordInput(attrs={'class':'input-lg', 'placeholder':'Password'}))
+class BootstrapAuthenticationForm(bsforms.NewBootstrapForm, AuthenticationForm):
+    username = forms.CharField(max_length=254, widget=forms.TextInput(attrs={'class':'input-lg', 'placeholder':'Unikey'}))
+    password = forms.CharField(label=_("Password"), widget=forms.PasswordInput(attrs={'class':'input-lg', 'placeholder':'Password'}))
     def __init__(self, *args, **kwargs):
         super(BootstrapAuthenticationForm, self).__init__(*args, **kwargs)
         self.required = False
@@ -71,3 +62,7 @@ class PasswordResetForm(bsforms.BootstrapHorizontalForm):
         password2 = self.cleaned_data['password2']
         if not password1 == password2:
             raise forms.ValidationError(_('The passwords you entered do not match. Please try again.'))
+
+
+class FeedbackForm(bsforms.NewBootstrapForm):
+    feedback = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))

@@ -17,6 +17,35 @@ body hr.nav {
     margin-top:0;
 }
 
+.container + .alert {
+    margin-top:20px;
+}
+
+.alert {
+    margin-bottom:0px;
+}
+
+.alert ~ .alert {
+    margin-top:0;
+    border-top:none;
+}
+
+.alert.last {
+    margin-bottom:20px;
+}
+
+hr {
+    display:none;
+}
+
+.container ~ hr {
+    display:block;
+}
+
+div.alert+hr {
+    display:none;
+}
+
 .page-actions {
     border:1px solid rgb(240,240,240);
     padding:0 5px;
@@ -71,7 +100,8 @@ body hr.nav {
     body hr {
         margin-top:0;
     }
-    .text-muted {
+
+    .header h1 {
         text-align:center;
     }
     span.username {
