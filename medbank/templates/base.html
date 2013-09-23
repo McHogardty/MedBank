@@ -136,7 +136,7 @@
     <hr class="nav">
     <div class="container">
         <div class="alert alert-info">
-            <strong>Announcement</strong> We are currently giving the site a facelift. If you have any feedback, <a href="" class="alert-link">let us know about it!</a>
+            <strong>Announcement</strong> We are currently giving the site a facelift. If you have any feedback, <a href="{% url 'feedback' %}">let us know about it!</a>
         </div>
         {% for m in messages %}
             <div class="alert{% if m.tags %} alert-{{ m.tags}}{% endif %}">
