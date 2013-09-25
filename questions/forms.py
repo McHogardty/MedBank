@@ -87,17 +87,17 @@ ANSWER_CHOICES = ((x, x) for x in string.ascii_uppercase[:5])
 
 class NewQuestionForm(bsforms.NewBootstrapModelForm):
     """A form for creation and editing of questions."""
-    body = forms.CharField(label="Question body", widget=forms.Textarea(attrs={'class': 'span6'}))
+    body = forms.CharField(label="Question body", widget=forms.Textarea())
     options = QuestionOptionsField()
-    answer = forms.ChoiceField(choices=ANSWER_CHOICES, widget=forms.Select(attrs={'class': 'span1'}))
-    explanation = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
+    answer = forms.ChoiceField(choices=ANSWER_CHOICES, widget=forms.Select())
+    explanation = forms.CharField(widget=forms.Textarea())
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     teaching_activity = forms.ModelChoiceField(queryset=TeachingActivity.objects.all(), widget=forms.HiddenInput())
 
     def __init__(self, admin=False, *args, **kwargs):
         super(NewQuestionForm, self).__init__(*args, **kwargs)
         if admin:
-            self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(attrs={'class': 'span6'}))
+            self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(attrs={'class': 'col-md-6'}))
 
     class Meta:
         model = Question

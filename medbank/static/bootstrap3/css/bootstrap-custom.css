@@ -19,6 +19,10 @@ body {
     opacity: 0.5;
 }
 
+.has-error .option-label {
+    color: #b94a48;
+}
+
 span.help-block:empty {
     display:none;
 }
