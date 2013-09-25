@@ -1,14 +1,16 @@
-{% extends "base.html" %}
+{% extends "newbase.html" %}
 
 {% block loginnext %}{% url 'activity-mine' %}{% endblock loginnext %}
 
 {% block content %}
     <h1 class="thin">Create a new user</h1>
-    <form class="form-horizontal" method="post">
+    <form class="form-horizontal" method="post" role="form">
         {% csrf_token %}
-        {% include "form.html" %}
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Create</button>
+        {{ form.as_bootstrap }}
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-6">
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
         </div>
     </form>
 {% endblock content %}

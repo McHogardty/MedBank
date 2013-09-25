@@ -217,7 +217,7 @@ class NewQuestion(CreateView):
         if not self.ta.current_block().can_write_questions:
             messages.warning(request, "You are not currently able to write questions for this teaching activity.")
             return redirect('ta', pk=self.ta.id)
-        if models.Question.objects.filter(teaching_activity=self.ta, creator=request.user.student).count() >= settings.QUESTIONS_PER_USER:
+        if models.Question.objects.filter(teaching_activity=self.ta, creator=request.user.student).exclude(status=models.Question.DELETED_STATUS).count() >= settings.QUESTIONS_PER_USER:
             messages.warning(request, "You have already submitted %d questions for this teaching activity." % settings.QUESTIONS_PER_USER)
             return redirect('ta', pk=self.ta.id)
         return super(NewQuestion, self).dispatch(request, *args, **kwargs)

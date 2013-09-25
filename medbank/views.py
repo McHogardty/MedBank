@@ -39,6 +39,10 @@ def home(request):
     return render_to_response("base-no-nav.html", {'next_url': reverse('activity-mine')}, context_instance=RequestContext(request))
 
 
+def test(request, name):
+    return render_to_response("%s.html" % name, context_instance=RequestContext(request))
+
+
 def server_error(request):
     return HttpResponseServerError(loader.get_template('500.html').render(RequestContext(request)))
 
@@ -58,8 +62,8 @@ def create_user(request):
         form = forms.StudentCreationForm()
 
     form.is_horizontal = True
-    if request.method == 'POST':
-        form.fields['username'].help_text = u""
+#    if request.method == 'POST':
+#        form.fields['username'].help_text = u""
     return render_to_response("user.html", {'form': form}, context_instance=RequestContext(request))
 
 

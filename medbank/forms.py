@@ -19,7 +19,7 @@ class BootstrapAuthenticationForm(bsforms.NewBootstrapForm, AuthenticationForm):
         self.is_horizontal = True
 
 
-class StudentCreationForm(UserCreationForm):
+class StudentCreationForm(bsforms.NewBootstrapModelForm, UserCreationForm):
     username = forms.RegexField(label=_("Unikey"), max_length=20,
         regex=r'^([a-z]{4}\d{4})|[a-z]+$',
         help_text=_("We'll use your Unikey to email the questions to you when they're ready."),
@@ -29,7 +29,7 @@ class StudentCreationForm(UserCreationForm):
     stage = forms.ModelChoiceField(queryset=models.Stage.objects.all(), empty_label=None)
 
 
-class PasswordResetRequestForm(bsforms.BootstrapHorizontalForm):
+class PasswordResetRequestForm(bsforms.NewBootstrapForm):
     username = forms.RegexField(max_length=20,
         regex=r'^([a-z]{4}\d{4})|[a-z]+$',
         error_messages={
@@ -47,7 +47,7 @@ class PasswordResetRequestForm(bsforms.BootstrapHorizontalForm):
 
         return username
 
-class PasswordResetForm(bsforms.BootstrapHorizontalForm):
+class PasswordResetForm(bsforms.NewBootstrapForm):
     password1 = forms.CharField(
         label=_('New password'),
         widget=forms.PasswordInput(),

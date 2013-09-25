@@ -228,6 +228,14 @@ class BootstrapCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
 
 
 class BoundField(forms.forms.BoundField):
+    def css_classes(self, extra_classes=None):
+        if hasattr(extra_classes, 'split'):
+            extra_classes = extra_classes.split()
+        extra_classes = set(extra_classes or [])
+        extra_classes.add("form-group")
+        c = super(BoundField, self).css_classes(extra_classes)
+        return c
+
     def label_tag(self, contents=None, attrs=None):
         if attrs:
             if 'class' in attrs:
@@ -258,23 +266,21 @@ class BoundField(forms.forms.BoundField):
         return super(BoundField, self).as_widget(widget, attrs, only_initial)
 
 
-class ErrorList(forms.util.ErrorList):
-    def __str__(self):
+class NewErrorList(forms.util.ErrorList):
+    def __unicode__(self):
         return self.as_paragraph()
-
-    def as_ul(self):
-        return super(ErrorList, self).as_ul()
 
     def as_paragraph(self):
         if not self: return ''
 
-        return ' '.join(['* %s' % force_text(e) for e in self])
+        return ' '.join(['%s' % force_text(e) for e in self])
 
 
 class NewBootstrapFormMixin(object):
+    error_css_class = "has-error"
     def __init__(self, *args, **kwargs):
         super(NewBootstrapFormMixin, self).__init__(*args, **kwargs)
-        self.error_class = ErrorList
+        self.error_class = NewErrorList
 
     def __str__(self):
         return self.as_bootstrap()
@@ -288,11 +294,11 @@ class NewBootstrapFormMixin(object):
 
     def as_bootstrap(self):
         return self._html_output(
-            normal_row="<div class='form-group'>%(label)s<div class='col-md-6'>%(field)s%(help_text)s</div></div>",
-            error_row="<span>%s</span>",
+            normal_row="<div%(html_class_attr)s>%(label)s<div class='col-md-6'>%(field)s<span class='help-block'>%(errors)s %(help_text)s</span></div></div>",
+            error_row="<span class='help-block'>%s</span>",
             row_ender="</div>",
-            help_text_html="<span class='help-block'>%s</span>",
-            errors_on_separate_row=True
+            help_text_html="%s",
+            errors_on_separate_row=False
         )
 
 

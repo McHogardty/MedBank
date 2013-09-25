@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "newbase.html" %}
 
 {% block head %}
 <style type="text/css">
@@ -13,14 +13,13 @@
 
 {% block content %}
     <h1 class="thin">Add a new question</h1>
-    <form class="form-horizontal" method="post">
-        <div class="row">
-            {% csrf_token %}
-            {% include "form.html" %}
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Submit</button>
-            <button type="button" class="btn" onclick="location.href='{% url 'ta' pk=view.ta.id %}'">Cancel</button>
+    <form class="form-horizontal" method="post" role="form">
+        {% csrf_token %}
+        {{ form.as_bootstrap }}
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-6">
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
         </div>
     </form>
 {% endblock content %}

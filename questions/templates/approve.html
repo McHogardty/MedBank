@@ -1,94 +1,9 @@
-{% extends "base_with_actions.html" %}
-
-{% block head %}
-    <style type="text/css">
-        td.options-menu {
-            border-top-color:rgb(240,240,240);
-        }
-
-        td.lead {
-            vertical-align: middle;
-        }
-
-        .loading {
-            opacity: 0.5;
-        }
-
-        h1.thin {
-            font-weight:200;
-        }
-
-        .table th.lead {
-            font-weight:200;
-        }
-
-        @media (min-width: 1200px) {
-            .table td.table-span1, .table th.table-span1 {
-                min-width:90px;
-            }
-        }
-
-        @media (max-width: 1199px) {
-            .table td.table-span1, .table th.table-span1 {
-                min-width:90px;
-            }
-        }
-
-        .close {
-            font-weight: 200;
-        }
-
-        div.week, div.activity {
-            border-top:1px solid rgb(240,240,240);
-        }
-
-        div.week-activities {
-            padding:0 10px;
-        }
-        div.week-heading {
-            font-weight: 200;
-            padding:0 10px;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            cursor:pointer;
-        }
-
-        div.week-heading:hover {
-            background-color:rgb(249,249,249);
-        }
-
-        div.activity {
-            font-size:17.5px;
-            padding:10px;
-        }
-
-        .week-heading .close, .week-heading h3 {
-            display:inline-block;
-        }
-
-        .week-heading .close {
-            font-size:40px;
-            line-height:40px;
-            font-weight:200;
-            margin-top:5px;
-        }
-
-        .icon-angle-down {
-            width:25px;
-            height:25px;
-            background-image:none;
-        }
-    </style>
-{% endblock head %}
+{% extends "newbase_with_actions.html" %}
 
 {% block maincontent %}
 	<h1 class="thin">Approve Questions</h1>
 		Please choose a block to continue.
-	    <div class="row span10 spacer">
+	    <div class="row col-md-12 spacer">
 	        {% for b in object_list %}
 	            {% if not flagged and b.questions_need_approval or flagged and b.questions_flagged_count %}
 	                <div class="week">

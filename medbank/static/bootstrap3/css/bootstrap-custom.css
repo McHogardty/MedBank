@@ -1,9 +1,35 @@
+body {
+    padding-bottom:30px;
+}
+
 .alert {
   border-radius: 0;
 }
 
+.spacer {
+    margin-top:30px;
+}
+
+.loading {
+    opacity: 0.5;
+}
+
+.cross-out {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+span.help-block:empty {
+    display:none;
+}
+
 h1, h2, h3, h4 {
 	font-weight:200;
+}
+
+.week-heading h3 {
+    line-height:40px;
+    margin:10px 0;
 }
 
 .nav .action {
@@ -22,7 +48,7 @@ body hr.nav {
 }
 
 .alert {
-    margin-bottom:0px;
+    margin-bottom: 0;
 }
 
 .alert ~ .alert {
@@ -67,6 +93,32 @@ div.alert+hr {
     border-top: 1px solid rgb(240,240,240);
 }
 
+.actions.hidden-xs {
+    display:inline!important;
+}
+
+.loading .hidden-xs.hidden-sm {
+    display:inline!important;
+}
+
+@media (max-width: 767px) {
+  .actions.hidden-xs {
+    display:none!important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  .loading .hidden-xs.hidden-sm {
+    display: none !important;
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+  .loading .hidden-xs.hidden-md {
+    display: none !important;
+  }
+}
+
 .actions .action {
     display:inline-block;
     padding: 0 10px;
@@ -76,6 +128,7 @@ div.alert+hr {
 
 .actions .action:last-of-type {
     border-right:none;
+    padding-right:0;
 }
 
 .actions .actions {
@@ -84,6 +137,64 @@ div.alert+hr {
 
 ol.alpha {
     list-style-type: upper-alpha;
+}
+
+.icon-angle-down {
+    width:25px;
+    height:25px;
+    background-image:none;
+}
+
+div.week, div.activity {
+    border-top:1px solid rgb(240,240,240);
+}
+
+div.activity {
+    font-size:17.5px;
+    padding:10px;
+}
+
+.activity .body {
+    max-width:400px;
+    float:left;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+}
+
+div.week-activities {
+    padding:0 10px;
+}
+
+.week-heading h3 {
+    display:inline-block;
+}
+
+div.week-heading {
+    font-weight: 200;
+    padding:0 10px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+div.week-heading:hover {
+    background-color:rgb(249,249,249);
+}
+@media (max-width:979px) {
+    .activity .body {
+        width:100%;
+        max-width: none;
+    }
+}
+
+@media (min-width:1200px) {
+    .activity .body {
+        max-width:550px;
+    }
 }
 
 @media (min-width: 768px) {
@@ -101,6 +212,7 @@ ol.alpha {
         border-right:none;
         padding:10px 0;
     }
+
     body hr {
         margin-top:0;
     }
@@ -108,6 +220,7 @@ ol.alpha {
     .header h1 {
         text-align:center;
     }
+
     span.username {
         display:block;
         padding:10px 0;
@@ -115,7 +228,24 @@ ol.alpha {
         text-align:center;
         border-right:none;
     }
+
     .page-actions {
         margin-top:20px;
+    }
+
+    .container + .alert {
+        margin-top:0;
+    }
+
+    .action-column {
+        margin-bottom:20px;
+    }
+
+    div.activity {
+        text-align:center;
+    }
+
+    .week-heading {
+        text-align:center;
     }
 }

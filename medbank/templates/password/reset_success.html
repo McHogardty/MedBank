@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "newbase.html" %}
 
 {% block loginnext %}{% url 'medbank.views.home' %}{% endblock %}
 
 {% block content %}
-	<h1 class="thin">Password reset</h1>
+	<h1>Password reset</h1>
 
 	Your password has been successfully reset. You can now log in using the new password.
 {% endblock content %}

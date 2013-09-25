@@ -1,61 +1,7 @@
-{% extends "base.html" %}
+{% extends "newbase.html" %}
 
 {% block head %}
     <style type="text/css">
-        td.options-menu {
-            border-top-color:rgb(240,240,240);
-        }
-
-        td.lead {
-            vertical-align: middle;
-        }
-
-        .loading {
-            opacity: 0.5;
-        }
-
-        h1.thin {
-            font-weight:200;
-        }
-
-        .table th.lead {
-            font-weight:200;
-        }
-
-        @media (min-width: 1200px) {
-            .table td.table-span1, .table th.table-span1 {
-                min-width:90px;
-            }
-        }
-
-        @media (max-width: 1199px) {
-            .table td.table-span1, .table th.table-span1 {
-                min-width:90px;
-            }
-        }
-
-        .close {
-            font-weight: 200;
-        }
-
-        div.week, div.activity {
-            border-top:1px solid rgb(240,240,240);
-        }
-
-        div.week-activities {
-            padding:0 10px;
-        }
-        div.week-heading {
-            font-weight: 200;
-            padding:0 10px;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-
         div.week-heading:hover {
             background-color:rgb(249,249,249);
         }
@@ -106,30 +52,30 @@
     <h1 class="thin">{{ teaching_block }}</h1>
     <p class="lead">You can sign up for activities in this block from {{ teaching_block.start }} until {{ teaching_block.end }}.</p>
     <p class="lead">You will be able to write questions for activities until  {{ teaching_block.close }}</p>
-    <p class="hidden-phone">Click on a week below to see the classes available for that week.</p>
-    <p class="visible-phone">Tap on a week below to see the classes available for that week. Tap on a class to assign yourself to it.</p>
-    <div class="row span10 spacer">
+    <p class="hidden-xs">Click on a week below to see the classes available for that week.</p>
+    <p class="visible-xs">Tap on a week below to see the classes available for that week. Tap on a class to assign yourself to it.</p>
+    <div class="row col-md-10 spacer">
     {% for w, a, l in object_list %}
     {% if forloop.first %}{% endif %}
     <div class="week">
         <div class="week-heading{% if not a %} loading{% endif %} collapse-trigger" data-target="#week-activities-{{ w }}">
             <h3 class="thin">Week {{ w }}</h3>
             <i class="icon-angle-down"></i>
-            <h3 class="thin pull-right{% if a %} text-success{% endif %} hidden-phone">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>
+            <h3 class="thin pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>
         </div>
         <div class="week-activities collapse in" id="week-activities-{{ w }}">
             {% for t in l %}
             {% if t %}
-                <div class="activity {% if t.enough_writers %}hidden-phone{% endif %}">
+                <div class="activity {% if t.enough_writers %}hidden-xs{% endif %}">
                     <span class="loading pull-left">{{ t.get_activity_type_display.0 }}</span>&nbsp;
                     <span>{{ t }}</span>
-                    <span class="actions hidden-phone">
+                    <span class="actions hidden-xs">
                         <a class="action" href="{% url 'ta' pk=t.id %}">
                             View
                         </a>
                     </span>
-                    <span class="pull-right{% if user.student in t.question_writers.all %} text-success{% else %}{% if t.enough_writers %} loading{% endif %}{% endif %} hidden-phone">
-                        {% if user.student in t.question_writers.all %}Assigned{% else %}{% if t.can_sign_up %}{% if t.enough_writers %}Unavailable{% else %}{% if t.has_writers %}<span class="loading"><span class='visible-desktop'>Assigned to {{ t.question_writers.count }}</span></span> {% endif %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}{% endif %}{% endif %}
+                    <span class="pull-right{% if user.student in t.question_writers.all %} text-success{% else %}{% if t.enough_writers %} loading{% endif %}{% endif %} hidden-xs">
+                        {% if user.student in t.question_writers.all %}Assigned{% else %}{% if t.can_sign_up %}{% if t.enough_writers %}Unavailable{% else %}{% if t.has_writers %}<span class="loading"><span class='hidden-xs hidden-sm'>Assigned to {{ t.question_writers.count }}</span></span> {% endif %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}{% endif %}{% endif %}
                     </span>
                 </div>                
             {% endif %}

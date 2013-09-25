@@ -13,6 +13,7 @@ from django.views.generic import TemplateView
 urlpatterns = patterns(
     '',
     url(r'^$', 'medbank.views.home'),
+    url(r'^(?P<name>[0-9]+)/$', 'medbank.views.test'),
     url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', {'authentication_form': forms.BootstrapAuthenticationForm}, name="login"),
     url(r'^logout/$', 'medbank.views.logout_view', name="logout"),
     url(r'^newuser/$', 'medbank.views.create_user', name="create_user"),
