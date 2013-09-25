@@ -1,40 +1,28 @@
-{% extends "base_with_actions.html" %}
-
-{% block head %}
-    <style type="text/css">
-        ol.alpha {
-            list-style-type: upper-alpha;
-        }
-    </style>
-{% endblock head %}
+{% extends "newbase_with_actions.html" %}
 
 {% block actions %}
     <h3 class="thin">Page actions</h3>
-    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
-    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}{% if show or approval_mode %}?{% endif %}{% if show %}show{% endif %}{% if show and approval_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}">Edit question</a>
+    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode or not show and flagged_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}{% if approval_mode and flagged_mode %}&{% endif %}{% if flagged_mode%}flagged{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
+    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}{% include 'querystring.html' %}">Edit question</a>
     {% endif %}
     {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>{% endif %}
 
     {% if perms.questions.can_approve %}
         <h3 class="thin">Admin</h3>
         {% if not question.approved %}
-            {% if approval_mode %}
-                <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='approve' %}?approve{% if show %}&show{% endif %}">Approve question</a>
-            {% else %}
-                <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='approve' %}">Approve question</a>
-            {% endif %}
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='approve' %}{% include 'querystring.html' %}">Approve question</a>
         {% endif %}
         {% if not question.pending %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='pending' %}?approve{% if show %}&show{% endif %}">Set to pending</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='pending' %}{% include 'querystring.html' %}">Set to pending</a>
         {% endif %}
         {% if not question.deleted %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='delete' %}{% if show or approval_mode %}?{% endif %}{% if show %}show{% endif %}{% if show and approval_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}">Delete question</a>        
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='delete' %}{% include 'querystring.html' %}">Delete question</a>        
         {% endif %}
         {% if approval_mode %}
-            <a class="action" href="{% url 'admin-approve' pk=question.teaching_activity.current_block.id q_id=question.id %}?approve{% if show %}&show{% endif %}">Skip question</a>
+            <a class="action" href="{% url 'admin-approve' pk=question.teaching_activity.current_block.id q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
         {% endif %}
         {% if not question.flagged %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='flag' %}?approve{% if show %}&show{% endif %}">Flag for review</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='flag' %}{% include 'querystring.html' %}">Flag for review</a>
         {% endif %}
     {% endif %}
 {% endblock actions %}
@@ -43,7 +31,7 @@
     <h1 class="thin">{{ question.teaching_activity.current_block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
     <p>Block: {{ question.teaching_activity.current_block }}</p>
     <h2 class="thin spacer">Question <small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if not perms.questions.can_approve and question.flagged %}Pending{% else %}{{ question.get_status_display }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.approver }}{% endif %}</small></h2>
-    {% if perms.questions.can_approve %}<h4 class="thin" style="">Written by {{ question.creator }}</h4>{% endif %}
+    {% if perms.questions.can_approve %}<h4>Written by {{ question.creator }}</h4>{% endif %}
     <p class="lead">{{ question.body }}</p>
     <ol class="alpha">
         {% for a in question.options_list %}
@@ -54,5 +42,17 @@
     <p class="spacer">Answer: {{ question.answer }}</p>
     <p>{{ question.explanation }}</p>
 
+    {% endif %}
+    {% if perms.questions.can_approve %}
+        {% for r in question.reasons_edited.all %}
+            {% if forloop.first %}
+                <dl>
+            {% endif %}
+                <dt>Edited by {{ r.creator }} on {{ r.date_created }}</dt>
+                <dd>{{ r.body }}</dd>
+            {% if forloop.last %}
+                </dl>
+            {% endif %}
+        {% endfor %}
     {% endif %}
 {% endblock maincontent %}

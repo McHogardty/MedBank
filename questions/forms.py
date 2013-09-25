@@ -94,6 +94,11 @@ class NewQuestionForm(bsforms.BootstrapHorizontalModelForm):
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     teaching_activity = forms.ModelChoiceField(queryset=TeachingActivity.objects.all(), widget=forms.HiddenInput())
 
+    def __init__(self, admin=False, *args, **kwargs):
+        super(NewQuestionForm, self).__init__(*args, **kwargs)
+        if admin:
+            self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(attrs={'class': 'span6'}))
+
     class Meta:
         model = Question
         exclude = ('status', 'approver')

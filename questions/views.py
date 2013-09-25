@@ -25,6 +25,7 @@ import csv
 import json
 import datetime
 import collections
+import urllib
 
 
 def class_view_decorator(function_decorator):
@@ -48,7 +49,16 @@ class AllBlocksView(ListView):
     template_name = "choose.html"
 
     def get_queryset(self):
-        return models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage=self.request.user.student.get_current_stage())
+        bb = models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage=self.request.user.student.get_current_stage())
+
+        if 'flagged' in self.request.GET:
+            bb = bb.filter(activities__questions__status=models.Question.FLAGGED_STATUS).distinct()
+        return bb
+
+    def get_context_data(self, **kwargs):
+        c = super(AllBlocksView, self).get_context_data(**kwargs)
+        c.update({'flagged': 'flagged' in self.request.GET})
+        return c
 
 
 def test(request):
@@ -116,25 +126,28 @@ def admin(request):
     return render_to_response('admin.html', {'blocks': tb, 'questions_pending': questions_pending}, context_instance=RequestContext(request))
 
 
+class QueryStringMixin(object):
+    def query_string(self):
+        allowed = ['show', 'approve', 'flagged']
+        g = self.request.GET.keys()
+        if not g:
+            return ""
+        params = [k for k in g if k in allowed]
+        return "?%s" % ("&".join(params))
+
+
 @class_view_decorator(permission_required('questions.can_approve'))
-class StartApprovalView(RedirectView):
+class StartApprovalView(QueryStringMixin, RedirectView):
     permanent = False
 
     def query_string(self, initial):
-        g = self.request.GET
         if initial:
-            return "?show&approve"
-        elif not g:
-            return ""
-        qs = "?"
-        if 'show' in g:
-            qs += 'show'
-            if 'approve' in g:
-                qs += "&"
-        if 'approve' in g:
-            qs += "approve"
-
-        return qs
+            qs =  "?show&approve"
+            if 'flagged' in self.request.GET:
+                qs += "&flagged"
+            return qs
+        else:
+            return super(StartApprovalView, self).query_string()
 
     def get_redirect_url(self, pk, q_id=None):
         try:
@@ -149,17 +162,23 @@ class StartApprovalView(RedirectView):
             previous_q = models.Question.objects.get(pk=q_id)
         except models.Question.DoesNotExist:
             pass
+        if 'flagged' in self.request.GET:
+            s = models.Question.FLAGGED_STATUS
+        else:
+            s = models.Question.PENDING_STATUS
         q = models.Question.objects.filter(teaching_activity__block=b).filter(
-                db.models.Q(status=models.Question.PENDING_STATUS) | db.models.Q(pk=q_id)
+                db.models.Q(status=s) | db.models.Q(pk=q_id)
             )
-
         try:
             if previous_q:
                 q = q.filter(date_created__gte=previous_q.date_created).order_by('date_created')[1:2].get()
             else:
                 q = q.order_by('date_created')[:1].get()
         except models.Question.DoesNotExist:
-            messages.success(self.request, 'All questions for that block have been approved.')
+            m = 'All questions for that block have been approved'
+            if 'flagged' in self.request.GET:
+                m = 'There are no more flagged questions in that block.'
+            messages.success(self.request, m)
             return reverse('admin')
         return "%s%s" % (reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity.id}), self.query_string(previous_q == None))
 
@@ -213,24 +232,10 @@ class NewQuestion(CreateView):
 
 
 @class_view_decorator(login_required)
-class UpdateQuestion(UpdateView):
+class UpdateQuestion(QueryStringMixin, UpdateView):
     model = models.Question
     form_class = forms.NewQuestionForm
     template_name = "new.html"
-
-    def query_string(self):
-        g = self.request.GET
-        if not g:
-            return ""
-        qs = "?"
-        if 'show' in g:
-            qs += 'show'
-            if 'approve' in g:
-                qs += "&"
-        if 'approve' in g:
-            qs += "approve"
-
-        return qs
 
     def dispatch(self, request, *args, **kwargs):
         self.ta = check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
@@ -246,6 +251,25 @@ class UpdateQuestion(UpdateView):
             raise PermissionDenied
 
         return o
+
+    def get_form_kwargs(self):
+        k = super(UpdateView, self).get_form_kwargs()
+        if self.request.user.has_perm("questions.can_approve") and self.get_object().creator != self.request.user:
+            k.update({'admin': True})
+        return k
+
+    def form_valid(self, form):
+        o = self.get_object()
+        if self.request.user.has_perm("questions.can_approve") and o.creator != self.request.user:
+            c = form.cleaned_data
+            if c['reason']:
+                r = models.Reason()
+                r.body = c['reason']
+                r.creator = self.request.user.student
+                r.question = o
+                r.save()
+        return super(UpdateQuestion, self).form_valid(form)
+
 
     def get_success_url(self):
         return "%s%s" % (reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id}), self.query_string())
@@ -372,6 +396,7 @@ class ViewQuestion(DetailView):
         c = super(ViewQuestion, self).get_context_data(**kwargs)
         c['show'] = 'show' in self.request.GET
         c['approval_mode'] = 'approve' in self.request.GET
+        c['flagged_mode'] = 'flagged' in self.request.GET
         return c
 
 
@@ -386,23 +411,7 @@ def view(request, ta_id, q_id):
         messages.error(request, "Sorry, an unknown error occurred. Please try again.")
         return redirect('questions.views.home')
 
-    return render_to_response("view.html", {'q': q, 'show': 'show' in request.GET}, context_instance=RequestContext(request))
-
-
-class QueryStringMixin(object):
-    def query_string(self):
-        g = self.request.GET
-        if not g:
-            return ""
-        qs = "?"
-        if 'show' in g:
-            qs += 'show'
-            if 'approve' in g:
-                qs += "&"
-        if 'approve' in g:
-            qs += "approve"
-
-        return qs        
+    return render_to_response("view.html", {'q': q, 'show': 'show' in request.GET}, context_instance=RequestContext(request))   
 
 
 class ChangeStatus(RedirectView):

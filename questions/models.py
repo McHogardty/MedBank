@@ -259,3 +259,10 @@ class Question(models.Model):
         permissions = (
             ('can_approve', 'Can approve questions'),
         )
+
+class Reason(models.Model):
+    body = models.TextField()
+    question = models.ForeignKey(Question, related_name="reasons_edited")
+    creator = models.ForeignKey(Student, related_name="reasons")
+    date_created = models.DateTimeField(auto_now_add=True)
+

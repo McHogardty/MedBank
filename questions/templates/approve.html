@@ -90,9 +90,9 @@
 		Please choose a block to continue.
 	    <div class="row span10 spacer">
 	        {% for b in object_list %}
-	            {% if b.questions_need_approval %}
+	            {% if not flagged and b.questions_need_approval or flagged and b.questions_flagged_count %}
 	                <div class="week">
-	                    <div class="week-heading" onclick="location.href='{% url 'admin-approve-start' pk=b.id %}'">
+	                    <div class="week-heading" onclick="location.href='{% url 'admin-approve-start' pk=b.id %}{% if flagged %}?flagged{% endif %}'">
 	                        <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
 	                    </div>
 	                </div>

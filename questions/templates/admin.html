@@ -9,7 +9,7 @@
     {% if questions_pending %}
         <a class="action" href="{% url 'admin-approve-choose' %}">Approve questions</a>
     {% endif %}
-        <a class="action" href="">Approve flagged questions</a>
+        <a class="action" href="{% url 'admin-approve-choose' %}?flagged">View flagged questions</a>
 {% endblock actions %}
 
 {% block maincontent %}
