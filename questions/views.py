@@ -6,7 +6,7 @@ from django.http import HttpResponse, Http404, HttpResponseServerError
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.core.mail import EmailMessage, send_mail
-from django.views.generic import ListView, DetailView, FormView
+from django.views.generic import ListView, DetailView, FormView, TemplateView
 from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
@@ -25,7 +25,6 @@ import csv
 import json
 import datetime
 import collections
-import urllib
 
 
 def class_view_decorator(function_decorator):
@@ -51,7 +50,9 @@ class AllBlocksView(ListView):
     def get_queryset(self):
         bb = models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage=self.request.user.student.get_current_stage())
 
-        if 'flagged' in self.request.GET:
+        if 'pending' in self.request.GET:
+            bb = bb.filter(activities__questions__status=models.Question.PENDING_STATUS).distinct()
+        elif 'flagged' in self.request.GET:
             bb = bb.filter(activities__questions__status=models.Question.FLAGGED_STATUS).distinct()
         return bb
 
@@ -59,10 +60,6 @@ class AllBlocksView(ListView):
         c = super(AllBlocksView, self).get_context_data(**kwargs)
         c.update({'flagged': 'flagged' in self.request.GET})
         return c
-
-
-def test(request):
-    return redirect("home")
 
 
 @class_view_decorator(login_required)
@@ -119,11 +116,17 @@ class AllActivitiesView(ListView):
         return c
 
 
-@permission_required('questions.can_approve')
-def admin(request):
-    tb = models.TeachingBlock.objects.order_by('stage')
-    questions_pending = any(b.questions_need_approval() for b in tb)
-    return render_to_response('admin.html', {'blocks': tb, 'questions_pending': questions_pending}, context_instance=RequestContext(request))
+@class_view_decorator(permission_required('questions.can_approve'))
+class AdminView(TemplateView):
+    template_name = 'admin.html'
+
+    def get_context_data(self, **kwargs):
+        c = super(AdminView, self).get_context_data(**kwargs)
+        tb = models.TeachingBlock.objects.order_by('stage')
+        questions_pending = any(b.questions_need_approval() for b in tb)
+        questions_flagged = any(b.questions_flagged_count() for b in tb)
+        c.update({'blocks': tb, 'questions_pending': questions_pending, 'questions_flagged': questions_flagged,})
+        return c
 
 
 class QueryStringMixin(object):
@@ -414,6 +417,7 @@ def view(request, ta_id, q_id):
     return render_to_response("view.html", {'q': q, 'show': 'show' in request.GET}, context_instance=RequestContext(request))   
 
 
+@class_view_decorator(permission_required("questions.can_approve"))
 class ChangeStatus(RedirectView):
     permanent = False
 
@@ -487,6 +491,7 @@ def send(request, pk):
     return redirect('questions.views.admin')
 
 
+@class_view_decorator(permission_required('questions.can_approve'))
 class EmailView(FormView):
     template_name = "email.html"
     form_class = forms.EmailForm
@@ -534,9 +539,6 @@ class EmailView(FormView):
 
         return redirect('questions.views.admin')
 
-@permission_required('questions.can_approve')
-def email_test(request):
-    raise
 
 def copy_block(block):
     b = models.TeachingBlock()

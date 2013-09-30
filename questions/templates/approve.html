@@ -1,20 +1,20 @@
 {% extends "newbase_with_actions.html" %}
 
 {% block maincontent %}
-	<h1 class="thin">Approve Questions</h1>
-		Please choose a block to continue.
-	    <div class="row col-md-12 spacer">
-	        {% for b in object_list %}
-	            {% if not flagged and b.questions_need_approval or flagged and b.questions_flagged_count %}
-	                <div class="week">
-	                    <div class="week-heading" onclick="location.href='{% url 'admin-approve-start' pk=b.id %}{% if flagged %}?flagged{% endif %}'">
-	                        <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
-	                    </div>
-	                </div>
-	            {% endif %}
-	            {% if forloop.last %}{% endif %}
-	            {% empty %}
-	            <p>There are currently no blocks in the database.</p>
-	        {% endfor %}
-	    </div>
+    <h1 class="thin">{% if flagged %}Flagged{% else %}Approve{% endif %} Questions</h1>
+        Please choose a block to continue.
+        <div class="row col-md-12 spacer">
+            {% for b in object_list %}
+                {% if not flagged and b.questions_need_approval or flagged and b.questions_flagged_count %}
+                    <div class="week">
+                        <div class="week-heading" onclick="location.href='{% url 'admin-approve-start' pk=b.id %}{% if flagged %}?flagged{% endif %}'">
+                            <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
+                        </div>
+                    </div>
+                {% endif %}
+                {% if forloop.last %}{% endif %}
+                {% empty %}
+                <p>There are currently no blocks with {% if flagged %}flagged {% else %}pending{% endif %} questions.</p>
+            {% endfor %}
+        </div>
 {% endblock maincontent %}

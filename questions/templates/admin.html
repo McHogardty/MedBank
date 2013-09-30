@@ -7,9 +7,11 @@
         <a class="action" href="{% url 'activity-upload' %}">Upload teaching activities</a>
     {% endif %}
     {% if questions_pending %}
-        <a class="action" href="{% url 'admin-approve-choose' %}">Approve questions</a>
+        <a class="action" href="{% url 'admin-approve-choose' %}?pending">Approve questions</a>
     {% endif %}
-        <a class="action" href="{% url 'admin-approve-choose' %}?flagged">View flagged questions</a>
+    {% if questions_flagged %}
+        <a class="action" href="{% url 'admin-approve-choose' %}?flagged">View flagged questions</a>        
+    {% endif %}
 {% endblock actions %}
 
 {% block maincontent %}

@@ -3,7 +3,7 @@ from django.conf.urls import patterns, include, url
 from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock,
     MyActivitiesView, UnassignView, ApproveQuestionsView, StartApprovalView,
-    EmailView, ChangeStatus)
+    EmailView, ChangeStatus, AdminView)
 
 # Uncomment the next two lines to enable the admin:
 # from django.contrib import admin
@@ -14,9 +14,8 @@ from queue import base
 urlpatterns = patterns(
     'questions.views',
     url(r'^block/$', AllBlocksView.as_view(), name='block-list'),
-    url(r'^test/$', 'test'),
     url(r'^block/(?P<number>\d{1,2})/(?P<year>\d{4})/$', AllActivitiesView.as_view(), name='activity-list'),
-    url(r'^admin/$', 'admin', name='admin'),
+    url(r'^admin/$', AdminView.as_view(), name='admin'),
     url(r'^admin/email/(?P<pk>\d{1,2})/(?P<year>\d{4})/$', EmailView.as_view(), name='email'),
     url(r'^admin/approve/$', AllBlocksView.as_view(template_name="approve.html"), name='admin-approve-choose'),
     url(r'^admin/approve/(?P<pk>\d{1,2})/$', StartApprovalView.as_view(), name='admin-approve-start'),
@@ -34,5 +33,4 @@ urlpatterns = patterns(
     url(r'^ta/upload/$', 'new_ta_upload', name='activity-upload'),
     url(r'^ta/(?P<ta_id>\d+)/signup/$', 'signup'),
     url(r'^ta/(?P<pk>\d+)/unassign/$', UnassignView.as_view(), name='activity-unassign'),
-    url(r'^testemail/$', 'email_test'),
 )

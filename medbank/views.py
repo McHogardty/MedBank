@@ -137,7 +137,7 @@ class FeedbackView(FormView):
         t = tasks.EmailTask(
             "[MedBank] Feedback received from %s" % self.request.user.username,
             c['feedback'],
-            ['michaelhagarty@gmail.com',],
+            ['medbank@sydneymedsoc.org.au',],
         )
 
         queue.add_task(t)
