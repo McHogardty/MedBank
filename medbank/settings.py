@@ -6,8 +6,8 @@ import sys
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
-MAINTENANCE_MODE = bool(os.environ.get("DJANGO_MAINTENANCE", False))
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+MAINTENANCE_MODE = False
+DEBUG = False
 #if os.environ.get('MEDBANK_PRODUCTION'):
 #    DEBUG = False
 #else:

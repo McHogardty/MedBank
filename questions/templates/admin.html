@@ -15,10 +15,15 @@
 {% endblock actions %}
 
 {% block maincontent %}
-    <h1 class="thin">Administration</h1>
+    <h1>Administration</h1>
+    <h3>Site status</h3>
+    <dl class="dl-horizontal">
+        <dt>Debug mode</dt><dd>{% if debug_mode %}<strong class="text-danger">ON</strong> (Users will be able to see the details of errors if they occur. No emails are sent to the webmaster.){% else %}<strong class="text-success">OFF</strong> (Users will not be able to see the details of errors when they occur. The webmaster will receive emails containing the details of the errors.){% endif %}</dd>
+        <dt>Maintenance mode</dt><dd>{% if maintenance_mode %}<strong class="text-danger">ON</strong> (All users except admins will be displayed a site-maintenance page){% else %}<strong class="text-success">OFF</strong> (Users are able to use the site as normal){% endif %}</dd>
+    </dl>
     {% for b in blocks %}
         {% if forloop.first %}
-            <h3 class="thin">Currently active blocks</h3>
+            <h3>Currently active blocks</h3>
             <div class="spacer">
                 <table class="table">
                     <tr>

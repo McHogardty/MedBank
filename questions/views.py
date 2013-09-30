@@ -25,6 +25,8 @@ import csv
 import json
 import datetime
 import collections
+import os
+import pwd
 
 
 def class_view_decorator(function_decorator):
@@ -126,6 +128,8 @@ class AdminView(TemplateView):
         questions_pending = any(b.questions_need_approval() for b in tb)
         questions_flagged = any(b.questions_flagged_count() for b in tb)
         c.update({'blocks': tb, 'questions_pending': questions_pending, 'questions_flagged': questions_flagged,})
+        c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
+        c.update({'u': pwd.getpwuid(os.getuid()).pw_name, 'd': os.environ})
         return c
 
 
