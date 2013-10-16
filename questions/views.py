@@ -659,8 +659,8 @@ class EmailView(FormView):
             recipients
         )
 
-        queue.add_task(t)
-
+        #queue.add_task(t)
+        t.run()
         messages.success(self.request, "Your email has been successfully queued to be sent.")
 
         return redirect('admin')

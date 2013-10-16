@@ -236,3 +236,14 @@ class WYSIWYGArea(forms.Textarea):
         return format_html('<textarea{0}>\r\n{1}</textarea><div id="editor" class="span6"></div>',
                            flatatt(final_attrs),
                            force_text(value))
+
+class TextInputWithAddon(forms.TextInput):
+    def __init__(self, add_on=None, **kwargs):
+        self.add_on = add_on
+        super(TextInputWithAddon, self).__init__(**kwargs)
+
+    def render(self, name, value, attrs=None):
+        i = super(TextInputWithAddon, self).render(name, value, attrs)
+        if self.add_on:
+            i = format_html('<div class="input-group"><span class="input-group-addon">{0}</span>{1}</div>', self.add_on, i)
+        return i

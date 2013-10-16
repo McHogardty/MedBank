@@ -161,7 +161,7 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
 
 class EmailForm(bsforms.NewBootstrapForm):
     from_address = forms.CharField(widget=bsforms.StaticControl())
-    subject = forms.CharField(widget=forms.TextInput(attrs={'class': 'span6'}))
+    subject = forms.CharField(widget=bsforms.TextInputWithAddon(add_on="[MedBank]", attrs={'class': 'span6'}))
     email = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.all(), widget=forms.HiddenInput())
 
