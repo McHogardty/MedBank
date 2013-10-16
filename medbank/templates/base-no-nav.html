@@ -11,6 +11,7 @@
     <!-- Bootstrap core CSS -->
     <link href="{{ STATIC_URL }}bootstrap3/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <link href="{{ STATIC_URL }}bootstrap3/css/bootstrap-custom.css" rel="stylesheet" media="screen">
+    {% block basehead %}{% endblock basehead %}
     {% block head %}
       <style type="text/css">
         .starter-template {
@@ -24,8 +25,8 @@
   <body>
     {% block nav %}{% endblock nav %}
     {% block alert %}
-        <div class="alert alert-info alert-dismissable{% if not messages %} last{% endif %}">
-          <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <div class="first {% if not messages %}last {% endif %}alert alert-info alert-dismissable">
+          <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
           <strong>Announcement</strong> We are currently giving the site a facelift. If you have any feedback, <a href="{% url 'feedback' %}" class="alert-link">click here and let us know about it!</a>
         </div>
       {% for m in messages %}
@@ -54,6 +55,7 @@
     <!-- Placed at the end of the document so the pages load faster -->
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="//code.jquery.com/jquery.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}jquery-1.10.0.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="{{ STATIC_URL }}bootstrap3/js/bootstrap.min.js"></script>
     <!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->

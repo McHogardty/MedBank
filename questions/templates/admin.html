@@ -1,7 +1,7 @@
 {% extends "newbase_with_actions.html" %}
 
 {% block actions %}
-    <h3 class="thin">Page actions</h3>    
+    <h3>Page actions</h3>    
     <a class="action" href="{% url 'block-new' %}">Add a new block</a>
     {% if blocks %}
         <a class="action" href="{% url 'activity-upload' %}">Upload teaching activities</a>
@@ -27,12 +27,12 @@
             <div class="spacer">
                 <table class="table">
                     <tr>
-                        <th class="thin">Stage</th>
-                        <th class="thin">Block</th>
-                        <th class="thin">Start</th>
-                        <th class="thin">End</th>
-                        <th class="thin">Activities assigned</th>
-                        <th class="thin">Total activities</th>
+                        <th>Stage</th>
+                        <th>Block</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Close</th>
+                        <th>Edit</th>
                     </tr>
         {% endif %}
             <tr>
@@ -40,39 +40,64 @@
                 <td>{{ b.name }}</td>
                 <td>{{ b.start }}</td>
                 <td>{{ b.end }}</td>
-                <td>{{ b.assigned_activities_count}}</td>
-                <td>{{ b.total_activities_count }}</td>
+                <td>{{ b.close }}</td>
+                <td><a href="{% url 'block-edit' pk=b.id %}">Edit</a></td>
             </tr>
         {% if forloop.last %}
                 </table>
             </div>
         {% endif %}
     {% empty %}
-        <h3 class="thin">Step 1: Add a block</h3>
+        <h3>Step 1: Add a block</h3>
         <p>Before you can add any teaching activities, you need to set up a teaching block.</p>
         <p>You can add a new block using the action on the right.</p>
     {% endfor %}
 
-    <h3 class="thin">Step 2: Upload teaching activities</h3>
+    <h3>Step 2: Upload teaching activities</h3>
     <p>You can upload teaching activities using the action on the right.</p>
 
-    <h3 class="thin">Step 3: Release teaching blocks and notify students</h3>
+    {% for b in blocks %}
+        {% if forloop.first %}
+            <table class="table">
+                <tr>
+                    <th>Stage</th>
+                    <th>Block</th>
+                    <th>Activities assigned</th>
+                    <th>Total activities</th>
+                    <th>Max users per activity</th>
+                    <th>Weeks</th>
+                </tr>
+        {% endif %}
+            <tr>
+                <td>{{ b.stage }}</td>
+                <td>{{ b.name }}</td>
+                <td>{{ b.assigned_activities_count}}</td>
+                <td>{{ b.total_activities_count }}</td>
+                <td>{{ b.activity_capacity }}</td>
+                <td>{{ b.weeks }}</td>
+            </tr>
+        {% if forloop.last %}
+            </table>
+        {% endif %}
+    {% endfor %}
+
+    <h3>Step 3: Release teaching blocks and notify students</h3>
     <p>Teaching blocks are released based on their start date. You can view the start dates for teaching blocks this year by looking in the table above.</p>
     <p>Students can assign themselves to teaching activities up to and including the end date for that block. After the end date, they will still be able to write questions for their assigned activities.</p>
 
-    <h3 class="thin">Step 4: Approve questions</h3>
+    <h3>Step 4: Approve questions</h3>
     <p>Approve questions by clicking "Approve questions" in the action panel. You'll need to approve all the questions before you can generate the questions document.</p>
     {% for b in blocks %}
     {% if forloop.first %}
         <div class="spacer">
             <table class="table">
                 <tr>
-                    <th class="thin">Stage</th>
-                    <th class="thin">Block</th>
-                    <th class="thin">Approved</th>
-                    <th class="thin">Pending</th>
-                    <th class="thin">Flagged</th>
-                    <th class="thin">Contact participants</th>
+                    <th>Stage</th>
+                    <th>Block</th>
+                    <th>Approved</th>
+                    <th>Pending</th>
+                    <th>Flagged</th>
+                    <th>Contact participants</th>
                 </tr>
     {% endif %}
         <tr>
@@ -89,17 +114,18 @@
     {% endif %}
     {% endfor %}
 
-    <h3 class="thin">Step 5: Generate a questions document and email it to students</h3>
+    <h3>Step 5: Generate a questions document and email it to students</h3>
     {% for b in blocks %}
     {% if forloop.first %}
         <div class="spacer">
             <table class="table">
                 <tr>
-                    <th class="thin">Stage</th>
-                    <th class="thin">Block</th>
-                    <th class="thin">Questions only</th>
-                    <th class="thin">Questions and answers</th>
-                    <th class="thin">Email</th>
+                    <th>Stage</th>
+                    <th>Block</th>
+                    <th>Questions only</th>
+                    <th>Questions and answers</th>
+                    <th>Release to students</th>
+                    <th>Email</th>
                 </tr>
     {% endif %}
         <tr>
@@ -107,7 +133,8 @@
             <td>{{ b.name }}</td>
             <td><a href="{% url 'questions.views.download' pk=b.pk mode='question' %}">Download</a></td>
             <td><a href="{% url 'questions.views.download' pk=b.pk mode='answer' %}">Download</a></td>
-            <td><a href="{% url 'email' pk=b.number year=b.year %}?document">Email</a></td>
+            <td><a href="{% url 'release' pk=b.pk %}">Release</a></td>
+            <td>{% if b.released %}<a href="{% url 'email' pk=b.number year=b.year %}?document">Email</a>{% endif %}</td>
         </tr>
     {% if forloop.last %}
             </table>

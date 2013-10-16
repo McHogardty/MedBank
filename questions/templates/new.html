@@ -12,7 +12,7 @@
 {% endblock head %}
 
 {% block content %}
-    <h1 class="thin">Add a new question</h1>
+    <h1>Add a new question</h1>
     <form class="form-horizontal" method="post" role="form">
         {% csrf_token %}
         {{ form.as_bootstrap }}

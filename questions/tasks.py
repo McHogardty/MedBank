@@ -1,4 +1,4 @@
-from django.core.mail import EmailMessage, send_mass_mail
+from django.core.mail import EmailMessage, send_mass_mail, get_connection, EmailMultiAlternatives
 
 from queue.task import Task
 import document
@@ -48,3 +48,17 @@ class EmailTask(Task):
         for r in self.recipients)
 
         send_mass_mail(messages)
+
+class HTMLEmailTask(Task):
+    def __init__(self, subject, body, recipients):
+        self.subject = subject
+        self.body = body
+        self.recipients = recipients
+
+    def run(self):
+        c = get_connection(fail_silently=False)
+
+        messages = tuple(EmailMessage(self.subject, self.body, "SUMS MedBank <medbank@sydneymedsoc.org.au>", [r, ]) for r in self.recipients)
+        for m in messages:
+            m.content_subtype = 'html'
+        return c.send_messages(messages)

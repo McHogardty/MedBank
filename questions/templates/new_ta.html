@@ -5,8 +5,7 @@
 {% endblock head %}
 
 {% block content %}
-    <h1 class="thin">Add a new teaching {{ heading }}</h1>
-    <div class="row spacer">
+    <h1>Add a new teaching {{ heading }}</h1>
     <form class="form-horizontal" method="post" role="form">
         {% csrf_token %}
         {{ form.as_bootstrap }}
@@ -16,7 +15,6 @@
             </div>
         </div>
     </form>
-    </div>
 {% endblock content %}
 
 {% block javascript %}

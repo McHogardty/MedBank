@@ -43,6 +43,7 @@ def generate_document(tb, answer):
 
     body.append(docx.heading("%s - Questions" % (tb), 1))
     qq = list(models.Question.objects.filter(teaching_activity__block=tb, status=models.Question.APPROVED_STATUS))
+    qq.sort(key=lambda x: x.body[:-1][::-1])
     style_file = os.path.join(docx.template_dir, 'word/stylesBase.xml')
     style_tree = etree.parse(style_file)
     style_outfile = open(os.path.join(docx.template_dir, 'word/styles.xml'), 'w')

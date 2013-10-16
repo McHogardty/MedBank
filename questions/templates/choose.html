@@ -5,14 +5,14 @@
 
 
 {% block content %}
-    <h1 class="thin">Choose a block</h1>
+    <h1>Choose a block</h1>
     <div class="row col-md-10 spacer">
         {% for b in object_list %}
             {% if b.has_started %}
                 <div class="week">
                     <div class="week-heading"{% if b.can_write_questions%} onclick="location.href='{% url 'activity-list' year=b.year number=b.number %}'"{% endif %}>
                         <h3 class="thin{% if not b.can_write_questions %} cross-out{% endif %}">{{ b.name }}</h3>
-                        <h3 class="thin pull-right hidden-phone{% if b.can_write_questions %} text-success{% endif %}">{% if b.can_write_questions or b.email_sent %}Open{% else %}{% if b.has_ended %}Not currently available{% else %}Not available yet{% endif %}{% endif %}</h3>
+                        <h3 class="thin pull-right hidden-xs{% if b.can_write_questions %} text-success{% endif %}">{% if b.can_write_questions or b.released %}Open{% else %}{% if b.has_ended %}Not currently available{% else %}Not available yet{% endif %}{% endif %}</h3>
                     </div>
                 </div>
             {% endif %}

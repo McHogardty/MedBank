@@ -7,18 +7,18 @@
 {% endblock head %}
 
 {% block actions %}
-    <h3 class="thin">Page actions</h3>
+    <h3>Page actions</h3>
     <a class="action" href="{% url 'block-list' %}">View all activities</a>        
 {% endblock actions %}
 
 {% block maincontent %}
-    <h1 class="thin">Your teaching activities</h1>
+    <h1>Your teaching activities</h1>
     <div class="row spacer">
     {% for w, l in object_list %}
     {% if forloop.first %}{% endif %}
     <div class="week">
         <div class="week-heading collapse-trigger" data-target="#week-activities-{{ w.id }}">
-            <h3 class="thin">{{ w }}</h3>
+            <h3>{{ w }}</h3>
             <i class="icon-angle-down"></i>
         </div>
         <div class="week-activities collapse in" id="week-activities-{{ w.id }}">
@@ -26,7 +26,7 @@
             {% if t %}
                 <div class="activity">
                     <span>{{ t }}</span>
-                    <span class="actions hidden-phone pull-right">
+                    <span class="actions hidden-xs pull-right">
                         <a class="action" href="{% url 'ta' pk=t.id %}">
                             View
                         </a>
@@ -38,7 +38,7 @@
     </div>
     {% if forloop.last %}{% endif %}
     {% empty %}
-    <p>You haven't signed up to any activities yet. You can do this by clicking "Choose more activities" <span class="hidden-phone">to the right</span><span><span class="visible-phone">below</span></span>.</p>
+    <p>You haven't signed up to any activities yet. You can do this by clicking "Choose more activities" <span class="hidden-xs">to the right</span><span><span class="visible-xs">below</span></span>.</p>
     {% endfor %}
     </div>
 {% endblock maincontent %}

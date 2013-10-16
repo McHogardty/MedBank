@@ -10,11 +10,11 @@
 {% block actions %}
     {% questions_left user=user activity=object as remaining %}
     {% questions_list_by_year user=user activity=object as question_list %}
-    {% if not object.enough_writers or user.student in object.question_writers.all and remaining %}
-        <h3 class="thin">Page actions</h3>    
-    {% endif %}{% if not object.enough_writers and user.student not in object.question_writers.all %}
+    {% if not object.enough_writers and user.student not in object.question_writers.all and object.current_block.can_sign_up or user.student in object.question_writers.all and object.current_block.can_write_questions or user.student in object.question_writers.all and not question_list %}
+        <h3>Page actions</h3>    
+    {% endif %}{% if not object.enough_writers and user.student not in object.question_writers.all and object.current_block.can_sign_up %}
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
-    {% endif %}{% if user.student in object.question_writers.all and remaining and object.current_block.can_write_questions %}
+    {% endif %}{% if user.student in object.question_writers.all and object.current_block.can_write_questions %}
         <a class="action" href="{% url 'new' ta_id=object.id %}">Write questions</a>
     {% endif %}{% if user.student in object.question_writers.all and not question_list %}
         <a class="action" href="{% url 'activity-unassign' pk=object.id %}">Unassign from me</a>
@@ -25,7 +25,7 @@
 {% block maincontent %}
     {% questions_left user=user activity=object as remaining %}
     {% questions_list_by_year user=user activity=object as question_list %}
-    <h1 class="thin">{{ object.get_activity_type_display }} - {{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
+    <h1>{% if object.current_block.by_activity %}{{ object.get_activity_type_display }} - {% endif %}{{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
     <p>Block: {{ object.current_block }}</p>
     {% if not object.has_writers %}
         <p>Nobody has assigned themselves to write questions for this activity.</p>
@@ -36,17 +36,17 @@
         {% if remaining %}
             <p>You have {{ remaining }} question{{ remaining|pluralize }} left to write.</p>
         {% else %}
-            <p>Thankyou! You've given us enough questions for this teaching activity.</p>
+            <p>Thankyou! You've given us enough questions for this teaching activity, but there's no limit to how many you can submit.</p>
         {% endif %}
     {% endif %}
-    <p>Questions for this activity are due by {{ object.current_block.close }}</p>
+    <p>Questions for this activity {% if object.current_block.has_closed %}were{% else %}are{% endif %} due by {{ object.current_block.close }}</p>
     <div class="spacer">
     {% for y, qq in question_list.iteritems %}
     <div class="week">
         <div class="week-heading collapse-trigger" data-target="#week-activities-{{ y }}">
-            <h3 class="thin">{{ y }}</h3>
+            <h3>{{ y }}</h3>
             <i class="icon-angle-down"></i>
-            <h3 class="thin pull-right{% if a %} text-success{% endif %} hidden-phone">{{ qq|length }} question{{ qq|pluralize }}</h3>
+            <h3 class="pull-right{% if a %} text-success{% endif %} hidden-xs">{{ qq|length }} question{{ qq|pluralize }}</h3>
         </div>
         <div class="week-activities collapse in" id="week-activities-{{ y }}">
             {% for q in qq %}

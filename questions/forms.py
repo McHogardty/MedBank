@@ -1,5 +1,5 @@
 from medbank import bsforms
-from .models import Question, TeachingActivity, TeachingBlock, Student
+from .models import Question, TeachingActivity, TeachingBlock, Student, Comment
 from django import forms
 from django.utils.safestring import mark_safe
 from django.contrib.formtools.wizard.views import CookieWizardView
@@ -129,9 +129,11 @@ class NewTeachingBlockForm(bsforms.NewBootstrapModelForm):
 #    ), help_text="The last day that students can assign themselves to activities in this block.")
     start = forms.DateField(widget=forms.TextInput(), help_text="The first day that students can assign themselves to activities in this block.")
     end = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can assign themselves to activities in this block.")
+    close = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can write questions for activities in this block.")
 
     class Meta:
         model = TeachingBlock
+        exclude = ('release_date')
 
     def clean(self):
         c = super(NewTeachingBlockForm, self).clean()
@@ -158,6 +160,16 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
         exclude = ('stage', 'number', 'start', 'end')
 
 class EmailForm(bsforms.NewBootstrapForm):
+    from_address = forms.CharField(widget=bsforms.StaticControl())
     subject = forms.CharField(widget=forms.TextInput(attrs={'class': 'span6'}))
     email = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.all(), widget=forms.HiddenInput())
+
+
+class CommentForm(bsforms.NewBootstrapModelForm):
+    creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
+    question = forms.ModelChoiceField(queryset=Question.objects.all(), widget=forms.HiddenInput())
+    reply_to = forms.ModelChoiceField(required=False, queryset=Comment.objects.all(), widget=forms.HiddenInput())
+
+    class Meta:
+        model = Comment

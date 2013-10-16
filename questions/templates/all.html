@@ -42,7 +42,7 @@
 
 {% block content %}
 {% if teaching_block %}
-    <h1 class="thin">{{ teaching_block }}</h1>
+    <h1>{{ teaching_block }}</h1>
     {{ request }}
     {% for w, l in activities.iteritems %}
     {% if forloop.first %}

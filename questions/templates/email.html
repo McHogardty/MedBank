@@ -36,13 +36,21 @@
 {% endblock head %}
 
 {% block content %}
-	<h1 class="thin">Email participants</h1>
+	<h1>Email participants</h1>
     <p>This email will be sent to all participants of the block {{ tb }}. It will be sent to the following recipients:
         <ul>
             {% for each in recipients %}
                 <li>{{ each.user.email }}</li>
             {% endfor %}
         </ul></p>
+    <p>Tips:
+        <ul>
+            <li>Surround paragraphs with &lt;p&gt;...&lt;/p&gt; tags</li>
+            <li>Insert links with with &lt;a href="http://www.example.com"&gt;...&lt;/a&gt; tags. <strong>NB: The http:// is required for the link to work.</strong></li>
+            <li>Surround bold text with &lt;strong&gt;...&lt;/strong&gt; tags</li>
+            <li>Surround italicised text with &lt;em&gt;...&lt;/em&gt; tags</li>
+        </ul>
+    </p>
     <div class="row spacer">
     <form class="form-horizontal" method="post" role="form">
             {% csrf_token %}

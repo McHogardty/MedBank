@@ -1,14 +1,14 @@
 {% extends "newbase_with_actions.html" %}
 
 {% block actions %}
-    <h3 class="thin">Page actions</h3>
+    <h3>Page actions</h3>
     <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode or not show and flagged_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}{% if approval_mode and flagged_mode %}&{% endif %}{% if flagged_mode%}flagged{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
     <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}{% include 'querystring.html' %}">Edit question</a>
     {% endif %}
     {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>{% endif %}
-
+    {% if question.teaching_activity.current_block.released %}<a class="action" href="{% url 'comment-new' pk=question.id ta_id=question.teaching_activity.id %}">Add a comment</a>{% endif %}
     {% if perms.questions.can_approve %}
-        <h3 class="thin">Admin</h3>
+        <h3>Admin</h3>
         {% if not question.approved %}
             <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='approve' %}{% include 'querystring.html' %}">Approve question</a>
         {% endif %}
@@ -28,7 +28,7 @@
 {% endblock actions %}
 
 {% block maincontent %}
-    <h1 class="thin">{{ question.teaching_activity.current_block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
+    <h1>{{ question.teaching_activity.current_block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
     <p>Block: {{ question.teaching_activity.current_block }}</p>
     <h2 class="thin spacer">Question <small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if not perms.questions.can_approve and question.flagged %}Pending{% else %}{{ question.get_status_display }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.approver }}{% endif %}</small></h2>
     {% if perms.questions.can_approve %}<h4>Written by {{ question.creator }}</h4>{% endif %}
@@ -40,7 +40,7 @@
     </ol>
     {% if show %}
     <p class="spacer">Answer: {{ question.answer }}</p>
-    <p>{{ question.explanation }}</p>
+    {{ question.explanation|linebreaks }}
 
     {% endif %}
     {% if perms.questions.can_approve %}
@@ -49,10 +49,49 @@
                 <dl>
             {% endif %}
                 <dt>Edited by {{ r.creator }} on {{ r.date_created }}</dt>
-                <dd>{{ r.body }}</dd>
+                <dd>{{ r.body|linebreaksbr }}</dd>
             {% if forloop.last %}
                 </dl>
             {% endif %}
         {% endfor %}
     {% endif %}
+
+    {% for c in question.principal_comments %}
+        {% if forloop.first %}
+            <h2>Comments</h2>
+        {% endif %}
+        <div class="week">
+            <div class="week-heading comment-heading">
+                <h4 style="display:inline-block">By {{ c.creator }} on {{ c.date_created }}</h4>
+                {{ c.body|linebreaks }}
+                <p><span class="actions">{% if c.replies.count %}<span class="loading action">{{ c.replies.count }} {% if c.replies.count == 1 %}reply{% else %}replies{% endif %}</span><a class="collapse-trigger action" data-target="#replies-{{ c.id }}" style="cursor:pointer">Expand</a>{% endif %}<a class="action" href="{% url 'comment-reply' pk=question.id ta_id=question.teaching_activity.id comment_id=c.id %}">Reply</a></span></p>
+            </div>
+            <div class="week-activities collapse in" id="replies-{{ c.id}}">
+                {% for r in c.replies %}
+                    <div class="activity comment">
+                        <h4>Reply by {{ r.creator }} on {{ r.date_created }}</h4>
+                        {{ r.body|linebreaks }}
+                    </div>   
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
 {% endblock maincontent %}
+
+{% block javascript %}
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $(".collapse-trigger").each(function () {
+                $($(this).attr("data-target")).collapse()
+                $(this).click(function () {
+                    $($(this).attr("data-target")).collapse("toggle")
+                    if ($(this).html() == "Expand") {
+                        $(this).html("Collapse")
+                    } else {
+                        $(this).html("Expand")
+                    }
+                })
+            })
+        })
+    </script>
+{% endblock javascript %}

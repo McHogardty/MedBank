@@ -86,19 +86,45 @@ def user_created(sender, **kwargs):
 
 
 class TeachingBlock(models.Model):
+    ACTIVITY_MODE = 0
+    WEEK_MODE = 1
+
+    MODE_CHOICES = (
+        (ACTIVITY_MODE, 'By activity'),
+        (WEEK_MODE, 'By week')
+    )
     name = models.CharField(max_length=50)
     year = models.IntegerField()
     stage = models.ForeignKey(Stage)
     number = models.IntegerField(verbose_name=u'Block number')
     start = models.DateField(verbose_name=u'Start date')
     end = models.DateField(verbose_name=u'End date')
-    close = models.DateField(verbose_name=u'Close date', blank=True)
+    close = models.DateField(verbose_name=u'Close date')
+    release_date = models.DateField(verbose_name=u'Release date', blank=True, null=True)
+    activity_capacity = models.IntegerField(verbose_name=u'Maximum users per activity', default=2)
+    sign_up_mode = models.IntegerField(choices=MODE_CHOICES)
+    weeks = models.IntegerField(verbose_name=u'Number of weeks')
 
     class Meta:
         unique_together = ('year', 'number')
 
     def __unicode__(self):
         return "%s, %d" % (self.name, self.year)
+
+    def __init__(self, *args, **kwargs):
+        super(TeachingBlock, self).__init__(*args, **kwargs)
+        # Adds properties to the model to check the mode, e.g. self.by_activity
+        for k in self.__class__.__dict__.keys():
+            if not "_MODE" in k or hasattr(self, "by_%s" % k.split("_")[0].lower()):
+                continue
+
+            self.add_model_mode_property_method(k)
+
+    def add_model_mode_property_method(self, k):
+        def check_mode_function(self):
+            return self.sign_up_mode == getattr(self, k)
+
+        setattr(self.__class__, "by_%s" % k.split("_")[0].lower(), property(check_mode_function))
 
     def assigned_activities_count(self):
         return self.activities.exclude(question_writers=None).count()
@@ -112,13 +138,16 @@ class TeachingBlock(models.Model):
     def has_ended(self):
         return self.end <= datetime.datetime.now().date()
 
+    def has_closed(self):
+        return self.close < datetime.datetime.now().date()
+
     def can_write_questions(self):
         return self.start <= datetime.datetime.now().date() <= self.close
     can_write_questions = property(can_write_questions)
 
-    def email_sent(self):
-        return False
-    email_sent = property(email_sent)
+    def released(self):
+        return self.release_date and self.release_date <= datetime.datetime.now().date()
+    released = property(released)
 
     def can_sign_up(self):
         return self.start <= datetime.datetime.now().date() <= self.end
@@ -145,11 +174,13 @@ class TeachingActivity(models.Model):
     PBL_TYPE = 0
     PRACTICAL_TYPE = 3
     SEMINAR_TYPE = 4
+    WEEK_TYPE = 5
     TYPE_CHOICES = (
         (LECTURE_TYPE, 'Lecture'),
         (PBL_TYPE, 'PBL'),
         (PRACTICAL_TYPE, 'Practical'),
         (SEMINAR_TYPE, 'Seminar'),
+        (WEEK_TYPE, ''),
     )
     id = models.IntegerField(primary_key=True, verbose_name=u'ID')
     name = models.CharField(max_length=100)
@@ -172,7 +203,7 @@ class TeachingActivity(models.Model):
             return None
 
     def enough_writers(self):
-        return self.question_writers.count() >= settings.USERS_PER_ACTIVITY
+        return self.question_writers.count() >= self.current_block().activity_capacity
 
     def has_writers(self):
         return bool(self.question_writers.count())
@@ -228,6 +259,11 @@ class Question(models.Model):
     teaching_activity = models.ForeignKey(TeachingActivity, related_name="questions")
     status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS)
 
+    class Meta:
+        permissions = (
+            ('can_approve', 'Can approve questions'),
+        )
+
     def __init__(self, *args, **kwargs):
         super(Question, self).__init__(*args, **kwargs)
         # Adds properties to the model to check the status, e.g. self.approved, self.flagged
@@ -255,14 +291,24 @@ class Question(models.Model):
     def user_is_creator(self, user):
         return user.has_perm('questions.can_approve') or user.student == self.creator
 
-    class Meta:
-        permissions = (
-            ('can_approve', 'Can approve questions'),
-        )
+    def principal_comments(self):
+        return self.comments.filter(reply_to__isnull=True)
+
 
 class Reason(models.Model):
     body = models.TextField()
     question = models.ForeignKey(Question, related_name="reasons_edited")
     creator = models.ForeignKey(Student, related_name="reasons")
     date_created = models.DateTimeField(auto_now_add=True)
+
+
+class Comment(models.Model):
+    body = models.TextField(verbose_name="Comment")
+    question = models.ForeignKey(Question, related_name="comments")
+    creator = models.ForeignKey(Student, related_name="comments")
+    date_created = models.DateTimeField(auto_now_add=True)
+    reply_to = models.ForeignKey('self', blank=True, null=True)
+
+    def replies(self):
+        return Comment.objects.filter(reply_to=self)
 

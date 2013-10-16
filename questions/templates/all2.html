@@ -1,47 +1,6 @@
 {% extends "newbase.html" %}
 
 {% block head %}
-    <style type="text/css">
-        div.week-heading:hover {
-            background-color:rgb(249,249,249);
-        }
-
-        div.activity {
-            font-size:17.5px;
-            padding:10px;
-        }
-        @media (max-width: 767px) {
-            div.activity {
-                text-align:center;
-            }
-        }
-
-        .week-heading .close, .week-heading h3 {
-            display:inline-block;
-        }
-
-        .week-heading .close {
-            font-size:40px;
-            line-height:40px;
-            font-weight:200;
-            margin-top:5px;
-        }
-
-        .icon-angle-down {
-            width:25px;
-            height:25px;
-            background-image:none;
-        }
-    @media (max-width: 767px) {
-        .week-heading {
-            text-align:center;
-        }
-
-        .loading .icon-angle-down {
-            opacity:0
-        }
-    }
-    </style>
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello.css">
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
@@ -49,20 +8,25 @@
 
 {% block content %}
 {% if teaching_block %}
-    <h1 class="thin">{{ teaching_block }}</h1>
+    <h1>{{ teaching_block }}</h1>
     <p class="lead">You can sign up for activities in this block from {{ teaching_block.start }} until {{ teaching_block.end }}.</p>
     <p class="lead">You will be able to write questions for activities until  {{ teaching_block.close }}</p>
+    <p class="lead">The question documents for this block have {% if not teaching_block.released %}not {% endif %}been released{% if not teaching_block.released %} yet{% endif %}.{% if teaching_block.released %} You can download the documents by using the page actions panel.{% endif %}</p>
     <p class="hidden-xs">Click on a week below to see the classes available for that week.</p>
     <p class="visible-xs">Tap on a week below to see the classes available for that week. Tap on a class to assign yourself to it.</p>
     <div class="row col-md-10 spacer">
     {% for w, a, l in object_list %}
-    {% if forloop.first %}{% endif %}
-    <div class="week">
+    <div class="week{% if teaching_block.by_week and user.student in l.0.question_writers.all %} hidden-xs{% endif %}">
         <div class="week-heading{% if not a %} loading{% endif %} collapse-trigger" data-target="#week-activities-{{ w }}">
-            <h3 class="thin">Week {{ w }}</h3>
-            <i class="icon-angle-down"></i>
-            <h3 class="thin pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>
+            <h3>Week {{ w }}</h3>
+            {% if teaching_block.by_activity %}<i class="icon-angle-down"></i>
+            <h3 class="pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>
+            {% else %}
+            <h3 class="pull-right hidden-xs{% if user.student in l.0.question_writers.all %} text-success{% endif %}">{% if user.student in l.0.question_writers.all %}Assigned{% else %}<a data-url="{% url 'questions.views.signup' ta_id=l.0.id %}">Assign to me</a></h3>
+            {% endif %}
+            {% endif %}
         </div>
+        {% if teaching_block.by_activity %}
         <div class="week-activities collapse in" id="week-activities-{{ w }}">
             {% for t in l %}
             {% if t %}
@@ -81,14 +45,14 @@
             {% endif %}
             {% endfor %}
         </div>
+        {% endif %}
     </div>
-    {% if forloop.last %}{% endif %}
     {% empty %}
     <p>There are currently no questions in the database.</p>
     {% endfor %}
     </div>
 {% else %}
-    <h1 class="thin">View teaching activities</h1>
+    <h1>View teaching activities</h1>
 
     {% if perms.questions.approve %}
         <p>There is no teaching block in the database yet, so no teaching activities can be displayed.</p>
@@ -110,10 +74,10 @@
         }
         enquire.register("screen and (max-width: 767px)", {
             match: function () {
-                clickable(".activity", assign)
+                clickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
             },
             unmatch: function () {
-                unclickable(".activity", assign)
+                unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
             }
         })
         function assign() {
@@ -122,7 +86,7 @@
             a.addClass("loading")
             if (is_mobile) {
                 url = $(this).find(".pull-right a").attr("data-url")
-                a.html("Loading...")
+                {% if teaching_block.by_activity %}a.html("Loading..."){% else %}a.find('.week-heading h3').html("Loading"){% endif %}
             } else {
                 url = $(this).attr("data-url");
             }
@@ -131,7 +95,7 @@
                     case "success":
                         if (is_mobile) {
                             a.addClass("text-success")
-                            a.html("Assigned")
+                            {% if teaching_block.by_activity %}a.html("Assigned"){% else %}a.find('.week-heading h3').html("Assigned"){% endif %}
                             a.removeClass("loading")
                         } else {
                             a.parent().addClass('text-success')
@@ -163,7 +127,7 @@
                     $($(this).attr("data-target")).collapse("toggle")
                 })
             })
-            $("div.activity a[data-url]").click(assign)
+            $("div.week a[data-url]").click(assign)
         })
     </script>
 {% endif %}

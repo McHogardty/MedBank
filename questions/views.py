@@ -1,5 +1,5 @@
 from django.shortcuts import render_to_response, redirect, get_object_or_404
-from django.template import RequestContext
+from django.template import RequestContext, loader
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.http import HttpResponse, Http404, HttpResponseServerError
@@ -91,7 +91,7 @@ class AllActivitiesView(ListView):
         s = self.request.user.student
         if not b.stage == s.get_current_stage() and not b.question_count_for_student(s):
             raise Http404
-        if not b.can_write_questions or b.email_sent:
+        if not b.can_write_questions or b.released:
             messages.error(request, "That block cannot be accessed right now.")
             return redirect('block-list')
         return r
@@ -104,10 +104,11 @@ class AllActivitiesView(ListView):
     def get_queryset(self):
         ta = models.TeachingActivity.objects.filter(block__number=self.kwargs['number'], block__year=self.kwargs['year'])
         by_week = {}
+        print ta
         for t in ta:
             l = by_week.setdefault(t.week, [])
             l.append(t)
-
+        print by_week
         for v in by_week.values():
             v.sort(key=lambda t: (t.activity_type, t.position))
         return [(k, not all(t.enough_writers() for t in by_week[k]), by_week[k]) for k in by_week]
@@ -224,9 +225,6 @@ class NewQuestion(CreateView):
         if not self.ta.current_block().can_write_questions:
             messages.warning(request, "You are not currently able to write questions for this teaching activity.")
             return redirect('ta', pk=self.ta.id)
-        if models.Question.objects.filter(teaching_activity=self.ta, creator=request.user.student).exclude(status=models.Question.DELETED_STATUS).count() >= settings.QUESTIONS_PER_USER:
-            messages.warning(request, "You have already submitted %d questions for this teaching activity." % settings.QUESTIONS_PER_USER)
-            return redirect('ta', pk=self.ta.id)
         return super(NewQuestion, self).dispatch(request, *args, **kwargs)
 
     def get_initial(self):
@@ -280,6 +278,56 @@ class UpdateQuestion(QueryStringMixin, UpdateView):
 
     def get_success_url(self):
         return "%s%s" % (reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id}), self.query_string())
+
+
+class AddComment(CreateView):
+    model = models.Comment
+    form_class = forms.CommentForm
+    template_name = "comment.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.q = models.Question.objects.get(pk=self.kwargs['pk'])
+        except models.Question.DoesNotExist:
+            messages.error(self.request, "That question does not exist")
+            return redirect('activity-mine')
+        if 'comment_id' in self.kwargs:
+            try:
+                self.c = models.Comment.objects.get(pk=self.kwargs['comment_id'])
+            except models.Comment.DoesNotExist:
+                messages.error(self.request, "That comment does not exist")
+                return redirect('activity-mine')
+
+        return super(AddComment, self).dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        i = super(AddComment, self).get_initial()
+        i.update({'creator': self.request.user, 'question': self.q})
+        if 'comment_id' in self.kwargs:
+            i.update({'reply_to': self.c})
+        return i
+
+
+    def form_valid(self, form):
+        c = form.cleaned_data
+        form.save()
+        if not c['reply_to']:
+            c = {
+                'user': self.request.user,
+                'link': self.request.build_absolute_uri(reverse('view', kwargs={'pk': self.q.id, 'ta_id': self.q.teaching_activity.id}))
+            }
+
+            body = loader.render_to_string('email/newcomment.html', c)
+            print "%s" % self.q.creator
+            t = tasks.HTMLEmailTask(
+                "[MedBank] One of your questions has received a comment",
+                body,
+                ["%s" % self.q.creator.user.email, ],
+            )
+
+            queue.add_task(t)
+
+        return redirect('view', pk=self.q.id, ta_id=self.q.teaching_activity.id)
 
 
 @class_view_decorator(login_required)
@@ -365,7 +413,7 @@ class NewActivity(CreateView):
         return c
 
 
-@class_view_decorator(login_required)
+@class_view_decorator(permission_required('questions.can_approve'))
 class NewBlock(CreateView):
     model = models.TeachingBlock
     template_name = "new_ta.html"
@@ -373,6 +421,41 @@ class NewBlock(CreateView):
 
     def get_context_data(self, **kwargs):
         c = super(NewBlock, self).get_context_data(**kwargs)
+        c['heading'] = "block"
+        return c
+
+    def form_valid(self, form):
+        c = form.cleaned_data
+        b = form.save()
+        if c['sign_up_mode'] == models.TeachingBlock.WEEK_MODE:
+            for w in range(1, c['weeks'] + 1):
+                i = models.TeachingActivity.objects.aggregate(db.models.Max('id'))['id__max']
+                if i < 100000:
+                    i = 99999
+                i = i + 1
+                a = models.TeachingActivity()
+                a.id = i
+                a.name = "Week %d" % w
+                a.week = w
+                a.position = 1
+                a.activity_type = models.TeachingActivity.WEEK_TYPE
+                a.save()
+                a.block.add(b)
+
+        return redirect('admin')
+
+    def get_success_url(self):
+        return reverse('admin')
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class EditBlock(UpdateView):
+    model = models.TeachingBlock
+    template_name = "new_ta.html"
+    form_class = forms.NewTeachingBlockForm
+
+    def get_context_data(self, **kwargs):
+        c = super(EditBlock, self).get_context_data(**kwargs)
         c['heading'] = "block"
         return c
 
@@ -473,13 +556,40 @@ class ChangeStatus(RedirectView):
         return r
 
 
-@permission_required('questions.can_approve')
+class ReleaseBlockView(RedirectView):
+    def get_redirect_url(self, pk):
+        try:
+            block =  models.TeachingBlock.objects.get(pk=pk)
+        except models.TeachingBlock.DoesNotExist:
+            messages.error(rself.equest, "That block does not exist.")
+        else:
+            if not block.questions_pending_count():
+                if datetime.datetime.now().date() >= block.close:                
+                    block.release_date = datetime.datetime.now().date()
+                    block.save()
+                    messages.success(self.request, "The block %s has been released to students." % (block.name, ))
+                else:
+                    messages.error(self.request, "Students are still able to write questions for %s. This block needs to be closed before you can release questions to students." % (block.name, ))
+            else:
+                messages.error(self.request, "The block %s still has questions pending, so it cannot be released to students." % (block.name, ))
+        return reverse('admin')
+
+
+@login_required
 def download(request, pk, mode):
     try:
         tb = models.TeachingBlock.objects.get(pk=pk)
     except models.TeachingBlock.DoesNotExist:
         messages.error(request, 'That block does not exist.')
         return redirect('admin')
+
+    if not tb.released and not request.user.has_perm("questions.can_approve"):
+        raise PermissionDenied
+
+    if not tb.question_count_for_student(request.user.student) and not request.user.has_perm("questions.can_approve"):
+        messages.error(request, "Unfortunately you haven't written any questions for this block, so you are unable to download the other questions.")
+        return redirect('admin')
+
     f = document.generate_document(tb, mode == "answer")
     r = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     r['Content-Disposition'] = 'attachment; filename=questions.docx'
@@ -505,22 +615,21 @@ class EmailView(FormView):
             self.tb = models.TeachingBlock.objects.get(number=self.kwargs['pk'], year=self.kwargs['year'])
         except models.TeachingBlock.DoesNotExist:
             messages.error(request, "That teaching block does not exist.")
-            return redirect("questions.views.admin")
+            return redirect("admin")
 
         r = super(EmailView, self).dispatch(request, *args, **kwargs)
         return r
 
     def get_context_data(self, **kwargs):
         c = super(EmailView, self).get_context_data(**kwargs)
-        c.update({'tb': self.tb, 'recipients': models.Student.objects.filter(teachingactivity__block=self.tb).distinct()
-})
+        c.update({'tb': self.tb, 'recipients': models.Student.objects.filter(teachingactivity__block=self.tb).distinct()})
         return c
 
     def get_initial(self):
         i = super(EmailView,self).get_initial()
-        i.update({ 'block': self.tb, })
+        i.update({ 'block': self.tb, 'from_address': settings.EMAIL_FROM_ADDRESS, })
         if 'document' in self.request.GET:
-            i.update({'email' : "Link to questions document: %s\nLink to document with answers: %s" % (
+            i.update({'email' : '<p><a href="%s">Click here</a> to access the questions document.</p>\n<p><a href="%s">Click here</a> to access the document with answers.</p>' % (
                 self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'question'})),
                 self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'answer'})),
             )})
@@ -532,16 +641,29 @@ class EmailView(FormView):
         recipients = [s.user.email for s in recipients]
         if self.request.user.email not in recipients:
             recipients.append(self.request.user.email)
+        tags = {
+            '<strong>': '<strong style="font-weight:bold">',
+            '<p>': '<p style="font-family:%s,Helvetica,Arial,sans-serif;font-size:14px;margin: 0 0 10px;">' % ("'Helvetica Neue'",),
+            '<a href="': '<a style="color:#428bca;text-decoration:none;" href="',
+            '\r': '',
+            '\r\n': '',
+            '\n': ''
+        }
 
-        t = tasks.EmailTask(
+        for tag in tags:
+            c['email'] = c['email'].replace(tag, tags[tag])
+
+        t = tasks.HTMLEmailTask(
             "[MedBank] %s" % c['subject'],
-            c['email'],
-            ['michaelhagarty@gmail.com',],
+            '<html><body style="font-family:%s,Helvetica,Arial,sans-serif;font-size:14px;">%s</body></html>' % ("'Helvetica Neue'", c['email']),
+            recipients
         )
 
         queue.add_task(t)
 
-        return redirect('questions.views.admin')
+        messages.success(self.request, "Your email has been successfully queued to be sent.")
+
+        return redirect('admin')
 
 
 def copy_block(block):

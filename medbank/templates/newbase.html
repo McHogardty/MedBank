@@ -1,31 +1,37 @@
 {% extends "base-no-nav.html" %}
 
-{% block head %}
+{% block basehead %}
       <style type="text/css">
-      .starter-template {
-        padding: 40px 15px;
-        text-align: center;
+      body {
+          padding-top:70px;
+      }
+      .alert.first {
+        margin-top:-19px;
       }
     </style>
-{% endblock head %}
+{% endblock basehead %}
 
 {% block nav %}
-  <div class="container">
-    <div class="header">
-      <h1 class="text-muted" style="font-weight:500;">SUMS MedBank</h3>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">SUMS MedBank</a>
+        </div>
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="{% url 'activity-mine' %}">Home</a></li>
+            <li><a href="{% url 'admin' %}">Admin</a></li>
+            <li><a href="{% url 'logout' %}">Logout</a></li>
+          </ul>
+          <p class="navbar-text pull-right hidden-xs">Welcome, {{ user.username }} ({{ user.student.get_current_stage }})</p>
+        </div><!--/.nav-collapse -->
+      </div>
     </div>
-    <div>
-      <span class='actions nav'>
-      <a class="action" href="{% if user.is_anonymous %}{% url 'medbank.views.home' %}{% else %}{% url 'activity-mine' %}{% endif %}">Home</a>
-      {% if user.is_anonymous %}
-      <a class="action" href="{% url 'login' %}?next={% block loginnext %}{{ next_url|urlencode }}{% endblock loginnext %}">Login</a>
-      {% else %}
-      <span class="username">Welcome, {{ user.username }} ({{ user.student.get_current_stage }})</span>
-      {% if perms.questions.approve %}<a class='action' href="{% url 'admin' %}">Admin</a>{% endif %}
-      <a class='action' href="{% url 'logout' %}">Logout</a>{% endif %}
-      </span>
-  </div>
-  </div>
 {% endblock nav %}
 
 {% block content %}

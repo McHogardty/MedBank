@@ -1,13 +1,14 @@
 # Django settings for medbank project.
 
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TPC
+from django.contrib.messages import constants as messages
 import os
 import sys
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
 MAINTENANCE_MODE = False
-DEBUG = False
+DEBUG = True
 #if os.environ.get('MEDBANK_PRODUCTION'):
 #    DEBUG = False
 #else:
@@ -159,6 +160,10 @@ LOGGING = {
 TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
 )
+
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+}
 
 FORMAT_MODULE_PATH = 'medbank.formats'
 

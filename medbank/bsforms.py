@@ -214,6 +214,21 @@ class NewBootstrapModelForm(NewBootstrapFormMixin, BootstrapModelForm):
     pass
 
 
+class StaticControl(forms.Widget):
+    def _format_value(self, value):
+        return value
+
+    def render(self, name, value, attrs=None):
+        if value is None:
+            value = ''
+        final_attrs = self.build_attrs(attrs, name=name, type='hidden')
+        if value != '':
+            value = force_text(self._format_value(value))
+            final_attrs['value'] = value
+
+        return format_html('<p class="form-control-static">{1}<input{0}/></p>', flatatt(final_attrs), value)
+
+
 class WYSIWYGArea(forms.Textarea):
     def render(self, name, value, attrs=None):
         if value is None: value = ''
