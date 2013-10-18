@@ -87,7 +87,10 @@ def generate_document(tb, answer, request):
 
     body.append(docx.heading("%s - Questions" % (tb), 1))
     qq = list(models.Question.objects.filter(teaching_activity__block=tb, status=models.Question.APPROVED_STATUS))
-    qq.sort(key=lambda x: x.body[:-1][::-1])
+    for x in qq:
+        print x.body[:-1][::-1] if x.body[-1] in "?.:" else x.body[::-1]
+    qq = sorted(qq, key=lambda x: x.body[:-1][::-1] if x.body[-1] in "?:." else x.body[::-1])
+    print [q.body for q in qq]
     style_file = os.path.join(docx.template_dir, 'word/stylesBase.xml')
     style_tree = etree.parse(style_file)
     style_outfile = open(os.path.join(docx.template_dir, 'word/styles.xml'), 'w')
@@ -122,7 +125,6 @@ def generate_document(tb, answer, request):
             body.append(docx.paragraph(q.explanation))
             body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity.current_block().number, q.teaching_activity.week, q.teaching_activity.position, q.teaching_activity.name)))
             p = docx.paragraph("To view this question online, click ")
-            print etree.tostring(p, pretty_print=True)
             url = request.build_absolute_uri(reverse('view', kwargs={'pk': q.pk, 'ta_id': q.teaching_activity.id}))
             p.append(hyperlink('here', url, hyperlink_count))
             hyperlinks.append((hyperlink_count, ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', url, 'External']))
