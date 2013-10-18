@@ -237,6 +237,7 @@ class WYSIWYGArea(forms.Textarea):
                            flatatt(final_attrs),
                            force_text(value))
 
+
 class TextInputWithAddon(forms.TextInput):
     def __init__(self, add_on=None, **kwargs):
         self.add_on = add_on

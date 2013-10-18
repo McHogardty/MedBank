@@ -1,3 +1,5 @@
+from django.core.urlresolvers import reverse
+
 import models
 
 from lxml import etree
@@ -37,7 +39,49 @@ def build_answer_table(data, n=3):
     return ret
 
 
-def generate_document(tb, answer):
+def new_wordrelationships(relationshiplist):
+    '''Generate a Word relationships file'''
+    # Default list of relationships
+    # FIXME: using string hack instead of making element
+    #relationships = makeelement('Relationships', nsprefix='pr')
+    relationships = etree.fromstring(
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006'
+        '/relationships"></Relationships>')
+    count = 0
+    for n, relationship in relationshiplist:
+        # Relationship IDs (rId) start at 1.
+        a = {
+            'Id':     'rId'+str(n),
+            'Type':   relationship[0],
+            'Target': relationship[1]
+        }
+        try:
+            a['TargetMode'] = relationship[2]
+        except IndexError:
+            pass
+
+        rel_elm = docx.makeelement('Relationship', nsprefix=None,
+                              attributes=a
+                              )
+        relationships.append(rel_elm)
+        count += 1
+    return relationships
+
+
+def hyperlink(text, url, i):
+    h = docx.makeelement('hyperlink', attributes={'id': 'rId%s' % i,}, attrnsprefix='r')
+    rPr = docx.makeelement('rPr')
+    rStyle = docx.makeelement('rStyle', attributes={'val': 'Hyperlink'})
+    r = docx.makeelement('r')
+    t = docx.makeelement('t', tagtext=text)
+    rPr.append(rStyle)
+    r.append(rPr)
+    r.append(t)
+    h.append(r)
+    return h
+
+
+def generate_document(tb, answer, request):
     document = docx.newdocument()
     body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 
@@ -53,6 +97,8 @@ def generate_document(tb, answer):
 
     namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     xhtml_namespace = "{%s}" % namespace
+    hyperlinks = []
+    hyperlink_count = 7
 
     s = style_tree.getroot()
     nt = numbering_tree.getroot()
@@ -75,6 +121,13 @@ def generate_document(tb, answer):
             body.append(docx.paragraph("Answer: %s" % q.answer))
             body.append(docx.paragraph(q.explanation))
             body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity.current_block().number, q.teaching_activity.week, q.teaching_activity.position, q.teaching_activity.name)))
+            p = docx.paragraph("To view this question online, click ")
+            print etree.tostring(p, pretty_print=True)
+            url = request.build_absolute_uri(reverse('view', kwargs={'pk': q.pk, 'ta_id': q.teaching_activity.id}))
+            p.append(hyperlink('here', url, hyperlink_count))
+            hyperlinks.append((hyperlink_count, ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', url, 'External']))
+            hyperlink_count += 1
+            body.append(p)
             body.append(docx.paragraph(""))
 
     for n in range(len(qq)):
@@ -122,6 +175,20 @@ def generate_document(tb, answer):
         d.attrib['%sval' % xhtml_namespace] = str(numid)
         etree.SubElement(b, "%scontextualSpacing" % xhtml_namespace)
 
+    a = etree.SubElement(s,"%sstyle" % xhtml_namespace)
+    a.attrib["%sstyleId" % xhtml_namespace] = "Hyperlink"
+    a.attrib['%stype' % xhtml_namespace] = "character"
+    b = etree.SubElement(a, "%sname" % xhtml_namespace)
+    b.attrib["%sval" % xhtml_namespace] = "Hyperlink"
+    b = etree.SubElement(a, "%sbasedOn" % xhtml_namespace)
+    b.attrib['%sval' % xhtml_namespace] = "DefaultParagraphFont"
+    c = etree.SubElement(a, "%srPr" % xhtml_namespace)
+    d = etree.SubElement(c, "%scolor" % xhtml_namespace)
+    d.attrib['%sval' % xhtml_namespace] = "0000FF"
+    d.attrib['%sthemeColor' % xhtml_namespace] = "hyperlink"
+    d = etree.SubElement(c, "%su" % xhtml_namespace)
+    d.attrib['%sval' % xhtml_namespace] = "single"
+
     style_tree.write(style_outfile)
     numbering_tree.write(numbering_outfile)
     style_outfile.close()
@@ -135,7 +202,9 @@ def generate_document(tb, answer):
     contenttypes = docx.contenttypes()
     websettings = docx.websettings()
     relationships = docx.relationshiplist()
-    wordrelationships = docx.wordrelationships(relationships)
+    relationships = list(enumerate(relationships, start=1))
+    relationships += hyperlinks
+    wordrelationships = new_wordrelationships(relationships)
     docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, 'hello.docx')
 
     f = StringIO.StringIO()

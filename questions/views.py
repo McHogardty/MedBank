@@ -590,7 +590,7 @@ def download(request, pk, mode):
         messages.error(request, "Unfortunately you haven't written any questions for this block, so you are unable to download the other questions.")
         return redirect('admin')
 
-    f = document.generate_document(tb, mode == "answer")
+    f = document.generate_document(tb, mode == "answer", request)
     r = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     r['Content-Disposition'] = 'attachment; filename=questions.docx'
     f.close()
