@@ -87,10 +87,7 @@ def generate_document(tb, answer, request):
 
     body.append(docx.heading("%s - Questions" % (tb), 1))
     qq = list(models.Question.objects.filter(teaching_activity__block=tb, status=models.Question.APPROVED_STATUS))
-    for x in qq:
-        print x.body[:-1][::-1] if x.body[-1] in "?.:" else x.body[::-1]
-    qq = sorted(qq, key=lambda x: x.body[:-1][::-1] if x.body[-1] in "?:." else x.body[::-1])
-    print [q.body for q in qq]
+    qq = sorted(qq, key=lambda x: x.body.strip()[:-1][::-1] if x.body.strip()[-1] in "?:." else x.body.strip()[::-1])
     style_file = os.path.join(docx.template_dir, 'word/stylesBase.xml')
     style_tree = etree.parse(style_file)
     style_outfile = open(os.path.join(docx.template_dir, 'word/styles.xml'), 'w')
@@ -177,19 +174,20 @@ def generate_document(tb, answer, request):
         d.attrib['%sval' % xhtml_namespace] = str(numid)
         etree.SubElement(b, "%scontextualSpacing" % xhtml_namespace)
 
-    a = etree.SubElement(s,"%sstyle" % xhtml_namespace)
-    a.attrib["%sstyleId" % xhtml_namespace] = "Hyperlink"
-    a.attrib['%stype' % xhtml_namespace] = "character"
-    b = etree.SubElement(a, "%sname" % xhtml_namespace)
-    b.attrib["%sval" % xhtml_namespace] = "Hyperlink"
-    b = etree.SubElement(a, "%sbasedOn" % xhtml_namespace)
-    b.attrib['%sval' % xhtml_namespace] = "DefaultParagraphFont"
-    c = etree.SubElement(a, "%srPr" % xhtml_namespace)
-    d = etree.SubElement(c, "%scolor" % xhtml_namespace)
-    d.attrib['%sval' % xhtml_namespace] = "0000FF"
-    d.attrib['%sthemeColor' % xhtml_namespace] = "hyperlink"
-    d = etree.SubElement(c, "%su" % xhtml_namespace)
-    d.attrib['%sval' % xhtml_namespace] = "single"
+    if answer:
+        a = etree.SubElement(s,"%sstyle" % xhtml_namespace)
+        a.attrib["%sstyleId" % xhtml_namespace] = "Hyperlink"
+        a.attrib['%stype' % xhtml_namespace] = "character"
+        b = etree.SubElement(a, "%sname" % xhtml_namespace)
+        b.attrib["%sval" % xhtml_namespace] = "Hyperlink"
+        b = etree.SubElement(a, "%sbasedOn" % xhtml_namespace)
+        b.attrib['%sval' % xhtml_namespace] = "DefaultParagraphFont"
+        c = etree.SubElement(a, "%srPr" % xhtml_namespace)
+        d = etree.SubElement(c, "%scolor" % xhtml_namespace)
+        d.attrib['%sval' % xhtml_namespace] = "0000FF"
+        d.attrib['%sthemeColor' % xhtml_namespace] = "hyperlink"
+        d = etree.SubElement(c, "%su" % xhtml_namespace)
+        d.attrib['%sval' % xhtml_namespace] = "single"
 
     style_tree.write(style_outfile)
     numbering_tree.write(numbering_outfile)
@@ -224,6 +222,7 @@ def generate_document(tb, answer, request):
         docxfile.writestr(treesandfiles[tree], treestring)
 
     files_to_ignore = ['.DS_Store', 'stylesBase.xml', 'numberingBase.xml']
+    print docx.template_dir
     for dirpath, dirnames, filenames in os.walk(docx.template_dir):
         for filename in filenames:
             if filename in files_to_ignore:

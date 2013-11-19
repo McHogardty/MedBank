@@ -3,7 +3,10 @@ from django.conf.urls import patterns, include, url
 from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock,
     MyActivitiesView, UnassignView, ApproveQuestionsView, StartApprovalView,
-    EmailView, ChangeStatus, AdminView, ReleaseBlockView, EditBlock, AddComment)
+    EmailView, ChangeStatus, AdminView, ReleaseBlockView, EditBlock, AddComment,
+    QuizView, Quiz, QuizStartView, QuizQuestionsView, QuizSubmit, QuizReport)
+
+from django.views.generic import TemplateView
 
 # Uncomment the next two lines to enable the admin:
 # from django.contrib import admin
@@ -23,6 +26,11 @@ urlpatterns = patterns(
     url(r'^admin/approve/(?P<pk>\d{1,2})/(?P<q_id>\d+)/$', StartApprovalView.as_view(), name='admin-approve'),
     url(r'^download/(?P<pk>\d{1,2})/(?P<mode>[a-z]+)/$', 'download'),
     url(r'^send/(?P<pk>\d{1,2})/$', 'send'),
+    url(r'^quiz/$', Quiz.as_view(), name='quiz'),
+    url(r'^quiz/start/$', QuizStartView.as_view(), name='quiz-start'),
+    url(r'^quiz/prepare/$', QuizQuestionsView.as_view(), name='quiz-prepare'),
+    url(r'^quiz/submit/$', QuizSubmit.as_view(), name='quiz-submit'),
+    url(r'^quiz/report/$', QuizReport.as_view(), name='quiz-report'),
     url(r'^ta/$', MyActivitiesView.as_view(), name='activity-mine'),
     url(r'^ta/new/$', NewActivity.as_view(), name='activity-new'),
     url(r'^block/new/$', NewBlock.as_view(), name='block-new'),

@@ -86,7 +86,7 @@ class ResetPassword(FormView):
         try:
             pk = signing.loads(kwargs['token'], salt=RESET_SALT, max_age=self.time_to_reset)
         except signing.BadSignature:
-            return redirect('home')
+            return redirect('medbank.views.home')
 
         try:
             self.user = User.objects.get(pk=pk)

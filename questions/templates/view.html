@@ -29,10 +29,10 @@
 
 {% block maincontent %}
     <h1>{{ question.teaching_activity.current_block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
-    <p>Block: {{ question.teaching_activity.current_block }}</p>
+    <p class="lead">Block: {{ question.teaching_activity.current_block }}</p>
     <h2 class="thin spacer">Question <small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if not perms.questions.can_approve and question.flagged %}Pending{% else %}{{ question.get_status_display }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.approver }}{% endif %}</small></h2>
     {% if perms.questions.can_approve %}<h4>Written by {{ question.creator }}</h4>{% endif %}
-    <p class="lead">{{ question.body }}</p>
+    <div style="font-weight:200;font-size:21px;">{{ question.body|linebreaks }}</div>
     <ol class="alpha">
         {% for a in question.options_list %}
             <li>{{ a }}</li>

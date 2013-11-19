@@ -5,22 +5,28 @@
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
 {% endblock head %}
-
+<div class="row">
+    <div class="col-md-9">{% block maincontent %}{% endblock maincontent %}</div>
+    
+</div>
 {% block content %}
-{% if teaching_block %}
+{% if teaching_block.released %}
+<div class="row">
+    <div class="col-md-9">
+{% endif %}
     <h1>{{ teaching_block }}</h1>
     <p class="lead">You can sign up for activities in this block from {{ teaching_block.start }} until {{ teaching_block.end }}.</p>
     <p class="lead">You will be able to write questions for activities until  {{ teaching_block.close }}</p>
     <p class="lead">The question documents for this block have {% if not teaching_block.released %}not {% endif %}been released{% if not teaching_block.released %} yet{% endif %}.{% if teaching_block.released %} You can download the documents by using the page actions panel.{% endif %}</p>
     <p class="hidden-xs">Click on a week below to see the classes available for that week.</p>
     <p class="visible-xs">Tap on a week below to see the classes available for that week. Tap on a class to assign yourself to it.</p>
-    <div class="row col-md-10 spacer">
+    <div class="row spacer">
     {% for w, a, l in object_list %}
     <div class="week{% if teaching_block.by_week and user.student in l.0.question_writers.all %} hidden-xs{% endif %}">
-        <div class="week-heading{% if not a %} loading{% endif %} collapse-trigger" data-target="#week-activities-{{ w }}">
+        <div class="week-heading{% if not a and teaching_block.by_activity %} loading{% endif %} collapse-trigger" data-target="#week-activities-{{ w }}">
             <h3>Week {{ w }}</h3>
             {% if teaching_block.by_activity %}<i class="icon-angle-down"></i>
-            <h3 class="pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>
+            {% if b.released %}<h3 class="pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>{% endif %}
             {% else %}
             <h3 class="pull-right hidden-xs{% if user.student in l.0.question_writers.all %} text-success{% endif %}">{% if user.student in l.0.question_writers.all %}Assigned{% else %}<a data-url="{% url 'questions.views.signup' ta_id=l.0.id %}">Assign to me</a></h3>
             {% endif %}
@@ -30,11 +36,11 @@
         <div class="week-activities collapse in" id="week-activities-{{ w }}">
             {% for t in l %}
             {% if t %}
-                <div class="activity {% if t.enough_writers %}hidden-xs{% endif %}">
+                <div class="activity {% if t.enough_writers and not teaching_block.released %}hidden-xs{% endif %}">
                     <span class="loading pull-left">{{ t.get_activity_type_display.0 }}</span>&nbsp;
                     <span>{{ t }}</span>
                     <span class="actions hidden-xs">
-                        <a class="action" href="{% url 'ta' pk=t.id %}">
+                        <a class="action action-view" href="{% url 'ta' pk=t.id %}">
                             View
                         </a>
                     </span>
@@ -51,15 +57,18 @@
     <p>There are currently no questions in the database.</p>
     {% endfor %}
     </div>
-{% else %}
-    <h1>View teaching activities</h1>
-
-    {% if perms.questions.approve %}
-        <p>There is no teaching block in the database yet, so no teaching activities can be displayed.</p>
-        <p class="text-center"><a class='btn btn-large btn-primary' href="{% url 'questions.views.new_ta_upload' %}">Upload teaching activities</a></p>
-    {% else %}
-        <p>No teaching activities have been added yet.</p>
-    {% endif %}
+{% if teaching_block.released %}
+    </div>
+    {% spaceless %}
+    <div class="col-md-3 action-column">
+        <div class="text-center page-actions">
+            <h3>Page Actions</h3>
+            <a class="action" href="{% url 'questions.views.download' pk=teaching_block.pk mode='question' %}">Download questions</a>
+            <a class="action" href="{% url 'questions.views.download' pk=teaching_block.pk mode='answer' %}">Download answers</a>
+        </div>
+    </div>
+    {% endspaceless %}
+</div>
 {% endif %}
 {% endblock content %}
 
@@ -72,14 +81,32 @@
         function clickable(cls, handler) {
             $(cls).on("click", handler)
         }
-        enquire.register("screen and (max-width: 767px)", {
-            match: function () {
-                clickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
-            },
-            unmatch: function () {
-                unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
-            }
-        })
+        {% if teaching_block.released %}
+            enquire.register("screen and (max-width: 767px)", {
+                match: function () {
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", view_activity)
+                },
+                unmatch: function () {
+                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", view_activity)
+                }
+            })
+        {% else %}
+            enquire.register("screen and (max-width: 767px)", {
+                match: function () {
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
+                },
+                unmatch: function () {
+                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
+                }
+            })
+        {% endif %}
+
+        function view_activity() {
+            a = $(this)
+            b = a.find(".action-view").attr("href")
+            location.href=b
+        }
+
         function assign() {
             a = $(this)
             is_mobile = a.attr("data-url") == undefined

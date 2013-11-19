@@ -92,6 +92,10 @@ fieldset[disabled] .btn-primary.active {
   border-color: #357ebd;
 }
 
+a[data-url] {
+  cursor: pointer;
+}
+
 .alert {
   border-radius: 0;
 }
@@ -119,6 +123,10 @@ span.help-block:empty {
 
 h1, h2, h3, h4 {
 	font-weight:200;
+}
+
+h1.mega {
+  font-size: 60px;
 }
 
 .week-heading h3 {

@@ -27,6 +27,7 @@ import datetime
 import collections
 import os
 import pwd
+import random
 
 
 def class_view_decorator(function_decorator):
@@ -50,7 +51,10 @@ class AllBlocksView(ListView):
     template_name = "choose.html"
 
     def get_queryset(self):
-        bb = models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage=self.request.user.student.get_current_stage())
+        s = [stage.number for stage in self.request.user.student.get_all_stages()]
+        print s
+        bb = models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage__number__in=s).order_by('number')
+        print bb
 
         if 'pending' in self.request.GET:
             bb = bb.filter(activities__questions__status=models.Question.PENDING_STATUS).distinct()
@@ -89,9 +93,9 @@ class AllActivitiesView(ListView):
         r = super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
         b = self.teaching_block
         s = self.request.user.student
-        if not b.stage == s.get_current_stage() and not b.question_count_for_student(s):
+        if not b.stage in s.get_all_stages() and not b.question_count_for_student(s):
             raise Http404
-        if not b.can_write_questions or b.released:
+        if not b.can_access() and not request.user.has_perm("questions.can_approve"):
             messages.error(request, "That block cannot be accessed right now.")
             return redirect('block-list')
         return r
@@ -104,11 +108,9 @@ class AllActivitiesView(ListView):
     def get_queryset(self):
         ta = models.TeachingActivity.objects.filter(block__number=self.kwargs['number'], block__year=self.kwargs['year'])
         by_week = {}
-        print ta
         for t in ta:
             l = by_week.setdefault(t.week, [])
             l.append(t)
-        print by_week
         for v in by_week.values():
             v.sort(key=lambda t: (t.activity_type, t.position))
         return [(k, not all(t.enough_writers() for t in by_week[k]), by_week[k]) for k in by_week]
@@ -116,6 +118,8 @@ class AllActivitiesView(ListView):
     def get_context_data(self, **kwargs):
         c = super(AllActivitiesView, self).get_context_data(**kwargs)
         c['teaching_block'] = self.get_teaching_block()
+        if self.teaching_block.released:
+            c['override_base'] = "newbase_with_actions.html"
         return c
 
 
@@ -280,6 +284,7 @@ class UpdateQuestion(QueryStringMixin, UpdateView):
         return "%s%s" % (reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id}), self.query_string())
 
 
+@class_view_decorator(login_required)
 class AddComment(CreateView):
     model = models.Comment
     form_class = forms.CommentForm
@@ -318,7 +323,6 @@ class AddComment(CreateView):
             }
 
             body = loader.render_to_string('email/newcomment.html', c)
-            print "%s" % self.q.creator
             t = tasks.HTMLEmailTask(
                 "[MedBank] One of your questions has received a comment",
                 body,
@@ -385,7 +389,19 @@ def signup(request, ta_id):
             else:
                 messages.error(request, "Sorry, that activity is already assigned to somebody else.")
                 return redirect("questions.views.home")
-
+        if not request.user.get_current_stage() == ta.current_block().stage:
+            if request.is_ajax():
+                return HttpResponse(
+                    json.dumps({
+                        'result': 'error',
+                        'blurb': 'Wrong stage',
+                        'explanation': 'Sorry, this activity is not in your current stage.'
+                    }),
+                    mimetype="application/json"
+                )
+            else:
+                messages.error(request, "Sorry, this activity is not in your current stage.")
+                return redirect("questions.views.home")        
         ta.question_writers.add(request.user.student)
         ta.save()
 
@@ -490,6 +506,130 @@ class ViewQuestion(DetailView):
         return c
 
 
+@class_view_decorator(login_required)
+class QuizStartView(ListView):
+    template_name = "quiz_start.html"
+    model = models.TeachingBlock
+
+    def get_queryset(self):
+        q = super(QuizStartView, self).get_queryset()
+        s = [stage.number for stage in self.request.user.student.get_all_stages()]
+        return q.filter(stage__number__in=s).exclude(release_date__isnull=True)
+
+
+@class_view_decorator(login_required)
+class QuizView(ListView):
+    template_name = "quiz.html"
+    model = models.TeachingBlock
+
+    def get_queryset(self):
+        return super(QuizView, self).get_queryset().exclude(release_date__isnull=True)
+
+
+@class_view_decorator(login_required)
+class QuizQuestionsView(TemplateView):
+    def render_to_response(self, context, **response_kwargs):
+        g = self.request.GET
+        blocks = []
+        questions = []
+        for b in g.getlist('block'):
+            d = {}
+            d["block"] = int(b)
+            d["question_number"] = int(g['block_%s_question_number' % b])
+            if len(g['block']) == 1:
+                d['years'] = [int(g["block_%s_year" % b]), ]
+            else:
+                d["years"] = [int(y) for y in g['block_%s_year' % b]]
+            blocks.append(d)
+        if not blocks:
+            return redirect('quiz-start')
+
+        for b in blocks:
+            bk = models.TeachingBlock.objects.filter(number=b['block'], year__in=b['years'])
+            q = []
+            if not bk.count():
+                return redirect('quiz-start')
+            for bb in bk:
+                q += models.Question.objects.filter(teaching_activity__block=bk, status=models.Question.APPROVED_STATUS)
+            random.seed()
+            if b["question_number"] > len(q):
+                b["question_number"] = len(q)
+            print b["question_number"]
+            q = random.sample(q, b["question_number"])
+            questions += q
+
+        self.request.session['questions'] = questions
+
+
+        return redirect('quiz')
+
+@class_view_decorator(login_required)
+class Quiz(ListView):
+    model = models.Question
+    template_name = "quiz.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if 'questions' in request.session:
+            self.questions = request.session.pop('questions')
+        else:
+            return redirect('quiz-start')
+        return super(Quiz, self).dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return self.questions
+
+
+@class_view_decorator(login_required)
+class QuizSubmit(RedirectView):
+    def get_redirect_url(self):
+        if not self.request.method == 'POST':
+            return reverse('quiz-start')
+        p = self.request.POST
+        questions = []
+        qq = models.Question.objects.filter(id__in=p.getlist('question', []))
+        if not qq.count():
+            return reverse('quiz-start')
+        for q in qq:
+            try:
+                q.position = p.get("question-%d-position" % q.id, "")
+            except ValueError:
+                q.position = ""
+            q.choice = p.get("question-%d-answer" % q.id, "")
+            if not q.position:
+                return reverse("quiz-start")
+            questions.append(q)
+        questions.sort(key=lambda x: x.position)
+        self.request.session['questions'] = questions
+        return reverse('quiz-report')
+
+
+@class_view_decorator(login_required)
+class QuizReport(ListView):
+    template_name = "quiz.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if 'questions' in request.session:
+            self.questions = request.session.pop('questions')
+        else:
+            return redirect('quiz-start')
+        return super(QuizReport, self).dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return self.questions
+
+    def get_context_data(self, **kwargs):
+        c = super(QuizReport, self).get_context_data(**kwargs)
+        c.update({'report': True, 'number_correct': sum(1 for q in self.questions if q.choice == q.answer)})
+        by_block = {}
+        for q in self.questions:
+            d = by_block.setdefault(q.teaching_activity.current_block(), {})
+            l = d.setdefault('questions', [])
+            l.append(q)
+        for d in by_block.values():
+            d['number_correct'] = sum(1 for q in d['questions'] if q.choice == q.answer)
+        c.update({'by_block': by_block})
+        return c
+
 @login_required
 def view(request, ta_id, q_id):
     try:
@@ -523,7 +663,6 @@ class ChangeStatus(RedirectView):
         return qs
 
     def get_redirect_url(self, ta_id, q_id, action):
-        print "Using status change view"
         actions_to_props = {
             'approve': 'approved',
             'pending': 'pending',
@@ -540,9 +679,7 @@ class ChangeStatus(RedirectView):
             messages.error(self.request, "Sorry, an unknown error occurred. Please try again.")
             return redirect('questions.views.home')
 
-        print getattr(q, actions_to_props[action])
         if not getattr(q, actions_to_props[action]):
-            print getattr(models.Question, '%s_STATUS' % actions_to_props[action].upper())
             q.status = getattr(models.Question, '%s_STATUS' % actions_to_props[action].upper())
             q.approver = self.request.user.student
             q.save()
@@ -556,6 +693,7 @@ class ChangeStatus(RedirectView):
         return r
 
 
+@class_view_decorator(permission_required('questions.can_approve'))
 class ReleaseBlockView(RedirectView):
     def get_redirect_url(self, pk):
         try:
@@ -586,9 +724,11 @@ def download(request, pk, mode):
     if not tb.released and not request.user.has_perm("questions.can_approve"):
         raise PermissionDenied
 
-    if not tb.question_count_for_student(request.user.student) and not request.user.has_perm("questions.can_approve"):
+    print tb.stage != request.user.student.get_current_stage() and tb.stage in request.user.student.get_all_stages()
+
+    if not tb.question_count_for_student(request.user.student) and not request.user.has_perm("questions.can_approve") and not (tb.stage != request.user.student.get_current_stage() and tb.stage in request.user.student.get_all_stages()):
         messages.error(request, "Unfortunately you haven't written any questions for this block, so you are unable to download the other questions.")
-        return redirect('admin')
+        return redirect('activity-mine')
 
     f = document.generate_document(tb, mode == "answer", request)
     r = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
@@ -620,9 +760,17 @@ class EmailView(FormView):
         r = super(EmailView, self).dispatch(request, *args, **kwargs)
         return r
 
+
+    def get_recipients(self):
+        recipients = models.Student.objects.filter(teachingactivity__block=self.tb).distinct()
+        if 'document' in self.request.GET:
+            recipients = recipients.filter(questions_created__teaching_activity__block=self.tb).distinct()
+        return recipients
+
+
     def get_context_data(self, **kwargs):
         c = super(EmailView, self).get_context_data(**kwargs)
-        c.update({'tb': self.tb, 'recipients': models.Student.objects.filter(teachingactivity__block=self.tb).distinct()})
+        c.update({'tb': self.tb, 'recipients': self.get_recipients()})
         return c
 
     def get_initial(self):
@@ -637,8 +785,7 @@ class EmailView(FormView):
 
     def form_valid(self, form):
         c = form.cleaned_data
-        recipients = models.Student.objects.filter(teachingactivity__block=self.tb).distinct()
-        recipients = [s.user.email for s in recipients]
+        recipients = [s.user.email for s in self.get_recipients()]
         if self.request.user.email not in recipients:
             recipients.append(self.request.user.email)
         tags = {

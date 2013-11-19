@@ -56,6 +56,11 @@ class Student(models.Model):
     def get_current_stage(self):
         return self.stages.get(year__year__exact=datetime.datetime.now().year)
 
+    def get_all_stages(self):
+        print self.get_current_stage().number
+        print Stage.objects.filter(number__lte=self.get_current_stage().number)
+        return Stage.objects.filter(number__lte=self.get_current_stage().number)
+
 
 class Year(models.Model):
     stage = models.ForeignKey(Stage)
@@ -126,6 +131,9 @@ class TeachingBlock(models.Model):
 
         setattr(self.__class__, "by_%s" % k.split("_")[0].lower(), property(check_mode_function))
 
+    def years(self):
+        return [x['year'] for x in TeachingBlock.objects.filter(number=self.number).distinct().values("year")]
+
     def assigned_activities_count(self):
         return self.activities.exclude(question_writers=None).count()
 
@@ -148,6 +156,10 @@ class TeachingBlock(models.Model):
     def released(self):
         return self.release_date and self.release_date <= datetime.datetime.now().date()
     released = property(released)
+
+    def can_access(self):
+        print "Can access is %s" % (self.can_write_questions or self.released,)
+        return self.can_write_questions or self.released
 
     def can_sign_up(self):
         return self.start <= datetime.datetime.now().date() <= self.end
@@ -278,6 +290,16 @@ class Question(models.Model):
             return self.status == getattr(self, k)
 
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
+
+    def options_dict(self):
+        from django.utils.datastructures import SortedDict
+        d = SortedDict()
+        e = json.loads(self.options)
+        f = e.keys()
+        f.sort()
+        for k in f:
+            d[k] = e[k]
+        return d
 
     def options_list(self):
         l = list(json.loads(self.options).iteritems())
