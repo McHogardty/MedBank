@@ -1,0 +1,320 @@
+{% extends "base-no-nav-early-javascript.html" %}
+
+{% block head %}
+    <link href="{{ STATIC_URL }}onepage/onepage-scroll.css" rel="stylesheet" media="screen">
+    <link href="{{ STATIC_URL }}fullPage/jquery.fullPage.css" rel="stylesheet" media="screen">
+    <link href="{{ STATIC_URL }}loading-bar/loadingbar.css" rel="stylesheet" media="screen">
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
+    <style type="text/css">
+    .controlArrow {
+        display:none;
+    }
+    </style>
+{% endblock head %}
+
+{% block content %}
+    <div class="row section">
+        <div class="col-md-8 col-md-offset-2 text-center">
+            <h1 class="mega">Test yourself</h1>
+            <h1>Click the button below to begin</h1>
+            <br />
+            <a class="btn btn-lg btn-primary btn-next col-md-2 col-md-offset-5">Start</a>
+        </div>
+    </div>
+    <div class="row section">
+        <div class="slide">
+        <span class="toSlide" data-index="2" id="move-2"></span>
+        <div>
+            <h1 class="mega">Pick blocks</h1>
+            <div class="spacer blocks">
+            {% for o in object_list %}
+                <div class="week" data-block="{{ o.number }}">
+                    <div class="week-heading">
+                        <h3>{{ o.name }}</h3>
+                        <i class="icon-angle-right pull-right" style="margin-top:10px;"></i>
+                        <i class="glyphicon glyphicon-ok pull-right" style="margin-top:20px; margin-right:5px;"></i>
+                    </div>
+                </div>
+            {% endfor %}
+            <br />
+            <a class="btn btn-lg btn-primary btn-next btn-continue col-md-offset-5 col-md-2">Continue</a>
+            </div>
+        </div>
+        </div>
+        <div class="slide block-details">
+            <span class="toSlide" data-index="1" id="move-1"></span>
+            {% for o in object_list %}
+                <form class="form-horizontal block-form" id="form-{{ o.number }}" role="form">
+                    <div class="form-group">
+                        <div class="col-lg-offset-1">
+                            <h1>{{ o.name }}</h1>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-lg-5">
+                            <h2 class="control-label">Number of questions</h2>
+                        </div>
+                        <div class="col-lg-3">
+                            <input name="question_count" type="text" class="input-lg form-control col-lg-3 question_count" />
+                            <span class="text-danger questions-error">Please enter a number.</span>
+                            <span class="text-danger number-error">Please enter a number larger than 0.</span>
+                            <span class="text-danger number-size-error">Please enter a number smaller than 1000.</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-lg-5">
+                            <h2 class="control-label">Years to pick from</h2>
+                        </div>
+                        <div class="col-lg-3 years">
+                            {% for y in o.years %}
+                                <button type="button" class="btn btn-default btn-lg" name="year-{{ y }}" data-checked="">{{ y }}</button>    
+                            {% endfor %}<br />
+                            <span class="text-danger year-error">Please choose some years.</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-lg-offset-5 col-lg-3">
+                            <button type="submit" class="btn btn-primary btn-lg">Save</button>
+                        </div>
+                    </div>
+                </form>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="row section">
+        <div class="col-md-offset-1">
+            <h1 class="mega summary">Summary</h1>
+            <div class="summaries">
+            </div>
+            <br />
+            <a class="btn btn-lg btn-primary btn-load col-md-offset-3 col-md-2" style="margin-right:40px;">Start</a>
+            <a class="btn btn-lg btn-default btn-reset col-md-2">Reset</a>
+            <form method="get" action="{% url 'quiz-prepare' %}" class="submit-form"></form>
+        </div>
+    </div>
+{% endblock content %}
+
+{% block javascript %}
+    <script src="//code.jquery.com/ui/1.10.3/jquery-ui.min.js"></script>
+    <script src="{{ STATIC_URL }}jquery-ui.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}onepage/jquery.onepage-scroll.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}fullPage/jquery.fullPage.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}loading-bar/jquery.loadingbar.min.js"></script>
+    <script type="text/javascript">
+        var forward = null;
+        var back = null;
+        var block_details = [];
+        var to_hide = null;
+        var base_questions_url = "{% url 'quiz'%}";
+
+        function clear_form () {
+            to_hide.hide()
+            to_hide.find(".years button").each(function () {
+                $(this).attr("data-checked", "")
+                $(this).toggleClass("btn-success btn-default")
+            })
+            to_hide.find(".question_count").val("")
+            to_hide = null;
+        };
+
+        function summary_element (block, n, years) {
+            $el = $("<h2></h2>")
+            y = ""
+            if (years.length == 1) {
+                y = years[0]
+            } else {
+                if (years.length > 2) {
+                    $.each(years.slice(0, years.length - 2), function (i, yy) {
+                        y += (yy + ", ");
+                    })
+                }
+                y += (years[years.length - 2]) + " and " + (years[years.length -1])
+            }
+            sentence = block + ": " + n + " question"
+            if (n !== 1) {
+                sentence += "s"
+            }
+            sentence += " from " + y
+            $el.text(sentence)
+            return $el
+        };
+
+        function validate (f) {
+            ret = true;
+            $q = $f.find(".question_count")
+            $qe = $f.find(".questions-error")
+            $ne = $f.find(".number-error")
+            $ns = $f.find(".number-size-error")
+            var numbers = /^[0-9]+$/
+            if (!$q.val().match(numbers) || isNaN(parseInt($q.val()))) {
+                ret = false;
+                $qe.show();
+            } else if (parseInt($q.val()) <= 0) {
+                $qe.hide();
+                ret = false;
+                $ne.show();
+            } else {
+                $qe.hide();
+                $ne.hide();
+                if (parseInt($q.val()) > 1000) {
+                    $ns.show();
+                    ret = false;
+                }
+            }
+            years = false;
+            $f.find(".years button").each(function () {
+                if ($(this).attr('data-checked')) {
+                    years = true;
+                }
+            })
+            $ye = $f.find(".year-error")
+            if (years == false) {
+                ret = false;
+                $ye.show()
+                //alert("Please select a year")
+            } else {
+                $ye.hide()
+            }
+            return ret
+            }
+
+        function reset () {
+            block_details = [];
+            to_hide = null;
+            $(".summaries").html("")
+            $(".blocks div").each(function () {
+                $t = $(this)
+                $t.find(".glyphicon").hide()
+                $t.find(".icon-angle-right").show()
+                $t.find(".week-heading").removeClass("text-success")
+            })
+            back()
+        }
+
+        function get_questions() {
+            var url = base_questions_url;
+
+            url += "?";
+
+            $.each(block_details, function (i, b) {
+                if (i > 0) {
+                    url += "&";
+                }
+                url += "block=" + b["block"];
+                url += "&block_" + b["block"] + "_question_number=" + b["numberOfQuestions"];
+                $.each(b["years"], function (j, y) {
+                    url += "&block_" + b["block"] + "_year=" + y
+                })
+            });
+
+            $(".load").attr("href", url)
+            $(".load").loadingbar({
+                success: function(data, text, xhr) {
+                    alert(data)
+                }
+            })
+            $(".load").click()
+        }
+
+        $(document).ready(function () {
+            $.fn.fullpage({
+                css3: true,
+                resize: false,
+                verticalCentered: false,
+                afterLoad: function (anchorLink, index) {
+                    if (index == 2 && anchorLink == 0) {
+                        clear_form()
+                    } else if (index == 4) {
+                        get_questions()
+                    }
+                },
+                manual: false,
+            })
+            forward = function () {$.fn.fullpage.moveSlideDown()}
+            back = function () {$.fn.fullpage.moveSlideUp()}
+            $(".btn-next").click(function () {
+                forward()
+            })
+            $(".glyphicon").hide()
+            $(".block-details form").hide()
+            $(".year-error").hide()
+            $(".questions-error").hide()
+            $(".number-error").hide()
+            $(".number-size-error").hide()
+            $(".btn-continue").hide()
+            $(".btn-reset").click(function () {
+                reset()
+            })
+            $(".btn-load").click(function() {
+                $(".submit-form").submit()
+            })
+            $(".years button").click(function () {
+                $b = $(this)
+                $b.toggleClass("btn-success btn-default")
+                if ($b.hasClass("btn-success")) {
+                    $b.attr("data-checked", "checked")
+                } else {
+                    $b.attr("data-checked", "")
+                }
+            })
+            $(".block-form").submit(function () {
+                $f = $(this)
+                if (!validate($f)) {
+                    return false;
+                }
+                selected_years = []
+
+                $f.find(".years button").each(function () {
+                    if ($(this).attr('data-checked')) {
+                        selected_years.push(parseInt($(this).attr('name').split("-")[1]))
+                    }
+                })
+                details = {
+                    block: parseInt($f.attr("id").split("-")[1]),
+                    numberOfQuestions: parseInt($f.find(".question_count").val()),
+                    years: selected_years,
+                }
+                block_details.push(details)
+                to_hide = $f
+                $("div[data-block=" + details["block"] + "]").find(".glyphicon").show()
+                $("div[data-block=" + details["block"] + "]").find(".icon-angle-right").hide()
+                $("div[data-block=" + details["block"] + "]").find(".week-heading").addClass("text-success")
+                $(".btn-continue").show()
+                $(".summaries").append(
+                    summary_element(
+                        $("div[data-block=" + details['block'] + "] div h3").html(),
+                        details['numberOfQuestions'],
+                        details['years']
+                    )
+                )
+                $(".submit-form").append('<input type="hidden" name="block" value="' + details["block"] + '">');
+                $(".submit-form").append('<input type="hidden" name="block_' + details["block"] + '_question_number" value="' + details["numberOfQuestions"] + '">');
+                $.each(details["years"], function (i, y) {
+                    $(".submit-form").append('<input type="hidden" name="block_' + details["block"] + '_year" value="' + y + '">');
+                })
+                $('#move-1').click()
+                return false
+            })
+            $(".week-heading").click(function () {
+                if ($(this).hasClass("text-success")) {
+                    return false;
+                }
+                n = $(this).parent().attr('data-block');
+                $("#form-" + n).show()
+                $('#move-2').click()
+            })
+            /*$(".container").onepage_scroll({
+                sectionContainer: ".row",
+                pagination: false,
+                scroll: false,
+            })
+            forward = function () {$(".container").moveDown()}
+            back = function () {$(".container").moveUp()}
+            $(".btn-start").click(function () {
+                forward()
+            })*/
+        });
+    </script>
+{% endblock javascript %}

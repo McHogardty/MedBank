@@ -99,6 +99,7 @@ MIDDLEWARE_CLASSES = (
     'maintenancemode.middleware.MaintenanceModeMiddleware',
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'questions.middleware.CurrentStageMiddleware',
 )
 
 ROOT_URLCONF = 'medbank.urls'
@@ -166,6 +167,8 @@ MESSAGE_TAGS = {
 }
 
 FORMAT_MODULE_PATH = 'medbank.formats'
+
+STAGE_SELECTION_VIEW = 'medbank.views.pick_stage'
 
 QUESTIONS_PER_USER = 3
 USERS_PER_ACTIVITY = 2

@@ -270,6 +270,10 @@ div.activity {
     padding:10px;
 }
 
+.activity:hover {
+  background-color:rgb(249,249,249);
+}
+
 .activity .body {
     max-width:400px;
     float:left;
@@ -373,3 +377,24 @@ div.comment-heading:hover {
         text-align:center;
     }
 }
+
+
+.pre-blur {
+    -webkit-transition:all 0.6s ease-out;
+    -moz-transition:all 0.6s ease-out;
+    -o-transition:all 0.6s ease-out;
+    -ms-transition:all 0.6s ease-out;
+    transition:all 0.6s ease-out;
+}
+
+/*.blur {
+    -webkit-filter:blur(10px);
+    -o-filter:blur(10px);
+    -ms-filter:blur(10px);
+    filter:blur(10px);
+}*/
+
+.blur {
+    opacity:0;
+}
+

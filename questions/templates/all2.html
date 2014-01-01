@@ -4,11 +4,48 @@
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello.css">
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
     <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
+
+    <style type="text/css">
+        .message {
+            position:fixed;
+            top:0;
+            left:0;
+            width:100%;
+            height:100%;
+            z-index:1100;
+            display:none;
+            background:#FFFFFF;
+            overflow-y:scroll;
+        }
+
+        .message .content {
+            position:absolute;
+            padding-top:100px;
+            text-align:center;
+            width:100%;
+            height:100%;
+        }
+
+        .message .btn-close {
+            margin-bottom:100px;
+        }
+    </style>
+
 {% endblock head %}
-<div class="row">
-    <div class="col-md-9">{% block maincontent %}{% endblock maincontent %}</div>
-    
-</div>
+
+
+{% block before %}
+    <div class="message">
+        <div class="content">
+            <div class="container">
+                <h1 class="summary"></h1>
+                <h3 class="info"></h3>
+                <button type="button" class="btn btn-default btn-close">Close</button>
+            </div>
+        </div>
+    </div>
+{% endblock before %}
+
 {% block content %}
 {% if teaching_block.released %}
 <div class="row">
@@ -25,33 +62,36 @@
     <div class="week{% if teaching_block.by_week and user.student in l.0.question_writers.all %} hidden-xs{% endif %}">
         <div class="week-heading{% if not a and teaching_block.by_activity %} loading{% endif %} collapse-trigger" data-target="#week-activities-{{ w }}">
             <h3>Week {{ w }}</h3>
-            {% if teaching_block.by_activity %}<i class="icon-angle-down"></i>
+            {% if teaching_block.by_activity %}
+            <i class="icon-angle-down"></i>
             {% if b.released %}<h3 class="pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>{% endif %}
             {% else %}
             <h3 class="pull-right hidden-xs{% if user.student in l.0.question_writers.all %} text-success{% endif %}">{% if user.student in l.0.question_writers.all %}Assigned{% else %}<a data-url="{% url 'questions.views.signup' ta_id=l.0.id %}">Assign to me</a></h3>
             {% endif %}
+            {% endif %}
+            {% if teaching_block.by_week %}
+                <span class="action-view hidden" data-url="{% url 'ta' pk=l.0.id %}"></span>
             {% endif %}
         </div>
         {% if teaching_block.by_activity %}
         <div class="week-activities collapse in" id="week-activities-{{ w }}">
             {% for t in l %}
             {% if t %}
-                <div class="activity {% if t.enough_writers and not teaching_block.released %}hidden-xs{% endif %}">
-                    <span class="loading pull-left">{{ t.get_activity_type_display.0 }}</span>&nbsp;
-                    <span>{{ t }}</span>
-                    <span class="actions hidden-xs">
-                        <a class="action action-view" href="{% url 'ta' pk=t.id %}">
-                            View
-                        </a>
-                    </span>
-                    <span class="pull-right{% if user.student in t.question_writers.all %} text-success{% else %}{% if t.enough_writers %} loading{% endif %}{% endif %} hidden-xs">
+                <div class="activity{% if t.enough_writers and not teaching_block.released or user.student in t.question_writers.all %} hidden-xs{% endif %}" style="position:relative;">
+                        <div class="pull-right{% if user.student in t.question_writers.all %} text-success{% else %}{% if t.enough_writers %} loading{% endif %}{% endif %} hidden-xs">
                         {% if user.student in t.question_writers.all %}Assigned{% else %}{% if t.can_sign_up %}{% if t.enough_writers %}Unavailable{% else %}{% if t.has_writers %}<span class="loading"><span class='hidden-xs hidden-sm'>Assigned to {{ t.question_writers.count }}</span></span> {% endif %}<a data-url="{% url 'questions.views.signup' ta_id=t.id %}">Assign to me</a>{% endif %}{% endif %}{% endif %}
-                    </span>
+                    </div>
+                    <div class="activity-info"><span class="loading">{{ t.get_activity_type_display.0 }}</span> {{ t }}</div>
+                    <div class="clearfix"></div>
+                    <span class="action-view hidden" data-url="{% url 'ta' pk=t.id %}"></span>
                 </div>                
             {% endif %}
             {% endfor %}
         </div>
         {% endif %}
+        {% for t in l %}
+        <span class="action-view hidden" data-url="{% if teaching_block.by_week %}{% url 'ta' pk=l.0.id %}{% else %}{% url 'ta' pk=t.id %}{% endif %}"></span>
+        {% endfor %}
     </div>
     {% empty %}
     <p>There are currently no questions in the database.</p>
@@ -84,77 +124,112 @@
         {% if teaching_block.released %}
             enquire.register("screen and (max-width: 767px)", {
                 match: function () {
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", view_activity)
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
                 },
                 unmatch: function () {
-                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", view_activity)
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+                },
+                setup: function () {
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
                 }
             })
         {% else %}
             enquire.register("screen and (max-width: 767px)", {
                 match: function () {
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
+                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", assign);
                 },
                 unmatch: function () {
-                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week{% endif %}", assign)
-                }
+                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", assign);
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+                },
+                setup: function () {
+                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+                },
             })
         {% endif %}
 
         function view_activity() {
-            a = $(this)
-            b = a.find(".action-view").attr("href")
+            a = $(this);
+            b = a.find(".action-view").attr("data-url");
             location.href=b
         }
 
+        function show_splash() {
+            $("body").addClass("modal-open");
+            $(".message").fadeIn(600);
+        }
+
+        function hide_splash() {
+            $(".message").fadeOut(600);
+            $("body").removeClass("modal-open")
+        }
+
+        function show_message(summary, info) {
+            $(".message .summary").text(summary);
+            $(".message .info").text(info);
+
+            show_splash();
+        }
+
         function assign() {
-            a = $(this)
+            a = $(this);
             is_mobile = a.attr("data-url") == undefined
             a.addClass("loading")
             if (is_mobile) {
-                url = $(this).find(".pull-right a").attr("data-url")
-                {% if teaching_block.by_activity %}a.html("Loading..."){% else %}a.find('.week-heading h3').html("Loading"){% endif %}
+                url = a.find(".pull-right a").attr("data-url")
             } else {
-                url = $(this).attr("data-url");
+                url = a.attr("data-url");
             }
+            {% if teaching_block.by_activity %}
+            if (is_mobile) {
+                a.find('.activity-info').hide()
+                .after($('<span class="activity-load">Loading...</span>'))
+            } else {
+                a.html("Loading...")
+            };{% else %}a.find('.week-heading h3').hide(){% endif %}
             $.get(url, function (data) {
                 switch(data.result) {
                     case "success":
                         if (is_mobile) {
                             a.addClass("text-success")
                             {% if teaching_block.by_activity %}a.html("Assigned"){% else %}a.find('.week-heading h3').html("Assigned"){% endif %}
-                            a.removeClass("loading")
                         } else {
                             a.parent().addClass('text-success')
                             a.parent().html("Assigned")
                         }
                         break;
                     case "error":
-                        if (!is_mobile) {
-                            s = a.parent()
-                            tr = s.parent()
-                            s.addClass("text-error")
-                            a.replaceWith(data.blurb)
-                        } else {
-                            a.addClass("text-error")
-                            a.html(data.explanation)
-                            a.removeClass("loading")
-                        }
+                        show_message(data.summary, data.info);
+                        {% if teaching_block.by_activity %}
+                        if (is_mobile) {
+                            a.find('.activity-load').remove();
+                            a.find('.activity-info').show();
+                        } else { 
+                            a.html("Assign to me")
+                        };{% else %}a.find('.week-heading h3').html("Assign to me"){% endif %};
                         break;
                     default:
-                        return
+                        return false;
                 }
+                a.removeClass("loading");
             })
+            return false;
         }
         $(document).ready(function () {
             $(".collapse-trigger").each(function () {
                 $($(this).attr("data-target")).collapse()
 
                 $(this).click(function () {
-                    $($(this).attr("data-target")).collapse("toggle")
+                    $($(this).attr("data-target")).collapse("toggle");
+                    return false;
                 })
             })
-            $("div.week a[data-url]").click(assign)
+            $("div.week a[data-url]").click(assign);
+            $(".btn-close").click(function () {
+                hide_splash();
+                return false;
+            })
         })
     </script>
 {% endif %}

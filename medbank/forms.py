@@ -2,6 +2,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django import forms
 from django.utils.translation import ugettext, ugettext_lazy as _
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 import bsforms
 
@@ -21,12 +22,20 @@ class BootstrapAuthenticationForm(bsforms.NewBootstrapForm, AuthenticationForm):
 
 class StudentCreationForm(bsforms.NewBootstrapModelForm, UserCreationForm):
     username = forms.RegexField(label=_("Unikey"), max_length=20,
-        regex=r'([a-z]{4}\d{4})|[a-z]+',
+        regex=r'^([a-z]{4}\d{4})|[a-z]+$',
         help_text=_("We'll use your Unikey to email the questions to you when they're ready."),
-        error_message=_("Your unikey should be either four lowercase letters followed by four digits, or all lowercase letters")
+        error_message=_("Your unikey should be either four lowercase letters followed by four digits, or all lowercase letters.")
     )
     stage = forms.ModelChoiceField(queryset=models.Stage.objects.all(), empty_label=None)
 
+    def clean_username(self):
+        d = self.cleaned_data['username']
+
+        r = self.fields['username'].regex
+        if not r.match(d):
+            raise(ValidationError(self.fields['username'].error_messages['invalid']))
+
+        return d
 
 class PasswordResetRequestForm(bsforms.NewBootstrapForm):
     username = forms.RegexField(max_length=20,
@@ -65,3 +74,8 @@ class PasswordResetForm(bsforms.NewBootstrapForm):
 
 class FeedbackForm(bsforms.NewBootstrapForm):
     feedback = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
+
+
+class StageSelectionForm(bsforms.NewBootstrapForm):
+    stage = forms.ModelChoiceField(queryset=models.Stage.objects.all(), empty_label=None, widget=forms.Select(attrs={'class':'input-lg'}))
+

@@ -1,0 +1,615 @@
+{% extends "base-no-nav-early-javascript.html" %}
+
+{% block head %}
+    <link href="{{ STATIC_URL }}onepage/onepage-scroll.css" rel="stylesheet" media="screen">
+    <link href="{{ STATIC_URL }}fullPage/jquery.fullPage.css" rel="stylesheet" media="screen">
+    <link href="{{ STATIC_URL }}loading-bar/loadingbar.css" rel="stylesheet" media="screen">
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
+    <style type="text/css">
+    .controlArrow {
+        display:none;
+    }
+
+    form .btn {
+        float:left;
+    }
+
+    .btn-option {
+        width: 40px;
+
+    }
+    .section {
+        padding-top:20px;
+        padding-bottom:80px;
+    }
+
+    .section .scroller {
+        overflow-x:hidden;
+        overflow-y:auto;
+        height:100%
+    }
+
+    .timer {
+        position:fixed;
+        top:30px;
+        right:30px;
+        vertical-align:middle;
+        z-index:1000;
+    }
+    .timer h1 {
+        display:inline-block;
+        margin:0;
+        margin-right:10px;
+    }
+    .timer button {
+        position:relative;
+        top:3px;
+        width:80px;
+    }
+
+    .nav-down {
+        position:fixed;
+        bottom:30px;
+        left:0px;
+        width:100%;
+        text-align:center;
+        vertical-align:middle;
+        z-index:1000;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -o-user-select: none;
+        user-select: none; 
+    }
+
+    .btn-active {
+        background:#eeeeee;
+    }
+
+    .question-indicator {
+        display:inline-block;
+        position:relative;
+        margin:0 10px;
+        top:5px;
+    }
+
+    .finish {
+        position:fixed;
+        width:100%;
+        height:100%;
+        z-index:1100;
+        display:none;
+    }
+
+    .finish .content {
+        position:absolute;
+        padding-top:100px;
+        text-align:center;
+        width:100%;
+        height:100%;
+    }
+
+    .questions {
+        position:fixed;
+        width:100%;
+        height:100%;
+        display:none;
+        z-index:1100;
+    }
+
+    .questions .content {
+        width:100%;
+        height:100%;
+        -webkit-column-gap: 20px;
+        -webkit-column-width: 50px;
+        padding:50px 100px;
+    }
+
+    .explanation {
+        position:fixed;
+        width:100%;
+        height:100%;
+        display:none;
+        z-index:1100;
+    }
+
+    .explanation .content {
+        width:100%;
+        height:100%;
+        -webkit-column-gap: 20px;
+        -webkit-column-width: 50px;
+        padding:50px 100px;
+    }
+
+    .questions ol {
+        list-style-type: none;
+        width:50px;
+        padding:0;
+    }
+
+    .questions ol li {
+        display:list-item;
+        margin-bottom:5px;
+        -webkit-column-break-inside: avoid;
+    }
+
+    .questions .buttons {
+        position:absolute;
+        bottom:30px;
+        width:100%;
+        left:0;
+        text-align:center;
+    }
+
+    .canvas {
+        position:absolute;
+    }
+    /*#canvas {
+        position:relative;
+        top:-100px;
+    }*/
+    </style>
+{% endblock head %}
+
+{% block before %}
+    {% if not report %}
+    <div class="timer">
+        <h1 class="pull-left">00:00</h1> <button class="btn btn-default pull-right">Pause</button>
+    </div>
+    {% endif %}
+    <div class="nav-down">
+        {% if report %}        
+            <button class="btn btn-default btn-summary" type="button">Show summary</button>
+        {% endif %}
+        <button class="btn btn-default btn-previous" type="button">Previous question</button>
+        <h3 class="question-indicator">Question <span class="question-number">-</span> of {{ object_list|length }}</h3>
+        <button class="btn btn-default btn-next" type="button">Next question</button>
+        <button class="btn btn-default btn-progress" type="button">Show questions</button>
+        {% if not report %}<button class="btn btn-default btn-finish" type="button">Finish</button>{% endif %}
+        {% if report %}<button class="btn btn-default btn-home" type="button">Home</button>{% endif %}
+    </div>
+    <div class="finish">
+        <div class="content">
+            <div class="container nosection">
+                <h1>Are you sure you want to finish?</h1>
+                <h2 class="text-info">You still have <span class="question-remaining">{{ object_list|length }}</span> question<span class="plural">{{ object_list|length|pluralize }}</span> remaining!</h2>
+                <p>If you're completely sure, you can submit your answers below. Otherwise, you can return to the quiz and keep on going!</p>
+                <button type="button" class="btn btn-default btn-return">Return</button>
+                <button type="button" class="btn btn-success btn-submit">Submit</button>
+            </div>
+        </div>
+    </div>
+    <div class="questions">
+        <div class="content">
+            <ol>
+                {% for q in object_list %}
+                    <li class="btn btn-default" data-question="{{ forloop.counter }}" {% if report %}data-type="{% if q.choice == q.answer %}success{% else %}danger{% endif %}"{% endif %}>{{ forloop.counter }}</li>   
+                {% endfor %}
+            </ol>
+        </div>
+        <div class="buttons">
+            <button class="btn btn-default btn-close" type="button">Close</button>
+        </div>
+    </div>
+{% endblock before %}
+
+{% block content %}
+    <div>
+    {% if report %}
+        <div class="section first">
+            <form data-question="0"></form>
+            <h1>Your results</h1>
+            <h2 class="text-success">You answered {{ number_correct }} question{{ number_correct|pluralize }} correctly out of {{ object_list|length }}</h2>
+            <ul>
+            {% for b, q in by_block.iteritems %}
+                <li>{{ b }}: {{ q.number_correct }} correct out of {{ q.questions|length }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    {% for q in object_list %}
+        <div class="section{% if forloop.last %} last{% endif %}{% if forloop.first and not report %} first{% endif %}">
+            <div class="scroller">
+            <h2>Question {{ forloop.counter }}{% if report %} - {{ q.teaching_activity.current_block.number }}.{{ q.teaching_activity.week|stringformat:"02d" }}: {{ q.teaching_activity.name }}{% endif %}</h2>
+            <p class="lead">{{ q.body }}</p>
+            <form data-question="{{ forloop.counter }}" data-question-id="{{ q.id }}" class="form-horizontal">
+                {% for x, y in q.options_dict.iteritems %}
+                    <div class="form-group">
+                        <div class="col-md-offset-1">
+                            <button type="button" class="btn {% if x == q.choice %}{% if q.choice == q.answer %}btn-success{% else %}btn-danger{% endif %}{% elif report and x == q.answer %}btn-success{% else %}btn-default btn-option{% endif %}" data-option="{{ x }}">
+                                {% if x == q.choice %}
+                                    {% if q.choice == q.answer %}
+                                    <i class="glyphicon glyphicon-ok pull-right" style="line-height:20px;top:-1px;"></i>
+                                    {% elif report %}
+                                    <i class="glyphicon glyphicon-remove pull-right" style="line-height:20px;top:-1px;"></i>
+                                    {% endif %}
+                                {% elif report and x == q.answer %}
+                                    <i class="glyphicon glyphicon-ok pull-right" style="line-height:20px;top:-1px;"></i>
+                                {% else %}
+                                    {{ x }}
+                                {% endif %}
+                            </button>
+                            <span style="margin-left:45px;line-height:20px;display:block;padding:7px 12px;vertical-align:middle;">{{ y }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </form>
+            {% if report %}
+                {% if not q.choice %}
+                    <p class="text-danger">You didn't answer this question.</p>
+                {% endif %}
+                <button class="btn btn-default btn-explanation" type="button">View explanation</button>
+                <div class="explanation">
+                    <div class="content">
+                        <p>{{ q.explanation }}</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        </div>
+    {% endfor %}
+    {% if not report %}
+    <form action="{% url 'quiz-submit' %}" method="post" class="summary-form">
+        {% csrf_token %}
+        {% for q in object_list %}
+            <input type="hidden" name="question" value="{{ q.id }}" />
+            <input type="hidden" name="question-{{ q.id }}-answer" value="" />
+            <input type="hidden" name="question-{{ q.id }}-position" value="{{ forloop.counter }}" />
+        {% endfor %}
+    </form>
+    {% endif %}
+</div>
+{% endblock content %}
+
+{% block javascript %}
+    <script src="{{ STATIC_URL }}jquery-ui.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}fullPage/jquery.fullPage.js"></script>
+    <script type="text/javascript">
+        var forward = null;
+        var back = null;
+        var block_details = [];
+        var to_hide = null;
+        var base_questions_url = "";
+        var start = 0;
+        var elapsed = 0;
+        var pause = false;
+
+        function uncheck(button) {
+            button.removeClass("btn-success")
+            button.html(button.attr("data-option"))
+        }
+
+        function check(button) {
+            $icon = $('<i class="glyphicon glyphicon-ok pull-right" style="line-height:20px;top:-1px;"></i>')
+            $b.html($icon)
+            $b.toggleClass("btn-success")
+        }
+
+        function time_since_beginning () {
+            return new Date().getTime() - start;
+        }
+        function hide_screen () {
+            $(".active").css({visibility: "hidden", })
+            $(".questions").css({visibility: "hidden", })
+            $(".nav-down").css({visibility: "hidden", })
+        }
+
+        function show_screen () {
+            $(".active").css({visibility: "visible", })
+            $(".questions").css({visibility: "visible", })
+            $(".nav-down").css({visibility: "visible", })
+        }
+
+        function render_time (time) {
+            $h = $('.timer h1')
+            time = Math.round(Math.floor(time/100)/10);
+            minutes = Math.floor(time/60);
+            s = "";
+            if (minutes < 10) {
+                s += "0"
+            }
+            s += minutes
+            s += ":";
+            seconds = time % 60;
+            if (seconds < 10) {
+                s += "0";
+            }
+            s += seconds % 60;
+            $h.html(s);
+        }
+
+        function pause_timer () {
+            pause = true;
+            elapsed = time_since_beginning() + elapsed;
+        }
+
+        function resume_timer () {
+            start = 0;
+            pause = false;
+        }
+
+        function make_list_active($li) {
+            if ($li.attr("data-type")) {
+                $li.removeClass("btn-" + $li.attr("data-type"))
+            }
+            $li.addClass("btn-active")
+            $li.addClass("btn-default")
+            $li.removeClass("btn-success")
+        }
+
+        function unmake_list_active($li) {
+            if ($li.attr("data-type")) {
+                $li.removeClass("btn-default")
+                $li.addClass("btn-" + $li.attr("data-type"))
+            }
+            $li.removeClass("btn-active")
+        }
+
+        function make_list_successful($li) {
+            $li.addClass("btn-success")
+            $li.removeClass("btn-active")
+        }
+
+        function make_active () {
+            $(".question-number").each(function () {
+                n = $(".active form").attr("data-question");
+                if (n == 0) n = "-";
+                $(this).html(n);
+            })
+
+            unmake_list_active($(".btn-active"))
+            
+            {% if not report %}
+            $("form[data-question]").each(function () {
+                if ($(this).find(".btn-success").length > 0) {
+                    make_list_successful($('li[data-question="' + $(this).attr("data-question") + '"]'))
+                }
+            })
+            {% endif %}
+
+            make_list_active($('li[data-question="' + $(".active").find("form").attr("data-question") + '"]'))
+
+
+            if ($(".active").hasClass("last")) {
+                $(".btn-next").attr("disabled", "disabled");
+            } else {
+                $(".btn-next").removeAttr("disabled");
+            }
+            if ($(".active").hasClass("first") || $(".active form").attr("data-question") == 1) {
+                $(".btn-previous").attr("disabled", "disabled");
+            } else {
+                $(".btn-previous").removeAttr("disabled");
+            }
+
+            {% if report %}
+                if ($(".active").hasClass("first")) {
+                    $(".btn-summary").attr("disabled", "disabled");
+                } else {
+                    $(".btn-summary").removeAttr("disabled");
+                }
+            {% endif %}
+        }
+
+        function decide_to_finish () {
+            remaining = $("form[data-question]").length - $("form[data-question] .btn.btn-success").length;
+            ready = (remaining == 0);
+
+            $(".question-remaining").html(remaining)
+            if (remaining == 1) {
+                $(".plural").hide();
+            } else {
+                $(".plural").show();
+            }
+            if (!ready) {
+                $(".btn-finish").removeClass("btn-success");
+                return ready;
+            }
+            $(".finish .text-info").hide();
+            $(".btn-finish").addClass("btn-success");
+            return ready;
+        }
+
+        function show_splash () {
+            pause_timer();
+            $(".finish").fadeIn(600);
+            $(".active").addClass("pre-blur")
+            $(".timer").addClass("pre-blur")
+            $(".nav-down").addClass("pre-blur")
+            $(".active").addClass("blur")
+            $(".timer").addClass("blur")
+            $(".nav-down").addClass("blur")
+        }
+
+        function hide_splash() {
+            $(".finish").fadeOut(600);
+            $(".active").removeClass("blur");
+            $(".nav-down").removeClass("blur");
+            $(".timer").removeClass("blur");
+            setTimeout(function () {
+                $(".active").removeClass("pre-blur");
+                $(".nav-down").removeClass("pre-blur");
+                $(".timer").removeClass("pre-blur");
+            }, 600)
+            resume_timer();
+        }
+
+        function show_progress() {
+            $(".questions").fadeIn(600);
+            $(".active").addClass("pre-blur");
+            $(".timer").addClass("pre-blur");
+            $(".nav-down").addClass("pre-blur");
+            $(".active").addClass("blur");
+            $(".timer").addClass("blur");
+            $(".nav-down").addClass("blur");
+        }
+
+        function hide_progress() {
+            $(".questions").fadeOut(600);
+            $(".active").removeClass("blur");
+            $(".nav-down").removeClass("blur");
+            $(".timer").removeClass("blur");
+            setTimeout(function () {
+                $(".active").removeClass("pre-blur");
+                $(".nav-down").removeClass("pre-blur");
+                $(".timer").removeClass("pre-blur");
+            }, 600)
+        }
+
+        function show_explanation(e) {
+            //e.addClass("pre-blur");
+            e.each(function (x, y, z) {
+                alert(y.attr("class"))
+                y.addClass("pre-blur");
+            });
+        }
+
+        function hide_explanation() {
+
+        }
+
+        function finish () {
+            $summary_form = $(".summary-form")
+            $("form[data-question]").each(function () {
+                $f = $(this);
+                $('input[name="question-' + $f.attr("data-question-id") + '-answer"]').val($f.find(".btn-success").attr("data-option"))
+            })
+            $summary_form.submit()
+        }
+
+        $(document).ready(function () {
+            $.fn.fullpage({
+                css3: true,
+                resize: false,
+                verticalCentered: false,
+                afterLoad: function (anchorLink, index) {
+                    make_active()
+                    {% if report %}
+                    if (index > 1) {
+                        $(".btn-next").html("Next question")
+                    } else {
+                        $(".btn-next").html("View questions")
+                    }
+                    {% endif %}
+                },
+                manual: false,
+            })
+            make_active()
+            {% if report %}
+                $(".btn-next").html("View questions")
+                $("li[data-type]").each(function () {
+                    $(this).addClass("btn-" + $(this).attr("data-type"))
+                })
+            {% endif %}
+            forward = function () {$.fn.fullpage.moveSlideDown()}
+            back = function () {$.fn.fullpage.moveSlideUp()}
+            $(".btn-previous").click(function () {
+                back();
+                return false;
+            })
+            $(".btn-next").click(function () {
+                forward();
+                return false;
+            })
+            $(".btn-progress").click(function () {
+                show_progress();
+                return false;
+            })
+            $(".btn-close").click(function () {
+                hide_progress();
+                return false;
+            })
+            $(".btn-summary").click(function () {
+                $.fn.fullpage.moveToSlide(1);
+                return false;
+            })
+            $(".btn-home").click(function () {
+                window.location.href = "{% url 'activity-mine' %}";
+                return false;
+            })
+            $(".btn-finish").click(function () {
+                show_splash();
+                return false;
+            });
+            $(".btn-submit").click(function () {
+                finish();
+                return false;
+            })
+            $(".btn-return").click(function () {
+                hide_splash();
+                return false;
+            })
+            $(".btn-explanation").click(function () {
+                $b = $(this);
+                $d = $b.parents("div.scroller");
+                show_explanation($d.find(".explanation"));
+                return false;
+            })
+            $(".btn-option").click(function () {
+                $b = $(this)
+                $f = $b.parents("form")
+                $f.find("button.btn-success").each(function () {
+                    if ($(this).attr("data-option") === $b.attr("data-option")) {
+                        return
+                    };
+                    uncheck($(this))
+                })
+                if ($b.hasClass("btn-success")) {
+                    uncheck($b)
+                } else {
+                    check($b)
+                }
+
+                $l = $('.questions ol li[data-question="' + $f.attr("data-question") + '"]')
+                if ($f.find("button.btn-success").length > 0) {
+                    $l.addClass("btn-success")
+                    $l.removeClass("btn-default btn-active")
+                } else {
+                    $l.removeClass("btn-success")
+                    $l.addClass("btn-default")
+                    make_active()
+                }
+                decide_to_finish();
+                return false;
+            })
+
+            $("li.btn").click(function () {
+                hide_progress();
+                $button = $(this)
+                setTimeout(function () {
+                    $.fn.fullpage.moveToSlide(parseInt($button.attr("data-question"), 10))
+                }, 600);
+                return false;
+            })
+
+            $(".timer button").click(function () {
+                $b = $(this)
+                if (pause) {
+                    resume_timer();
+                    show_screen();
+                    $b.html("Pause");
+                } else {
+                    pause_timer();
+                    hide_screen();
+                    $b.html("Resume");
+                }
+                return false;
+            })
+
+            {% if not report %}
+            window.setInterval(function () {
+                if (pause) {
+                    return;
+                }
+                if (start === 0) {
+                    start = new Date().getTime();
+                }
+
+                diff = time_since_beginning() + elapsed;
+                render_time(diff)
+            }, 100)
+            {% endif %}
+        });
+    </script>
+{% endblock javascript %}

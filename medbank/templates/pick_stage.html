@@ -1,0 +1,16 @@
+{% extends "base-no-nav.html" %}
+
+{% block content %}
+    <div class="starter-template login-container"><h1>Choose a stage</h1>
+    <p>It looks like we don't know what stage you're in this year. Please let us know below.</p>
+    <div class="login-form">
+    <form class="" method="post">
+        {% csrf_token %}
+        <div class="form-group text-center">
+            {{ form.stage }}
+        </div>
+        <button type="submit" class="btn btn-lg btn-primary btn-block">Submit</button>
+    </form>
+    </div>
+    </div>
+{% endblock content %}

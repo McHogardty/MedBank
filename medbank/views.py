@@ -36,6 +36,7 @@ def class_view_decorator(function_decorator):
 
 
 def home(request):
+    print request.body
     return render_to_response("base-no-nav.html", {'next_url': reverse('activity-mine')}, context_instance=RequestContext(request))
 
 
@@ -65,6 +66,18 @@ def create_user(request):
 #    if request.method == 'POST':
 #        form.fields['username'].help_text = u""
     return render_to_response("user.html", {'form': form}, context_instance=RequestContext(request))
+
+@login_required
+def pick_stage(request):
+    form = forms.StageSelectionForm
+    if request.method == 'POST':
+        form = form(request.POST)
+        if form.is_valid():
+            request.user.student.add_stage(form.cleaned_data['stage'])
+            return redirect('activity-mine')
+    else:
+        form = form()
+    return render_to_response("pick_stage.html", {'form': form}, context_instance=RequestContext(request))
 
 
 def logout_view(request):

@@ -21,6 +21,7 @@ urlpatterns = patterns(
     url(r'^password/reset/success/$', TemplateView.as_view(template_name="password/reset_success.html"), name="reset_password_success"),
     url(r'^password/reset/(?P<token>[\w:-]+)/$', ResetPassword.as_view(), name="reset_password"),
     url(r'^password/reset/$', ResetPasswordRequest.as_view(), name="reset_password_request"),
+    url(r'^stage/change/$', settings.STAGE_SELECTION_VIEW, name="pick_stage"),
     url(r'^feedback/$', FeedbackView.as_view(), name="feedback"),
     url(r'^questions/', include('questions.urls')),
 

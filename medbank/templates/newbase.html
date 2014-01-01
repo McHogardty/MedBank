@@ -25,11 +25,11 @@
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
             <li><a href="{% url 'activity-mine' %}">Home</a></li>
-            <li><a href="{% url 'quiz' %}">Quiz</a></li>
+            <li><a target="_blank" href="{% url 'quiz' %}">Quiz</a></li>
             <li><a href="{% url 'admin' %}">Admin</a></li>
             <li><a href="{% url 'logout' %}">Logout</a></li>
           </ul>
-          <p class="navbar-text pull-right hidden-xs">Welcome, {{ user.username }} ({{ user.student.get_current_stage }})</p>
+          <p class="navbar-text pull-right hidden-xs">Welcome, {{ user.username }} {% if user.student.get_current_stage %}({{ user.student.get_current_stage }}){% endif %}</p>
         </div><!--/.nav-collapse -->
       </div>
     </div>

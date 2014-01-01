@@ -12,8 +12,6 @@ from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
 from django.utils.decorators import method_decorator
 from django import db
-import smtplib
-
 
 import forms
 import models
@@ -28,6 +26,7 @@ import collections
 import os
 import pwd
 import random
+import smtplib
 
 
 def class_view_decorator(function_decorator):
@@ -52,9 +51,7 @@ class AllBlocksView(ListView):
 
     def get_queryset(self):
         s = [stage.number for stage in self.request.user.student.get_all_stages()]
-        print s
         bb = models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage__number__in=s).order_by('number')
-        print bb
 
         if 'pending' in self.request.GET:
             bb = bb.filter(activities__questions__status=models.Question.PENDING_STATUS).distinct()
@@ -77,8 +74,9 @@ class MyActivitiesView(ListView):
         ret = {}
         ta = models.TeachingActivity.objects.filter(question_writers=self.request.user).order_by('week', 'position')
         for t in ta:
-            l = ret.setdefault(t.current_block(), [])
-            l.append(t)
+            if t.current_block():
+                l = ret.setdefault(t.current_block(), [])
+                l.append(t)
         ret = ret.items()
         ret.sort(key=lambda a: a[0].number)
         return ret
@@ -318,7 +316,7 @@ class AddComment(CreateView):
         form.save()
         if not c['reply_to']:
             c = {
-                'user': self.request.user,
+                'user': self.q.creator.user,
                 'link': self.request.build_absolute_uri(reverse('view', kwargs={'pk': self.q.id, 'ta_id': self.q.teaching_activity.id}))
             }
 
@@ -358,20 +356,23 @@ class UnassignView(RedirectView):
 
 @login_required
 def signup(request, ta_id):
+    import time
+    time.sleep(5)
     try:
         ta = models.TeachingActivity.objects.get(id=ta_id)
     except models.TeachingActivity.DoesNotExist:
         if request.is_ajax():
-            HttpResponse(
+            return HttpResponse(
                 json.dumps({
                     'result': 'error',
-                    'explanation': 'Hmm... this activity could not be found. Please try again.'
+                    'summary': 'Hmm... this activity could not be found.',
+                    'info': 'Please try again.'
                 }),
                 mimetype="application/json"
             )
         else:
             messages.error(request, "Hmm... that teaching activity could not be found.")
-            return redirect("questions.views.home")
+            return redirect("home")
 
     already_assigned = request.user.student in ta.question_writers.all()
 
@@ -381,26 +382,26 @@ def signup(request, ta_id):
                 return HttpResponse(
                     json.dumps({
                         'result': 'error',
-                        'blurb': 'Taken',
-                        'explanation': 'Sorry, this activity is already assigned to somebody else.'
+                        'summary': 'We have enough people signed up to this activity.',
+                        'info': 'Unfortunately %s people have already signed up for this teaching activity. Please choose another activity for submitting questions.'
                     }),
                     mimetype="application/json"
                 )
             else:
                 messages.error(request, "Sorry, that activity is already assigned to somebody else.")
                 return redirect("questions.views.home")
-        if not request.user.get_current_stage() == ta.current_block().stage:
+        if not request.user.student.get_current_stage() == ta.current_block().stage:
             if request.is_ajax():
                 return HttpResponse(
                     json.dumps({
                         'result': 'error',
-                        'blurb': 'Wrong stage',
-                        'explanation': 'Sorry, this activity is not in your current stage.'
+                        'summary': 'This activity is in a different stage to yours.',
+                        'info': 'You are unable to sign up to this activity because it is not in your current stage. Please choose another activity for submitting questions.'
                     }),
                     mimetype="application/json"
                 )
             else:
-                messages.error(request, "Sorry, this activity is not in your current stage.")
+                messages.error(request, "You are unable to sign up to this activity because it is not in your current stage. Please choose another activity for submitting questions.")
                 return redirect("questions.views.home")        
         ta.question_writers.add(request.user.student)
         ta.save()
@@ -536,10 +537,7 @@ class QuizQuestionsView(TemplateView):
             d = {}
             d["block"] = int(b)
             d["question_number"] = int(g['block_%s_question_number' % b])
-            if len(g['block']) == 1:
-                d['years'] = [int(g["block_%s_year" % b]), ]
-            else:
-                d["years"] = [int(y) for y in g['block_%s_year' % b]]
+            d["years"] = [int(y) for y in g.getlist('block_%s_year' % b)]
             blocks.append(d)
         if not blocks:
             return redirect('quiz-start')
@@ -554,7 +552,7 @@ class QuizQuestionsView(TemplateView):
             random.seed()
             if b["question_number"] > len(q):
                 b["question_number"] = len(q)
-            print b["question_number"]
+
             q = random.sample(q, b["question_number"])
             questions += q
 
@@ -724,15 +722,13 @@ def download(request, pk, mode):
     if not tb.released and not request.user.has_perm("questions.can_approve"):
         raise PermissionDenied
 
-    print tb.stage != request.user.student.get_current_stage() and tb.stage in request.user.student.get_all_stages()
-
     if not tb.question_count_for_student(request.user.student) and not request.user.has_perm("questions.can_approve") and not (tb.stage != request.user.student.get_current_stage() and tb.stage in request.user.student.get_all_stages()):
         messages.error(request, "Unfortunately you haven't written any questions for this block, so you are unable to download the other questions.")
         return redirect('activity-mine')
 
     f = document.generate_document(tb, mode == "answer", request)
     r = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    r['Content-Disposition'] = 'attachment; filename=questions.docx'
+    r['Content-Disposition'] = 'attachment; filename=%sQuestions%s%s.docx' % (tb.filename(), "Answers" if mode == "answer" else "", datetime.datetime.now().strftime("%Y%M%d"))
     f.close()
     return r
 

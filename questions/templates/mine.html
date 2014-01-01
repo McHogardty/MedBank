@@ -37,9 +37,7 @@
         </div>
     </div>
     {% if forloop.last %}{% endif %}
-    {% empty %}
-    <p>You haven't signed up to any activities yet. You can do this by clicking "Choose more activities" <span class="hidden-xs">to the right</span><span><span class="visible-xs">below</span></span>.</p>
-    {% endfor %}
+    {% empty %}<p>You haven't signed up to any activities yet. You can do this by clicking "Choose more activities" <span class="hidden-xs">to the right.</span><span><span class="visible-xs">below.</span></span></p>{% endfor %}
     </div>
 {% endblock maincontent %}
 

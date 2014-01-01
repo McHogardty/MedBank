@@ -97,7 +97,7 @@ class NewQuestionForm(bsforms.NewBootstrapModelForm):
     def __init__(self, admin=False, *args, **kwargs):
         super(NewQuestionForm, self).__init__(*args, **kwargs)
         if admin:
-            self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(attrs={'class': 'col-md-6'}))
+            self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(), help_text="This reason will be sent in an email to the question writer. Be nice! (and please use proper grammar)")
 
     class Meta:
         model = Question
@@ -130,22 +130,37 @@ class NewTeachingBlockForm(bsforms.NewBootstrapModelForm):
     start = forms.DateField(widget=forms.TextInput(), help_text="The first day that students can assign themselves to activities in this block.")
     end = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can assign themselves to activities in this block.")
     close = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can write questions for activities in this block.")
+    release_date = forms.CharField(required=False, max_length=10, widget=bsforms.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
 
     class Meta:
         model = TeachingBlock
-        exclude = ('release_date')
 
     def clean(self):
         c = super(NewTeachingBlockForm, self).clean()
-        s = c.get('start')
-        e = c.get('end')
+        del c['release_date']
+        start = c.get('start')
+        end = c.get('end')
+        close = c.get('close')
 
-        if s and e:
-            if s > e:
-                self._errors["end"] = self.error_class(["The end date should not be less than the start date."])
+        if start and end and close:
+            if start > end:
+                self._errors["end"] = self.error_class(["The end date should not be earlier than the start date."])
                 del c["end"]
+            if start > close:
+                self._errors["close"] = self.error_class(["The close date should not be earlier than the start date."])
+            elif end > close:
+                self._errors["close"] = self.error_class(["The close date should not be earlier than the end date."])
+
+        if self.instance and self.instance.release_date:
+            if end >= self.instance.release_date:
+                self._errors["end"] = self.error_class(["The release date should not occur on or after the release date."])
+            if start >= self.instance.release_date:
+                self._errors["start"] = self.error_class(["The start date should not occur on or after the release date."])
 
         return c
+
+    def clean_release_date(self):
+        return
 
 
 class NewTeachingBlockDetailsForm(bsforms.BootstrapHorizontalModelForm):

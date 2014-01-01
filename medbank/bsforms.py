@@ -220,7 +220,7 @@ class StaticControl(forms.Widget):
 
     def render(self, name, value, attrs=None):
         if value is None:
-            value = ''
+            value = 'None'
         final_attrs = self.build_attrs(attrs, name=name, type='hidden')
         if value != '':
             value = force_text(self._format_value(value))

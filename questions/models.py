@@ -46,25 +46,9 @@ class Stage(models.Model):
     STAGE_THREE = classproperty(stage_three)
 
 
-class Student(models.Model):
-    user = models.OneToOneField(User)
-    stages = models.ManyToManyField(Stage, through='questions.Year')
-
-    def __unicode__(self):
-        return self.user.username
-
-    def get_current_stage(self):
-        return self.stages.get(year__year__exact=datetime.datetime.now().year)
-
-    def get_all_stages(self):
-        print self.get_current_stage().number
-        print Stage.objects.filter(number__lte=self.get_current_stage().number)
-        return Stage.objects.filter(number__lte=self.get_current_stage().number)
-
-
 class Year(models.Model):
     stage = models.ForeignKey(Stage)
-    student = models.ForeignKey(Student)
+    student = models.ForeignKey('questions.Student')
     year = models.IntegerField()
 
     class Meta:
@@ -72,6 +56,42 @@ class Year(models.Model):
 
     def __unicode__(self):
         return "%s: %s, %d" % (self.student, self.stage, self.year)
+
+
+class Student(models.Model):
+    user = models.OneToOneField(User)
+    stages = models.ManyToManyField(Stage, through='questions.Year')
+
+    def __unicode__(self):
+        return self.user.username
+
+
+    def add_stage(self, stage):
+        try:
+            y = Year.objects.get(student=self, year__exact=datetime.datetime.now().year)
+            print "Stage retrieved"
+        except Year.DoesNotExist:
+            y = Year()
+            y.student = self
+            y.year = datetime.datetime.now().year
+            print "Stage created"
+        y.stage = stage
+
+        y.save()
+        if hasattr(self, "_cached_stage"):
+            del self._cached_stage
+
+
+    def get_current_stage(self):
+        if not hasattr(self, "_cached_stage"):
+            print "Stage not cached."
+            self._cached_stage = self.stages.get(year__year__exact=datetime.datetime.now().year)
+        else:
+            print "Stage cached."
+        return self._cached_stage
+
+    def get_all_stages(self):
+        return Stage.objects.filter(number__lte=self.get_current_stage().number)
 
 
 @receiver(models.signals.post_save, sender=User)
@@ -115,6 +135,11 @@ class TeachingBlock(models.Model):
 
     def __unicode__(self):
         return "%s, %d" % (self.name, self.year)
+
+    def filename(self):
+        spaceless = "".join(self.name.split())
+        commaless = "".join(spaceless.split(","))
+        return "%s%d" % (commaless, self.year)
 
     def __init__(self, *args, **kwargs):
         super(TeachingBlock, self).__init__(*args, **kwargs)
