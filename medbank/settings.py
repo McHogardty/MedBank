@@ -17,7 +17,7 @@ TEMPLATE_DEBUG = DEBUG
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',  # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+        'ENGINE': 'django.db.backends.',  # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
         'NAME': 'medbank.db',                      # Or path to database file if using sqlite3.
         # The following settings are not used with sqlite3:
         'USER': '',
@@ -33,7 +33,7 @@ DATABASES = {
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ['173.254.7.219', 'sydneymedsoc.org.au', 'www.sydneymedsoc.org.au',]
+ALLOWED_HOSTS = ['sydneymedsoc.org.au', 'www.sydneymedsoc.org.au',]
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -43,7 +43,7 @@ TIME_ZONE = 'Australia/Sydney'
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = 'en-au'
+LANGUAGE_CODE = 'en-gb'
 
 SITE_ID = 1
 
@@ -73,13 +73,15 @@ STATICFILES_DIRS = (
     # Put strings here, like "/home/html/static" or "C:/www/django/static".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
+    ('questions', os.path.join(current_path, "../questions/static/")),
+    ('medbank', os.path.join(current_path, "static/")),
 )
 
 # List of finder classes that know how to find static files in
 # various locations.
 STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
-    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+#    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 #    'django.contrib.staticfiles.finders.DefaultStorageFinder',
 )
 
@@ -126,6 +128,7 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'medbank',
     'questions',
+    'south',
 )
 
 # A sample logging configuration. The only tangible logging
@@ -160,6 +163,7 @@ LOGGING = {
 
 TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
+    'questions.context_processors.add_student',
 )
 
 MESSAGE_TAGS = {

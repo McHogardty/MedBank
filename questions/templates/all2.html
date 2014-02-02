@@ -1,9 +1,9 @@
 {% extends "newbase.html" %}
 
 {% block head %}
-    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello.css">
-    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
-    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello-ie7.css"><![endif]-->
 
     <style type="text/css">
         .message {
@@ -103,8 +103,8 @@
     <div class="col-md-3 action-column">
         <div class="text-center page-actions">
             <h3>Page Actions</h3>
-            <a class="action" href="{% url 'questions.views.download' pk=teaching_block.pk mode='question' %}">Download questions</a>
-            <a class="action" href="{% url 'questions.views.download' pk=teaching_block.pk mode='answer' %}">Download answers</a>
+            <a class="action" href="{% url 'questions.views.download' number=teaching_block.number year=teaching_block.year mode='question' %}">Download questions</a>
+            <a class="action" href="{% url 'questions.views.download' number=teaching_block.number year=teaching_block.year mode='answer' %}">Download answers</a>
         </div>
     </div>
     {% endspaceless %}

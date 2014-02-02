@@ -19,7 +19,7 @@
             <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='delete' %}{% include 'querystring.html' %}">Delete question</a>        
         {% endif %}
         {% if approval_mode %}
-            <a class="action" href="{% url 'admin-approve' pk=question.teaching_activity.current_block.id q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
+            <a class="action" href="{% url 'admin-approve' number=question.teaching_activity.current_block.number year=question.teaching_activity.current_block.year q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
         {% endif %}
         {% if not question.flagged %}
             <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='flag' %}{% include 'querystring.html' %}">Flag for review</a>

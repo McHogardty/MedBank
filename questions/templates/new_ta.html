@@ -1,7 +1,7 @@
 {% extends "newbase.html" %}
 
 {% block head %}
-<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}datepicker.css">
+<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}medbank/datepicker.css">
 {% endblock head %}
 
 {% block content %}
@@ -18,7 +18,7 @@
 {% endblock content %}
 
 {% block javascript %}
-    <script type="text/javascript" src="{{ STATIC_URL }}bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}medbank/bootstrap-datepicker.js"></script>
     <script type="text/javascript">
         function init() {
             $(".datepicker").datepicker()

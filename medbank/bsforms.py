@@ -155,12 +155,13 @@ class BoundField(forms.forms.BoundField):
         return super(BoundField, self).label_tag(contents, attrs)
 
     def as_widget(self, widget=None, attrs=None, only_initial=False):
-        if widget:
-            a = widget.attrs
-        else:
-            a = self.field.widget.attrs
+        if self.field.widget.__class__.__name__ == "RadioSelect":
+            return super(BoundField, self).as_widget(widget, attrs, only_initial)
 
-        if a and 'class' in a:
+        widget = widget or self.field.widget
+        a = widget.attrs
+
+        if 'class' in a:
             c = a['class'].split()
             c.append('form-control')
             a['class'] = " ".join(c)
@@ -229,13 +230,31 @@ class StaticControl(forms.Widget):
         return format_html('<p class="form-control-static">{1}<input{0}/></p>', flatatt(final_attrs), value)
 
 
-class WYSIWYGArea(forms.Textarea):
+class RichTextarea(forms.Textarea):
     def render(self, name, value, attrs=None):
-        if value is None: value = ''
-        final_attrs = self.build_attrs(attrs, name=name)
-        return format_html('<textarea{0}>\r\n{1}</textarea><div id="editor" class="span6"></div>',
-                           flatatt(final_attrs),
-                           force_text(value))
+        area = super(RichTextarea, self).render(name, value, attrs)
+
+        toolbar = """
+        <div class="btn-toolbar" style="margin-bottom:10px;">
+            <div class="btn-group">
+                <button type="button" class="btn btn-default" data-event="bold">
+                    <i class="fa fa-bold"></i>
+                </button>
+                <button type="button" class="btn btn-default" data-event="italic">
+                    <i class="fa fa-italic"></i>
+                </button>
+            </div>
+            <div class="btn-group note-style">
+                <button type="button" class="btn btn-default" data-event="insertUnorderedList">
+                    <i class="fa fa-list-ul"></i>
+                </button>
+                <button type="button" class="btn btn-default" data-event="insertOrderedList">
+                    <i class="fa fa-list-ol"></i>
+                </button>
+            </div>
+        </div><div class="form-control" style="resize:both;overflow:auto;height:200px;" contenteditable="true"></div>{0}"""
+
+        return format_html(toolbar, area)
 
 
 class TextInputWithAddon(forms.TextInput):

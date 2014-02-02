@@ -1,18 +1,14 @@
-from medbank import bsforms
-from .models import Question, TeachingActivity, TeachingBlock, Student, Comment
 from django import forms
 from django.utils.safestring import mark_safe
-from django.contrib.formtools.wizard.views import CookieWizardView
-from django.shortcuts import redirect
-from django.core.files.storage import FileSystemStorage
-from django.conf import settings
-from django.contrib import auth
+from django.utils.html import format_html, format_html_join
+from django.utils.encoding import force_text
 
+from medbank import bsforms
+from .models import Question, TeachingActivity, TeachingBlock, TeachingBlockYear, Student, Comment
 
 import string
 import json
-import os
-import csv
+import datetime
 
 
 class QuestionOptionsWidget(forms.MultiWidget):
@@ -88,9 +84,11 @@ ANSWER_CHOICES = ((x, x) for x in string.ascii_uppercase[:5])
 class NewQuestionForm(bsforms.NewBootstrapModelForm):
     """A form for creation and editing of questions."""
     body = forms.CharField(label="Question body", widget=forms.Textarea())
+    #body = forms.CharField(label="Question body", widget=bsforms.RichTextarea())
     options = QuestionOptionsField()
     answer = forms.ChoiceField(choices=ANSWER_CHOICES, widget=forms.Select())
     explanation = forms.CharField(widget=forms.Textarea())
+    #explanation = forms.CharField(widget=bsforms.RichTextarea())
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     teaching_activity = forms.ModelChoiceField(queryset=TeachingActivity.objects.all(), widget=forms.HiddenInput())
 
@@ -121,22 +119,36 @@ class TeachingActivityBulkUploadForm(bsforms.BootstrapHorizontalForm):
 
 
 class NewTeachingBlockForm(bsforms.NewBootstrapModelForm):
+    class Meta:
+        model = TeachingBlock
+
+
+class BootstrapRadioFieldRenderer(forms.widgets.RadioFieldRenderer):
+    def render(self):
+        return format_html(format_html_join('\n', '<div class="radio">{0}</div>', [(force_text(w),) for w in self]))
+
+
+class NewTeachingBlockYearForm(bsforms.NewBootstrapModelForm):
 #    start = forms.DateField(widget=forms.TextInput(
 #        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
 #    ), help_text="The first day that students can assign themselves to activities in this block.")
 #    end = forms.DateField(widget=forms.TextInput(
 #        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
 #    ), help_text="The last day that students can assign themselves to activities in this block.")
-    start = forms.DateField(widget=forms.TextInput(), help_text="The first day that students can assign themselves to activities in this block.")
-    end = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can assign themselves to activities in this block.")
-    close = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can write questions for activities in this block.")
+    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.order_by('stage__number', 'number'))
+    year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bsforms.StaticControl())
+    start = forms.DateField(widget=forms.TextInput(), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
+    end = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
+    close = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can write questions for activities in this block.", label="Close date")
     release_date = forms.CharField(required=False, max_length=10, widget=bsforms.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
+    sign_up_mode = forms.ChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES)
 
     class Meta:
-        model = TeachingBlock
+        model = TeachingBlockYear
+        fields = ('block', 'year', 'start', 'end', 'close', 'release_date', 'activity_capacity', 'sign_up_mode', 'weeks')
 
     def clean(self):
-        c = super(NewTeachingBlockForm, self).clean()
+        c = super(NewTeachingBlockYearForm, self).clean()
         del c['release_date']
         start = c.get('start')
         end = c.get('end')

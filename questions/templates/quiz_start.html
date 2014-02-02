@@ -1,18 +1,78 @@
 {% extends "base-no-nav-early-javascript.html" %}
 
 {% block head %}
-    <link href="{{ STATIC_URL }}onepage/onepage-scroll.css" rel="stylesheet" media="screen">
-    <link href="{{ STATIC_URL }}fullPage/jquery.fullPage.css" rel="stylesheet" media="screen">
-    <link href="{{ STATIC_URL }}loading-bar/loadingbar.css" rel="stylesheet" media="screen">
-    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello.css">
-    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/animation.css"><!--[if IE 7]>
-    <link rel="stylesheet" href="{{ STATIC_URL }}fontello/css/fontello-ie7.css"><![endif]-->
+    <link href="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.css" rel="stylesheet" media="screen">
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello-ie7.css"><![endif]-->
     <style type="text/css">
     .controlArrow {
         display:none;
     }
+    .finish {
+        position:fixed;
+        width:100%;
+        height:100%;
+        z-index:100;
+        display:none;
+        overflow:scroll;
+    }
+
+    .finish .content {
+        display:inline-block;
+        vertical-align: middle;
+        position:relative;
+        width:100%;
+        top:50%;
+        transform: translateY(-50px);
+        -webkit-transform: translateY(-50%);
+        -moz-transform: translateY(-50%);
+        -o-transform: translateY(-50%);
+        -ms-transform: translateY(-50%);
+    }
+
+    .years button {
+        margin-right:3px;
+        margin-bottom:3px;
+    }
     </style>
 {% endblock head %}
+
+{% block before %}
+    {% for o in object_list %}
+        <div class="finish" data-block="{{ o.number }}">
+            <div class="content">
+                <div class="container nosection">
+                    <h1>{{ o.name }}</h1>
+                    <form class="form-horizontal block-form" id="form-{{ o.number }}" role="form">
+                        <div class="form-group">
+                            <label class="control-label col-sm-3">Number of questions</label>
+                            <div class="col-sm-9">
+                                <input name="question_count" type="text" class="form-control question_count" />
+                                <span class="text-danger questions-error">Please enter a number.</span>
+                                <span class="text-danger number-error">Please enter a number larger than 0.</span>
+                                <span class="text-danger number-size-error">Please enter a number smaller than 1000.</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label col-sm-3">Years to pick from</label>
+                            <div class="col-sm-9 years">
+                                {% for y in o.block.years.all %}<button type="button" class="btn btn-default" name="year-{{ y.year }}" data-checked="">{{ y.year }}</button>{% endfor %}
+                                <br />
+                                <span class="text-danger year-error">Please choose some years.</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-sm-offset-3 col-sm-10">
+                                <button type="submit" class="btn btn-primary">Add</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+{% endblock before %}
 
 {% block content %}
     <div class="row section">
@@ -24,8 +84,6 @@
         </div>
     </div>
     <div class="row section">
-        <div class="slide">
-        <span class="toSlide" data-index="2" id="move-2"></span>
         <div>
             <h1 class="mega">Pick blocks</h1>
             <div class="spacer blocks">
@@ -33,54 +91,12 @@
                 <div class="week" data-block="{{ o.number }}">
                     <div class="week-heading">
                         <h3>{{ o.name }}</h3>
-                        <i class="icon-angle-right pull-right" style="margin-top:10px;"></i>
-                        <i class="glyphicon glyphicon-ok pull-right" style="margin-top:20px; margin-right:5px;"></i>
                     </div>
                 </div>
             {% endfor %}
             <br />
             <a class="btn btn-lg btn-primary btn-next btn-continue col-md-offset-5 col-md-2">Continue</a>
             </div>
-        </div>
-        </div>
-        <div class="slide block-details">
-            <span class="toSlide" data-index="1" id="move-1"></span>
-            {% for o in object_list %}
-                <form class="form-horizontal block-form" id="form-{{ o.number }}" role="form">
-                    <div class="form-group">
-                        <div class="col-lg-offset-1">
-                            <h1>{{ o.name }}</h1>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="col-lg-5">
-                            <h2 class="control-label">Number of questions</h2>
-                        </div>
-                        <div class="col-lg-3">
-                            <input name="question_count" type="text" class="input-lg form-control col-lg-3 question_count" />
-                            <span class="text-danger questions-error">Please enter a number.</span>
-                            <span class="text-danger number-error">Please enter a number larger than 0.</span>
-                            <span class="text-danger number-size-error">Please enter a number smaller than 1000.</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="col-lg-5">
-                            <h2 class="control-label">Years to pick from</h2>
-                        </div>
-                        <div class="col-lg-3 years">
-                            {% for y in o.years %}
-                                <button type="button" class="btn btn-default btn-lg" name="year-{{ y }}" data-checked="">{{ y }}</button>    
-                            {% endfor %}<br />
-                            <span class="text-danger year-error">Please choose some years.</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="col-lg-offset-5 col-lg-3">
-                            <button type="submit" class="btn btn-primary btn-lg">Save</button>
-                        </div>
-                    </div>
-                </form>
-            {% endfor %}
         </div>
     </div>
     <div class="row section">
@@ -97,11 +113,9 @@
 {% endblock content %}
 
 {% block javascript %}
-    <script src="//code.jquery.com/ui/1.10.3/jquery-ui.min.js"></script>
-    <script src="{{ STATIC_URL }}jquery-ui.min.js"></script>
-    <script type="text/javascript" src="{{ STATIC_URL }}onepage/jquery.onepage-scroll.js"></script>
-    <script type="text/javascript" src="{{ STATIC_URL }}fullPage/jquery.fullPage.js"></script>
-    <script type="text/javascript" src="{{ STATIC_URL }}loading-bar/jquery.loadingbar.min.js"></script>
+    <script src="{{ STATIC_URL }}medbank/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/screen.js"></script>
     <script type="text/javascript">
         var forward = null;
         var back = null;
@@ -232,13 +246,26 @@
                 },
                 manual: false,
             })
+            block_attribute = "data-block";
+            blocks = [];
+            $(".blocks .week").each(function () {
+                blocks.push($(this).attr(block_attribute));
+            });
+            splash_screen = new Questions.SplashScreenManager(".finish", "data-block", blocks, ["#superContainer"]);
+
+            $(".week-heading").click(function () {
+                if ($(this).hasClass("text-success")) {
+                    return false;
+                };
+                n = $(this).parent().attr('data-block');
+                splash_screen.show(n);
+            })
+
             forward = function () {$.fn.fullpage.moveSlideDown()}
             back = function () {$.fn.fullpage.moveSlideUp()}
             $(".btn-next").click(function () {
                 forward()
             })
-            $(".glyphicon").hide()
-            $(".block-details form").hide()
             $(".year-error").hide()
             $(".questions-error").hide()
             $(".number-error").hide()
@@ -259,7 +286,8 @@
                     $b.attr("data-checked", "")
                 }
             })
-            $(".block-form").submit(function () {
+            $(".block-form").submit(function (e) {
+                e.preventDefault();
                 $f = $(this)
                 if (!validate($f)) {
                     return false;
@@ -294,27 +322,9 @@
                 $.each(details["years"], function (i, y) {
                     $(".submit-form").append('<input type="hidden" name="block_' + details["block"] + '_year" value="' + y + '">');
                 })
-                $('#move-1').click()
-                return false
+
+                splash_screen.hide($(this).parents(".finish").attr(block_attribute));
             })
-            $(".week-heading").click(function () {
-                if ($(this).hasClass("text-success")) {
-                    return false;
-                }
-                n = $(this).parent().attr('data-block');
-                $("#form-" + n).show()
-                $('#move-2').click()
-            })
-            /*$(".container").onepage_scroll({
-                sectionContainer: ".row",
-                pagination: false,
-                scroll: false,
-            })
-            forward = function () {$(".container").moveDown()}
-            back = function () {$(".container").moveUp()}
-            $(".btn-start").click(function () {
-                forward()
-            })*/
         });
     </script>
 {% endblock javascript %}

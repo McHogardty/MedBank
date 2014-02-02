@@ -2,10 +2,14 @@ from django.db import models
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.utils.html import format_html
+from django.utils.datastructures import SortedDict
 
 import json
 import datetime
 import string
+import markdown2
+import html2text
 
 
 class classproperty(property):
@@ -81,17 +85,24 @@ class Student(models.Model):
         if hasattr(self, "_cached_stage"):
             del self._cached_stage
 
-
     def get_current_stage(self):
         if not hasattr(self, "_cached_stage"):
-            print "Stage not cached."
             self._cached_stage = self.stages.get(year__year__exact=datetime.datetime.now().year)
-        else:
-            print "Stage cached."
+
         return self._cached_stage
 
     def get_all_stages(self):
         return Stage.objects.filter(number__lte=self.get_current_stage().number)
+
+    def current_assigned_activities(self):
+        return self.assigned_activities.filter(models.Q(block_year__release_date__year=datetime.datetime.now().year) | models.Q(block_year__start__year=datetime.datetime.now().year))
+
+    def questions_due_soon_count(self):
+        count = self.assigned_activities.filter(block_year__close__range=[datetime.datetime.now(), datetime.datetime.now()+datetime.timedelta(weeks=1)]).count() * settings.QUESTIONS_PER_USER
+        return count
+
+    def future_block_count(self):
+        return TeachingBlockYear.objects.filter(close__gte=datetime.datetime.now(), activities__question_writers=self).count()
 
 
 @receiver(models.signals.post_save, sender=User)
@@ -111,6 +122,15 @@ def user_created(sender, **kwargs):
 
 
 class TeachingBlock(models.Model):
+    name = models.CharField(max_length=50)
+    stage = models.ForeignKey(Stage)
+    number = models.IntegerField(verbose_name=u'Block number')
+
+    def __unicode__(self):
+        return self.name
+
+
+class TeachingBlockYear(models.Model):
     ACTIVITY_MODE = 0
     WEEK_MODE = 1
 
@@ -118,10 +138,7 @@ class TeachingBlock(models.Model):
         (ACTIVITY_MODE, 'By activity'),
         (WEEK_MODE, 'By week')
     )
-    name = models.CharField(max_length=50)
-    year = models.IntegerField()
-    stage = models.ForeignKey(Stage)
-    number = models.IntegerField(verbose_name=u'Block number')
+    year = models.IntegerField(null=True)
     start = models.DateField(verbose_name=u'Start date')
     end = models.DateField(verbose_name=u'End date')
     close = models.DateField(verbose_name=u'Close date')
@@ -129,12 +146,13 @@ class TeachingBlock(models.Model):
     activity_capacity = models.IntegerField(verbose_name=u'Maximum users per activity', default=2)
     sign_up_mode = models.IntegerField(choices=MODE_CHOICES)
     weeks = models.IntegerField(verbose_name=u'Number of weeks')
+    block = models.ForeignKey(TeachingBlock, related_name="years")
 
     class Meta:
-        unique_together = ('year', 'number')
+        unique_together = ('year', 'block')
 
     def __unicode__(self):
-        return "%s, %d" % (self.name, self.year)
+        return "%s, %d" % (self.block, self.year)
 
     def filename(self):
         spaceless = "".join(self.name.split())
@@ -142,7 +160,7 @@ class TeachingBlock(models.Model):
         return "%s%d" % (commaless, self.year)
 
     def __init__(self, *args, **kwargs):
-        super(TeachingBlock, self).__init__(*args, **kwargs)
+        super(TeachingBlockYear, self).__init__(*args, **kwargs)
         # Adds properties to the model to check the mode, e.g. self.by_activity
         for k in self.__class__.__dict__.keys():
             if not "_MODE" in k or hasattr(self, "by_%s" % k.split("_")[0].lower()):
@@ -156,14 +174,34 @@ class TeachingBlock(models.Model):
 
         setattr(self.__class__, "by_%s" % k.split("_")[0].lower(), property(check_mode_function))
 
-    def years(self):
-        return [x['year'] for x in TeachingBlock.objects.filter(number=self.number).distinct().values("year")]
+    def name(self):
+        return self.block.name
+    name = property(name)
+
+    def stage(self):
+        return self.block.stage
+    stage = property(stage)
+
+    def number(self):
+        return self.block.number
+    number = property(number)
 
     def assigned_activities_count(self):
         return self.activities.exclude(question_writers=None).count()
 
     def total_activities_count(self):
         return self.activities.count()
+
+    def assigned_users_count(self):
+        return Student.objects.filter(assigned_activities__block_year=self).distinct().count()
+
+    def is_active(self):
+        current_year = datetime.datetime.now().year
+        if self.release_date:
+            return self.release_date.year == current_year
+
+        return self.close.year == current_year
+
 
     def has_started(self):
         return self.start <= datetime.datetime.now().date()
@@ -194,16 +232,17 @@ class TeachingBlock(models.Model):
         return bool(self.activities.filter(questions__status=Question.PENDING_STATUS).count())
 
     def questions_approved_count(self):
-        return Question.objects.filter(teaching_activity__block=self, status=Question.APPROVED_STATUS).count()
+        return Question.objects.filter(teaching_activity__block_year=self, status=Question.APPROVED_STATUS).count()
 
     def questions_pending_count(self):
-        return Question.objects.filter(teaching_activity__block=self, status=Question.PENDING_STATUS).count()
+        return Question.objects.filter(teaching_activity__block_year=self, status=Question.PENDING_STATUS).count()
 
     def questions_flagged_count(self):
-        return Question.objects.filter(teaching_activity__block=self, status=Question.FLAGGED_STATUS).count()
+        return Question.objects.filter(teaching_activity__block_year=self, status=Question.FLAGGED_STATUS).count()
 
     def question_count_for_student(self, s):
-        return Question.objects.filter(teaching_activity__block=self, creator=s).count()
+        return Question.objects.filter(teaching_activity__block_year=self, creator=s).count()
+
 
 
 class TeachingActivity(models.Model):
@@ -223,8 +262,8 @@ class TeachingActivity(models.Model):
     name = models.CharField(max_length=100)
     week = models.IntegerField()
     position = models.IntegerField()
-    block = models.ManyToManyField(TeachingBlock, related_name='activities')
-    question_writers = models.ManyToManyField(Student, blank=True, null=True)
+    block_year = models.ManyToManyField(TeachingBlockYear, related_name='activities')
+    question_writers = models.ManyToManyField(Student, blank=True, null=True, related_name='assigned_activities')
     activity_type = models.IntegerField(choices=TYPE_CHOICES)
 
     class Meta:
@@ -235,8 +274,8 @@ class TeachingActivity(models.Model):
 
     def current_block(self):
         try:
-            return self.block.get(year=datetime.datetime.now().year)
-        except TeachingBlock.DoesNotExist:
+            return self.block_year.get(year=datetime.datetime.now().year)
+        except TeachingBlockYear.DoesNotExist:
             return None
 
     def enough_writers(self):
@@ -317,7 +356,6 @@ class Question(models.Model):
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
     def options_dict(self):
-        from django.utils.datastructures import SortedDict
         d = SortedDict()
         e = json.loads(self.options)
         f = e.keys()
@@ -340,6 +378,64 @@ class Question(models.Model):
 
     def principal_comments(self):
         return self.comments.filter(reply_to__isnull=True)
+
+    def body_html(self):
+        return format_html(markdown2.markdown(self.body))
+
+    def explanation_html(self):
+        return format_html(markdown2.markdown(self.explanation))
+
+    def set_body_html(self, body):
+        self.body = html2text.html2text(body)
+
+    def set_explanation_html(self, body):
+        self.body = html2text.html2text(body)
+
+
+class QuizAttempt(models.Model):
+    student = models.ForeignKey(Student, related_name="quiz_attempts")
+    date_submitted = models.DateTimeField(auto_now_add=True)
+
+    def __unicode__(self):
+        return u"Quiz attempt for %s" % self.student
+
+
+class QuestionAttempt(models.Model):
+    GUESS = 1
+    UNSURE = 2
+    NEUTRAL = 3
+    SURE = 4
+    CERTAIN = 5
+
+    CONFIDENCE_CHOICES = (
+        (GUESS, "I guessed"),
+        (UNSURE, "I'm doubtful"),
+        (NEUTRAL, "Feeling neutral"),
+        (SURE, "Fairly sure"),
+        (CERTAIN, "I'm certain"),
+    )
+
+    quiz_attempt = models.ForeignKey(QuizAttempt, related_name="questions")
+    question = models.ForeignKey(Question, related_name="attempts")
+    position = models.PositiveIntegerField()
+    answer = models.CharField(max_length=1)
+    time_taken = models.PositiveIntegerField()
+    confidence_rating = models.IntegerField(choices=CONFIDENCE_CHOICES)
+
+
+class QuestionRating(models.Model):
+    UPVOTE = 1
+    DOWNVOTE = -1
+
+    RATING_CHOICES = (
+        (UPVOTE, "+"),
+        (DOWNVOTE, "-"),
+    )
+
+    student = models.ForeignKey(Student, related_name="question_ratings")
+    question = models.ForeignKey(Question, related_name="ratings")
+    rating = models.IntegerField(choices = RATING_CHOICES)
+    date_rated = models.DateTimeField(auto_now_add=True)
 
 
 class Reason(models.Model):

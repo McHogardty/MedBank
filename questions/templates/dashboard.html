@@ -1,0 +1,42 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Dashboard</h1>
+	<div class="row">
+		<div class="col-sm-12">
+			<div class="dashboard">
+				<h2>You have {{ student.questions_due_soon_count|default:"no" }} questions due in the next week</h2>
+				{% if student.questions_due_soon_count %}
+					<p class="lead">Don't forget!</p>
+				{% elif student.future_block_count %}
+					<p class="lead">Keep writing them though, it's worth it.</p>
+				{% else %}
+					<p class="lead">There still might be activities that need questions written. Why not take a look?</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-sm-4">
+			<div class="dashboard">
+				<h1>{{ student.current_assigned_activities.count|default:0 }}</h1>
+				<p class="lead">activit{% if student.current_assigned_activities.count == 1 %}y{% else %}ies{% endif %} assigned to me</p>
+				<a class="action" href="{% url "activity-mine" %}">View activities</a>
+			</div>
+		</div>
+		<div class="col-sm-4">
+			<div class="dashboard">
+				<h1>1</h1>
+				<p class="lead">block open for signups</p>
+				<a class="action" href="{% url "block-list" %}">All blocks</a>
+			</div>
+		</div>
+		<div class="col-sm-4">
+			<div class="dashboard">
+				<h1>88%</h1>
+				<p class="lead">scored on your last quiz</p>
+				<a class="action" href="{% url "quiz-start" %}">Try another</a>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

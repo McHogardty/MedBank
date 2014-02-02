@@ -1,0 +1,196 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+{% with object as block %}
+    <h1>{{ block }}</h1>
+    <div class="row">
+        <div class="col-sm-4">
+            <div class="dashboard">
+                <h1>{{ block.assigned_activities_count }}</h1>
+                <p class="lead">activit{% if block.assigned_activities_count == 1 %}y{% else %}ies{% endif %} assigned</p>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="dashboard">
+                <h1>{{ block.total_activities_count }}</h1>
+                <p class="lead">activit{% if block.total_activities_count == 1 %}y{% else %}ies{% endif %} total</p>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="dashboard">
+                <h1>{{ block.weeks }}</h1>
+                <p class="lead">week{{ block.weeks|pluralize }} total</p>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-sm-6">
+            <div class="dashboard">
+                <h1>{{ block.activity_capacity }}</h1>
+                <p class="lead">user{{ block.activity_capacity|pluralize }} maximum per activity</p>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="dashboard">
+                <h1>{{ block.assigned_users_count }}</h1>
+                <p class="lead">user{{ block.assigned_users_count|pluralize }} signed up in total</p>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-sm-4">
+            <div class="dashboard">
+                <h1>{{ block.questions_approved_count }}</h1>
+                <p class="lead">question{{ block.questions_approved_count|pluralize }} approved</p>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="dashboard">
+                <h1>{{ block.questions_pending_count }}</h1>
+                <p class="lead">question{{ block.questions_pending_count|pluralize }} pending</p>
+                <a class="action" href="{% url 'admin-approve-start' number=block.number year=block.year %}">Approve</a>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="dashboard">
+                <h1>{{ block.questions_flagged_count }}</h1>
+                <p class="lead">question{{ block.questions_flagged_count|pluralize }} flagged</p>
+                <a class="action" href="{% url 'admin-approve-start' number=block.number year=block.year %}?flagged">Review</a>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="dashboard">
+                <p class="lead">This block start{% if now < block.start %}s{% else %}ed{% endif %} on</p>
+                <h1>{{ block.start|date:"SHORT_DATE_FORMAT" }}</h1>
+                <a class="action" href="{% url "block-edit" year=block.year number=block.number %}">Change</a>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="dashboard">
+                <p class="lead">This block end{% if now < block.end %}s{% else %}ed{% endif %} on</p>
+                <h1>{{ block.end|date:"SHORT_DATE_FORMAT" }}</h1>
+                <a class="action" href="{% url "block-edit" year=block.year number=block.number %}">Change</a>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="dashboard">
+                <p class="lead">This block close{% if now < block.close %}s{% else %}d{% endif %} on</p>
+                <h1>{{ block.close|date:"SHORT_DATE_FORMAT" }}</h1>
+                <a class="action" href="{% url "block-edit" year=block.year number=block.number %}">Change</a>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="dashboard">
+                <p class="lead">Release status</p>
+                {% if block.released %}<h1 class="text-success">Released</h1>{% else %}<h1 class="text-danger">Not released</h1>{% endif %}
+                {% if block.released %}<a class="action" href="{% url 'email' number=block.number year=block.year %}?document">Email questions</a>{% else %}<a class="action" href="{% url "release" year=block.year number=block.number %}">Release now</a>{% endif %}
+            </div>
+        </div>
+    </div>
+
+
+    <h3>Step 2: Upload teaching activities</h3>
+    <p>You can upload teaching activities using the action on the right.</p>
+    
+    <dl>
+        <dt>Activities assigned</dt>
+        <dd></dd>
+    </dl>
+
+    {% for b in blocks %}
+        {% if forloop.first %}
+            <table class="table">
+                <tr>
+                    <th>Stage</th>
+                    <th>Block</th>
+                    <th>Activities assigned</th>
+                    <th>Total activities</th>
+                    <th>Max users per activity</th>
+                    <th>Weeks</th>
+                </tr>
+        {% endif %}
+        {% if b.is_active %}
+            <tr>
+                <td>{{ b.stage }}</td>
+                <td>{{ b.name }}</td>
+                <td>{{ b.assigned_activities_count}}</td>
+                <td>{{ b.total_activities_count }}</td>
+                <td>{{ b.activity_capacity }}</td>
+                <td>{{ b.weeks }}</td>
+            </tr>
+        {% endif %}
+        {% if forloop.last %}
+            </table>
+        {% endif %}
+    {% endfor %}
+
+    <h3>Step 3: Open teaching blocks and notify students</h3>
+    <p>Teaching blocks are released based on their start date. You can view the start dates for teaching blocks this year by looking in the table above.</p>
+    <p>Students can assign themselves to teaching activities up to and including the end date for that block. After the end date, they will still be able to write questions for their assigned activities.</p>
+
+    <h3>Step 4: Approve questions</h3>
+    <p>Approve questions by clicking "Approve questions" in the action panel. You'll need to approve all the questions before you can generate the questions document.</p>
+    {% for b in blocks %}
+    {% if forloop.first %}
+        <div class="spacer">
+            <table class="table">
+                <tr>
+                    <th>Stage</th>
+                    <th>Block</th>
+                    <th>Approved</th>
+                    <th>Pending</th>
+                    <th>Flagged</th>
+                    <th>Contact participants</th>
+                </tr>
+    {% endif %}
+    {% if b.is_active %}
+        <tr>
+            <td>{{ b.stage }}</td>
+            <td>{{ b.name }}</td>
+            <td>{{ b.questions_approved_count}}</td>
+            <td>{{ b.questions_pending_count }}</td>
+            <td>{{ b.questions_flagged_count }}</td>
+            <td><a href="{% url 'email' pk=b.number year=b.year %}">Email</a></td>
+        </tr>
+    {% endif %}
+    {% if forloop.last %}
+            </table>
+        </div>
+    {% endif %}
+    {% endfor %}
+
+    <h3>Step 5: Generate a questions document and email it to students</h3>
+    {% for b in blocks %}
+    {% if forloop.first %}
+        <div class="spacer">
+            <table class="table">
+                <tr>
+                    <th>Stage</th>
+                    <th>Block</th>
+                    <th>Questions only</th>
+                    <th>Questions and answers</th>
+                    <th>Release to students</th>
+                    <th>Email</th>
+                </tr>
+    {% endif %}
+    {% if b.is_active %}
+        <tr>
+            <td>{{ b.stage }}</td>
+            <td>{{ b.name }}</td>
+            <td><a href="{% url 'questions.views.download' number=b.number year=b.year mode='question' %}">Download</a></td>
+            <td><a href="{% url 'questions.views.download' number=b.number year=b.year mode='answer' %}">Download</a></td>
+            <td><a href="{% url 'release' number=b.number year=b.year %}">Release</a></td>
+            <td>{% if b.released %}<a href="{% url 'email' pk=b.number year=b.year %}?document">Email</a>{% endif %}</td>
+        </tr>
+    {% endif %}
+    {% if forloop.last %}
+            </table>
+        </div>
+    {% endif %}
+    {% endfor %}
+{% endwith %}
+{% endblock content %}

@@ -7,7 +7,7 @@
             {% for b in object_list %}
                 {% if not flagged and b.questions_need_approval or flagged and b.questions_flagged_count %}
                     <div class="week">
-                        <div class="week-heading" onclick="location.href='{% url 'admin-approve-start' pk=b.id %}{% if flagged %}?flagged{% endif %}'">
+                        <div class="week-heading" onclick="location.href='{% url 'admin-approve-start' number=b.number year=b.year %}{% if flagged %}?flagged{% endif %}'">
                             <h3 class="thin">{{ b.name }}</h3>
                         </div>
                     </div>

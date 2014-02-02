@@ -1,8 +1,9 @@
 Django==1.5.1
-MySQL-python==1.2.4
-PIL==1.1.7
+MySQL-python==1.2.5
 docx==0.2.0
 lxml==3.2.1
 wsgiref==0.1.2
 git+git://github.com/django/django-localflavor-au.git
 flup==1.0.3.dev-20110405
+South==0.8.4
+django-maintenancemode==0.10

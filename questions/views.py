@@ -27,6 +27,7 @@ import os
 import pwd
 import random
 import smtplib
+import html2text
 
 
 def class_view_decorator(function_decorator):
@@ -46,13 +47,13 @@ def class_view_decorator(function_decorator):
 
 @class_view_decorator(login_required)
 class AllBlocksView(ListView):
-    model = models.TeachingBlock
+    model = models.TeachingBlockYear
     template_name = "choose.html"
 
     def get_queryset(self):
         s = [stage.number for stage in self.request.user.student.get_all_stages()]
-        bb = models.TeachingBlock.objects.filter(year=datetime.datetime.now().year, stage__number__in=s).order_by('number')
-
+        bb = models.TeachingBlockYear.objects.filter(db.models.Q(release_date__year=datetime.datetime.now().year) | db.models.Q(start__year=datetime.datetime.now().year)).filter(block__stage__number__in=s).order_by('block__number')
+        print bb.query
         if 'pending' in self.request.GET:
             bb = bb.filter(activities__questions__status=models.Question.PENDING_STATUS).distinct()
         elif 'flagged' in self.request.GET:
@@ -63,6 +64,11 @@ class AllBlocksView(ListView):
         c = super(AllBlocksView, self).get_context_data(**kwargs)
         c.update({'flagged': 'flagged' in self.request.GET})
         return c
+
+
+@class_view_decorator(login_required)
+class DashboardView(TemplateView):
+    template_name = "dashboard.html"
 
 
 @class_view_decorator(login_required)
@@ -99,12 +105,12 @@ class AllActivitiesView(ListView):
         return r
 
     def get_teaching_block(self):
-        tb = models.TeachingBlock.objects.get(number=self.kwargs['number'], year=self.kwargs['year'])
+        tb = models.TeachingBlockYear.objects.get(block__number=self.kwargs['number'], year=self.kwargs['year'])
         self.teaching_block = tb
         return tb
 
     def get_queryset(self):
-        ta = models.TeachingActivity.objects.filter(block__number=self.kwargs['number'], block__year=self.kwargs['year'])
+        ta = models.TeachingActivity.objects.filter(block_year__block__number=self.kwargs['number'], block_year__year=self.kwargs['year'])
         by_week = {}
         for t in ta:
             l = by_week.setdefault(t.week, [])
@@ -127,13 +133,23 @@ class AdminView(TemplateView):
 
     def get_context_data(self, **kwargs):
         c = super(AdminView, self).get_context_data(**kwargs)
-        tb = models.TeachingBlock.objects.order_by('stage')
+        tb = models.TeachingBlockYear.objects.order_by('block__stage', 'block__number')
         questions_pending = any(b.questions_need_approval() for b in tb)
         questions_flagged = any(b.questions_flagged_count() for b in tb)
         c.update({'blocks': tb, 'questions_pending': questions_pending, 'questions_flagged': questions_flagged,})
         c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
         c.update({'u': pwd.getpwuid(os.getuid()).pw_name, 'd': os.environ})
         return c
+
+
+class BlockAdminView(DetailView):
+    model = models.TeachingBlockYear
+    template_name = "admin/block_admin.html"
+
+    def get_object(self, queryset=None):
+        queryset = queryset or self.get_queryset()
+
+        return queryset.get(year=self.kwargs["year"], block__number=self.kwargs["number"])
 
 
 class QueryStringMixin(object):
@@ -159,13 +175,13 @@ class StartApprovalView(QueryStringMixin, RedirectView):
         else:
             return super(StartApprovalView, self).query_string()
 
-    def get_redirect_url(self, pk, q_id=None):
+    def get_redirect_url(self, number, year, q_id=None):
         try:
-            b = models.TeachingBlock.objects.get(pk=pk)
-        except models.TeachingBlock.DoesNotExist:
+            b = models.TeachingBlockYear.objects.get(block__number=number, year=year)
+        except models.TeachingBlockYear.DoesNotExist:
             messages.error(self.request, "That teaching block does not exist.")
             return reverse('admin')
-        tb = models.TeachingBlock.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
+        tb = models.TeachingBlockYear.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
 
         previous_q = None
         try:
@@ -176,7 +192,7 @@ class StartApprovalView(QueryStringMixin, RedirectView):
             s = models.Question.FLAGGED_STATUS
         else:
             s = models.Question.PENDING_STATUS
-        q = models.Question.objects.filter(teaching_activity__block=b).filter(
+        q = models.Question.objects.filter(teaching_activity__block_year=b).filter(
                 db.models.Q(status=s) | db.models.Q(pk=q_id)
             )
         try:
@@ -432,9 +448,9 @@ class NewActivity(CreateView):
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class NewBlock(CreateView):
-    model = models.TeachingBlock
+    model = models.TeachingBlockYear
     template_name = "new_ta.html"
-    form_class = forms.NewTeachingBlockForm
+    form_class = forms.NewTeachingBlockYearForm
 
     def get_context_data(self, **kwargs):
         c = super(NewBlock, self).get_context_data(**kwargs)
@@ -467,14 +483,17 @@ class NewBlock(CreateView):
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class EditBlock(UpdateView):
-    model = models.TeachingBlock
+    model = models.TeachingBlockYear
     template_name = "new_ta.html"
-    form_class = forms.NewTeachingBlockForm
+    form_class = forms.NewTeachingBlockYearForm
 
     def get_context_data(self, **kwargs):
         c = super(EditBlock, self).get_context_data(**kwargs)
         c['heading'] = "block"
         return c
+
+    def get_object(self):
+        return models.TeachingBlockYear.objects.get(year=self.kwargs["year"], block__number=self.kwargs["number"])
 
     def get_success_url(self):
         return reverse('admin')
@@ -510,18 +529,19 @@ class ViewQuestion(DetailView):
 @class_view_decorator(login_required)
 class QuizStartView(ListView):
     template_name = "quiz_start.html"
-    model = models.TeachingBlock
+    model = models.TeachingBlockYear
 
     def get_queryset(self):
+        start_of_year = datetime.date(year=datetime.datetime.now().year, month=1, day=1)
         q = super(QuizStartView, self).get_queryset()
         s = [stage.number for stage in self.request.user.student.get_all_stages()]
-        return q.filter(stage__number__in=s).exclude(release_date__isnull=True)
+        return q.filter(block__stage__number__in=s).exclude(release_date__isnull=True).exclude(release_date__lte=start_of_year).order_by("block__stage__number", "block__number")
 
 
 @class_view_decorator(login_required)
 class QuizView(ListView):
     template_name = "quiz.html"
-    model = models.TeachingBlock
+    model = models.TeachingBlockYear
 
     def get_queryset(self):
         return super(QuizView, self).get_queryset().exclude(release_date__isnull=True)
@@ -543,19 +563,21 @@ class QuizQuestionsView(TemplateView):
             return redirect('quiz-start')
 
         for b in blocks:
-            bk = models.TeachingBlock.objects.filter(number=b['block'], year__in=b['years'])
+            bk = models.TeachingBlockYear.objects.filter(block__number=b['block'], year__in=b['years'])
             q = []
             if not bk.count():
+                print "Not bk.count"
                 return redirect('quiz-start')
             for bb in bk:
-                q += models.Question.objects.filter(teaching_activity__block=bk, status=models.Question.APPROVED_STATUS)
+                q += models.Question.objects.filter(teaching_activity__block_year=bk, status=models.Question.APPROVED_STATUS)
             random.seed()
             if b["question_number"] > len(q):
                 b["question_number"] = len(q)
-
             q = random.sample(q, b["question_number"])
             questions += q
 
+
+        print "Questions is %s" % questions
         self.request.session['questions'] = questions
 
 
@@ -576,10 +598,17 @@ class Quiz(ListView):
     def get_queryset(self):
         return self.questions
 
+    def get_context_data(self, **kwargs):
+        context = super(Quiz, self).get_context_data(**kwargs)
+        context['confidence_range'] = models.QuestionAttempt.CONFIDENCE_CHOICES
+
+        return context
+
 
 @class_view_decorator(login_required)
 class QuizSubmit(RedirectView):
     def get_redirect_url(self):
+        raise
         if not self.request.method == 'POST':
             return reverse('quiz-start')
         p = self.request.POST
@@ -588,16 +617,34 @@ class QuizSubmit(RedirectView):
         if not qq.count():
             return reverse('quiz-start')
         for q in qq:
+            parameter_prefix = "question-%d-" % q.id
             try:
-                q.position = p.get("question-%d-position" % q.id, "")
+                q.position = p.get("%sposition" % parameter_prefix, "")
             except ValueError:
+                print "Got a value error"
                 q.position = ""
-            q.choice = p.get("question-%d-answer" % q.id, "")
+            q.choice = p.get("%sanswer" % parameter_prefix, "")
+            q.time_taken = p.get("%stime-taken" % parameter_prefix)
+            q.confidence_rating = p.get("%sconfidence-rating" % parameter_prefix)
             if not q.position:
                 return reverse("quiz-start")
             questions.append(q)
         questions.sort(key=lambda x: x.position)
         self.request.session['questions'] = questions
+        
+        quiz_attempt = models.QuizAttempt()
+        quiz_attempt.student = self.request.user.student
+        quiz_attempt.save()
+
+        for q in questions:
+            question_attempt = models.QuestionAttempt()
+            question_attempt.quiz_attempt = quiz_attempt
+            question_attempt.question = q
+            question_attempt.position = q.position
+            question_attempt.answer = q.choice
+            question_attempt.time_taken = q.time_taken
+            question_attempt.confidence_rating = q.confidence_rating
+            question_attempt.save() 
         return reverse('quiz-report')
 
 
@@ -684,7 +731,7 @@ class ChangeStatus(RedirectView):
 
         r = "%s%%s"
         if 'approve' in self.request.GET:
-            r = r % reverse('admin-approve', kwargs={'pk': q.teaching_activity.current_block().id, 'q_id': q.id})
+            r = r % reverse('admin-approve', kwargs={'number': q.teaching_activity.current_block().number, 'year': q.teaching_activity.current_block().year, 'q_id': q.id})
         else:
             r = r % reverse('view', kwargs={'pk': q_id, 'ta_id': q.teaching_activity.id})
         r = r % self.query_string()
@@ -693,11 +740,11 @@ class ChangeStatus(RedirectView):
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class ReleaseBlockView(RedirectView):
-    def get_redirect_url(self, pk):
+    def get_redirect_url(self, number, year):
         try:
-            block =  models.TeachingBlock.objects.get(pk=pk)
-        except models.TeachingBlock.DoesNotExist:
-            messages.error(rself.equest, "That block does not exist.")
+            block =  models.TeachingBlockYear.objects.get(year=year, block__number=number)
+        except models.TeachingBlockYear.DoesNotExist:
+            messages.error(self.request, "That block does not exist.")
         else:
             if not block.questions_pending_count():
                 if datetime.datetime.now().date() >= block.close:                
@@ -712,10 +759,10 @@ class ReleaseBlockView(RedirectView):
 
 
 @login_required
-def download(request, pk, mode):
+def download(request, number, year, mode):
     try:
-        tb = models.TeachingBlock.objects.get(pk=pk)
-    except models.TeachingBlock.DoesNotExist:
+        tb = models.TeachingBlockYear.objects.get(year=year, block__number=number)
+    except models.TeachingBlockYear.DoesNotExist:
         messages.error(request, 'That block does not exist.')
         return redirect('admin')
 
@@ -733,12 +780,12 @@ def download(request, pk, mode):
     return r
 
 
-@permission_required('questions.can_approve')
-def send(request, pk):
-    t = tasks.DocumentEmailTask(pk=pk)
-    queue.add_task(t)
-    messages.success(request, "The email was successfully queued to be sent!")
-    return redirect('questions.views.admin')
+# @permission_required('questions.can_approve')
+# def send(request, pk):
+#     t = tasks.DocumentEmailTask(pk=pk)
+#     queue.add_task(t)
+#     messages.success(request, "The email was successfully queued to be sent!")
+#     return redirect('questions.views.admin')
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -748,8 +795,8 @@ class EmailView(FormView):
 
     def dispatch(self, request, *args, **kwargs):
         try:
-            self.tb = models.TeachingBlock.objects.get(number=self.kwargs['pk'], year=self.kwargs['year'])
-        except models.TeachingBlock.DoesNotExist:
+            self.tb = models.TeachingBlockYear.objects.get(block__number=self.kwargs['number'], year=self.kwargs['year'])
+        except models.TeachingBlockYear.DoesNotExist:
             messages.error(request, "That teaching block does not exist.")
             return redirect("admin")
 
@@ -758,9 +805,9 @@ class EmailView(FormView):
 
 
     def get_recipients(self):
-        recipients = models.Student.objects.filter(teachingactivity__block=self.tb).distinct()
+        recipients = models.Student.objects.filter(assigned_activities__block_year=self.tb).distinct()
         if 'document' in self.request.GET:
-            recipients = recipients.filter(questions_created__teaching_activity__block=self.tb).distinct()
+            recipients = recipients.filter(questions_created__teaching_activity__block_year=self.tb).distinct()
         return recipients
 
 
@@ -774,8 +821,8 @@ class EmailView(FormView):
         i.update({ 'block': self.tb, 'from_address': settings.EMAIL_FROM_ADDRESS, })
         if 'document' in self.request.GET:
             i.update({'email' : '<p><a href="%s">Click here</a> to access the questions document.</p>\n<p><a href="%s">Click here</a> to access the document with answers.</p>' % (
-                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'question'})),
-                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'pk': self.tb.pk, 'mode': 'answer'})),
+                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'year': self.tb.year, 'number': self.tb.number, 'mode': 'question'})),
+                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'year': self.tb.year, 'number': self.tb.number, 'mode': 'answer'})),
             )})
         return i
 

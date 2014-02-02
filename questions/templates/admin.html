@@ -24,6 +24,7 @@
     {% for b in blocks %}
         {% if forloop.first %}
             <h3>Currently active blocks</h3>
+            <p>Currently active blocks were either opened/closed this year, or they were released this year.</p>
             <div class="spacer">
                 <table class="table">
                     <tr>
@@ -33,16 +34,20 @@
                         <th>End</th>
                         <th>Close</th>
                         <th>Edit</th>
+                        <th>Admin</th>
                     </tr>
         {% endif %}
+        {% if b.is_active %}
             <tr>
                 <td>{{ b.stage }}</td>
-                <td>{{ b.name }}</td>
+                <td><a href="{% url 'activity-list' number=b.number year=b.year %}">{{ b.name }}</a></td>
                 <td>{{ b.start }}</td>
                 <td>{{ b.end }}</td>
                 <td>{{ b.close }}</td>
-                <td><a href="{% url 'block-edit' pk=b.id %}">Edit</a></td>
+                <td><a href="{% url 'block-edit' number=b.number year=b.year %}">Edit</a></td>
+                <td><a href="{% url 'block-admin' number=b.number year=b.year %}">Admin</a></td>
             </tr>
+        {% endif %}
         {% if forloop.last %}
                 </table>
             </div>
@@ -68,6 +73,7 @@
                     <th>Weeks</th>
                 </tr>
         {% endif %}
+        {% if b.is_active %}
             <tr>
                 <td>{{ b.stage }}</td>
                 <td>{{ b.name }}</td>
@@ -76,12 +82,13 @@
                 <td>{{ b.activity_capacity }}</td>
                 <td>{{ b.weeks }}</td>
             </tr>
+        {% endif %}
         {% if forloop.last %}
             </table>
         {% endif %}
     {% endfor %}
 
-    <h3>Step 3: Release teaching blocks and notify students</h3>
+    <h3>Step 3: Open teaching blocks and notify students</h3>
     <p>Teaching blocks are released based on their start date. You can view the start dates for teaching blocks this year by looking in the table above.</p>
     <p>Students can assign themselves to teaching activities up to and including the end date for that block. After the end date, they will still be able to write questions for their assigned activities.</p>
 
@@ -100,14 +107,16 @@
                     <th>Contact participants</th>
                 </tr>
     {% endif %}
+    {% if b.is_active %}
         <tr>
             <td>{{ b.stage }}</td>
             <td>{{ b.name }}</td>
             <td>{{ b.questions_approved_count}}</td>
             <td>{{ b.questions_pending_count }}</td>
             <td>{{ b.questions_flagged_count }}</td>
-            <td><a href="{% url 'email' pk=b.number year=b.year %}">Email</a></td>
+            <td><a href="{% url 'email' number=b.number year=b.year %}">Email</a></td>
         </tr>
+    {% endif %}
     {% if forloop.last %}
             </table>
         </div>
@@ -128,14 +137,16 @@
                     <th>Email</th>
                 </tr>
     {% endif %}
+    {% if b.is_active %}
         <tr>
             <td>{{ b.stage }}</td>
             <td>{{ b.name }}</td>
-            <td><a href="{% url 'questions.views.download' pk=b.pk mode='question' %}">Download</a></td>
-            <td><a href="{% url 'questions.views.download' pk=b.pk mode='answer' %}">Download</a></td>
-            <td><a href="{% url 'release' pk=b.pk %}">Release</a></td>
-            <td>{% if b.released %}<a href="{% url 'email' pk=b.number year=b.year %}?document">Email</a>{% endif %}</td>
+            <td><a href="{% url 'questions.views.download' number=b.number year=b.year mode='question' %}">Download</a></td>
+            <td><a href="{% url 'questions.views.download' number=b.number year=b.year mode='answer' %}">Download</a></td>
+            <td><a href="{% url 'release' number=b.number year=b.year %}">Release</a></td>
+            <td>{% if b.released %}<a href="{% url 'email' number=b.number year=b.year %}?document">Email</a>{% endif %}</td>
         </tr>
+    {% endif %}
     {% if forloop.last %}
             </table>
         </div>
