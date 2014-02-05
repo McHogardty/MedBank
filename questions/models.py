@@ -418,9 +418,9 @@ class QuestionAttempt(models.Model):
     quiz_attempt = models.ForeignKey(QuizAttempt, related_name="questions")
     question = models.ForeignKey(Question, related_name="attempts")
     position = models.PositiveIntegerField()
-    answer = models.CharField(max_length=1)
+    answer = models.CharField(max_length=1, blank=True, null=True)
     time_taken = models.PositiveIntegerField()
-    confidence_rating = models.IntegerField(choices=CONFIDENCE_CHOICES)
+    confidence_rating = models.IntegerField(choices=CONFIDENCE_CHOICES, blank=True, null=True)
 
 
 class QuestionRating(models.Model):
