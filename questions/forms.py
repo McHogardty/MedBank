@@ -2,9 +2,10 @@ from django import forms
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html, format_html_join
 from django.utils.encoding import force_text
+from django.db import models
 
 from medbank import bsforms
-from .models import Question, TeachingActivity, TeachingBlock, TeachingBlockYear, Student, Comment
+from .models import Question, TeachingActivity, TeachingBlock, TeachingBlockYear, Student, Comment, TeachingActivityYear
 
 import string
 import json
@@ -90,7 +91,7 @@ class NewQuestionForm(bsforms.NewBootstrapModelForm):
     explanation = forms.CharField(widget=forms.Textarea())
     #explanation = forms.CharField(widget=bsforms.RichTextarea())
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
-    teaching_activity = forms.ModelChoiceField(queryset=TeachingActivity.objects.all(), widget=forms.HiddenInput())
+    teaching_activity_year = forms.ModelChoiceField(queryset=TeachingActivityYear.objects.all(), widget=forms.HiddenInput())
 
     def __init__(self, admin=False, *args, **kwargs):
         super(NewQuestionForm, self).__init__(*args, **kwargs)
@@ -135,17 +136,23 @@ class NewTeachingBlockYearForm(bsforms.NewBootstrapModelForm):
 #    end = forms.DateField(widget=forms.TextInput(
 #        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
 #    ), help_text="The last day that students can assign themselves to activities in this block.")
-    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.order_by('stage__number', 'number'))
+    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage__number', 'number'))
     year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bsforms.StaticControl())
     start = forms.DateField(widget=forms.TextInput(), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
     end = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
     close = forms.DateField(widget=forms.TextInput(), help_text="The last day that students can write questions for activities in this block.", label="Close date")
     release_date = forms.CharField(required=False, max_length=10, widget=bsforms.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
-    sign_up_mode = forms.ChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES)
+    sign_up_mode = forms.TypedChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES, coerce=int)
 
     class Meta:
         model = TeachingBlockYear
         fields = ('block', 'year', 'start', 'end', 'close', 'release_date', 'activity_capacity', 'sign_up_mode', 'weeks')
+
+    def __init__(self, *args, **kwargs):
+        super(NewTeachingBlockYearForm, self).__init__(*args, **kwargs)
+
+        if self.instance.pk:
+            self.fields['block'].queryset = TeachingBlock.objects.exclude(years__year__exact=self.instance.year) | TeachingBlock.objects.filter(id=self.instance.block.id)
 
     def clean(self):
         c = super(NewTeachingBlockYearForm, self).clean()

@@ -2,9 +2,8 @@ var Questions = (function (questions_module, $) {
     questions_module.SplashScreen = function (to_show, to_hide) {
         set_up_class = "pre-blur";
         transition_class = "blur";
-
         this.show = function () {
-            $.each(to_show, function (i, selector) { $(selector).fadeIn(600); });
+            $.each(to_show, function (i, selector) {$(selector).fadeIn(600); });
             $.each(to_hide, function (i, selector) {
                 $(selector).addClass(set_up_class);
                 $(selector).addClass(transition_class);

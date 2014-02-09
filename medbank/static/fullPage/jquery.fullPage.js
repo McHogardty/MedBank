@@ -71,7 +71,7 @@
 			$('.section').addClass('table').wrapInner('<div class="tableCell" style="height:' + windowsHeight + 'px" />');
 		}
 
-		$('div[class="container"]').wrapInner('<div id="superContainer" />');
+		$('div[class*="container"]').not(".nosection").wrapInner('<div id="superContainer" />');
 
 		//creating the navigation dots 
 		if (options.navigation) {

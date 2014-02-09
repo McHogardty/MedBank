@@ -18,7 +18,7 @@ var Questions = (function (questions_module, $) {
         $(".timer button").click(function (e) {
             $b = $(this);
             self.complete_pause();
-            if (callback) { callback(); };
+            if (callback) { callback(); }
             if (self.is_paused) {
                 $b.html("Resume");
             } else {
@@ -30,6 +30,7 @@ var Questions = (function (questions_module, $) {
         this.paused = function () { return self.is_paused; };
 
         this.complete_pause = function () {
+            if (report_results) return;
             if (self.is_paused) {
                 self.restart();
             } else {
@@ -52,12 +53,14 @@ var Questions = (function (questions_module, $) {
         };
 
         this.start = function () {
+            if (report_results) return;
             self.reset();
             timer_id = window.setInterval(self.check_time, 100);
             self.is_paused = false;
         };
 
         this.stop_timing = function () {
+            if (report_results) return;
             window.clearInterval(timer_id);
             timer_id = 0;
         };
@@ -137,7 +140,10 @@ var Questions = (function (questions_module, $) {
 
         this.get_question = function (number) { return question_timers[number]; };
         this.start = function () { self.active_question_timer().start(); };
-        this.complete_pause = function () { self.active_question_timer().complete_pause(); };
+        this.complete_pause = function () {
+            if (report_results) return;
+            self.active_question_timer().complete_pause();
+        };
         this.paused = function () { return self.active_question_timer().paused(); };
         this.stop = function () { self.active_question_timer().stop(); };
         this.lap = function () { self.active_question_timer().lap(); };
@@ -351,16 +357,21 @@ var Questions = (function (questions_module, $) {
         question_attr = "data-question";
         question_selector = "form[" + question_attr + "]";
         active_question_selector = ".active " + question_selector;
-        main_screen_elements = [".active", ".timer", ".nav-down"];
+        main_screen_elements = ["#superContainer", ".timer", ".nav-down"];
 
         var scroller = null;
         var splash = new questions_module.SplashScreen([".finish",], main_screen_elements);
-        var explanation = new questions_module.SplashScreen(["",], ["",]);
         var progress = new questions_module.SplashScreen([".questions"], main_screen_elements);
         var question_timer = new questions_module.QuestionTimerManager(question_selector, active_question_selector, question_attr);
         var question_list = new questions_module.QuestionList();
-        var confidence_widget = new questions_module.ConfidenceManager(".confidence-widget", question_selector, question_attr);
-        var options_widget = questions_module.QuestionOptionsManager(".question-options", question_selector, question_attr);
+        var confidence_widget = null;
+        if (!report_results) {
+            confidence_widget = new questions_module.ConfidenceManager(".confidence-widget", question_selector, question_attr);
+        }
+        var options_widget = null;
+        if (!report_results) {
+            options_widget = questions_module.QuestionOptionsManager(".question-options", question_selector, question_attr);
+        }
         var timer = null;
 
         $(".btn-finish").click(function (e) {
@@ -379,7 +390,7 @@ var Questions = (function (questions_module, $) {
             progress.show();
             e.preventDefault();
         });
-        $(".btn-close").click(function (e) {
+        $(".questions .btn-close").click(function (e) {
             progress.hide();
             timer.complete_pause();
             e.preventDefault();
@@ -392,12 +403,16 @@ var Questions = (function (questions_module, $) {
             window.location.href = "{% url 'dashboard' %}";
             e.preventDefault();
         });
-        $(".btn-explanation").click(function () {
-            $b = $(this);
-            $d = $b.parents("div.scroller");
-            show_explanation($d.find(".explanation"));
-            return false;
-        });
+        if (report_results) {
+            explanation_attributes = [];
+            $(".btn-explanation").each(function () {
+                attr = $(this).parents(question_selector).attr(question_attr);
+                explanation_attributes.push(attr);
+                $(this).click(function () { explanation.show($(this).parents(question_selector).attr(question_attr)); });
+            });
+            $(".explanation .btn-close").click(function (e) { explanation.hide($(this).parents(".explanation").attr(question_attr)); });
+            var explanation = new questions_module.SplashScreenManager(".explanation", 'data-question', explanation_attributes, main_screen_elements);
+        }
 
         this.hide = function () {
             $(".active").css({visibility: "hidden", });
@@ -415,7 +430,8 @@ var Questions = (function (questions_module, $) {
         this.complete_pause = function () {
             timer.complete_pause();
             question_timer.complete_pause();
-        }
+        };
+
         this.paused = function () { return timer.paused(); };
         this.start_question = function () { question_timer.start(); };
         this.complete_pause_question = function () { question_timer.complete_pause(); };
@@ -468,10 +484,20 @@ var Questions = (function (questions_module, $) {
             $summary_form = $(".summary-form");
             $("form[data-question]").each(function () {
                 $f = $(this);
-                $('input[name="question-' + $f.attr("data-question-id") + '-answer"]').val($f.find(".btn-success").attr("data-option"));
+                question_id = $f.attr("data-question-id");
                 question_number = parseInt($f.attr("data-question"));
                 $('input[name="question-' + $f.attr("data-question-id") + '-time-taken"]').val(question_timer.time_taken(question_number));
-                $('input[name="question-' + $f.attr("data-question-id") + '-confidence-rating"]').val(confidence_widget.choice(question_number));
+
+                $answer = $('<input type="hidden"></input>')
+                            .attr("name", "question-" + question_id + '-answer')
+                            .val($f.find(".btn-success").attr("data-option"));
+
+                $confidence = $('<input type="hidden"></input>')
+                                .attr("name", 'question-' + question_id + '-confidence-rating')
+                                .val(confidence_widget.choice(question_number));
+
+                $summary_form.append($answer);
+                $summary_form.append($confidence);
             });
             $summary_form.submit();
         };

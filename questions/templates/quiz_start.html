@@ -1,11 +1,14 @@
 {% extends "base-no-nav-early-javascript.html" %}
 
 {% block head %}
-    <link href="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.css" rel="stylesheet" media="screen">
+    {% comment %}<link href="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.css" rel="stylesheet" media="screen">{% endcomment %}
     <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello.css">
     <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/animation.css"><!--[if IE 7]>
     <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello-ie7.css"><![endif]-->
     <style type="text/css">
+    html, body {
+        overflow:hidden;
+    }
     .controlArrow {
         display:none;
     }
@@ -13,18 +16,34 @@
         position:fixed;
         width:100%;
         height:100%;
-        z-index:100;
+        z-index:1000;
         display:none;
         overflow:scroll;
     }
 
     .finish .content {
-        display:inline-block;
+        z-index:1001;
+    }
+/*    .finish .content {
+        display:block;
         vertical-align: middle;
         position:relative;
         width:100%;
         top:50%;
-        transform: translateY(-50px);
+        transform: translateY(-50%);
+        -webkit-transform: translateY(-50%);
+        -moz-transform: translateY(-50%);
+        -o-transform: translateY(-50%);
+        -ms-transform: translateY(-50%);
+    }
+*/
+    .centre-of-parent {
+        display: block;
+        vertical-align:middle;
+        position:relative;
+        width:100%;
+        top:50%;
+        transform: translateY(-50%);
         -webkit-transform: translateY(-50%);
         -moz-transform: translateY(-50%);
         -o-transform: translateY(-50%);
@@ -35,7 +54,15 @@
         margin-right:3px;
         margin-bottom:3px;
     }
-    </style>
+
+    .btn-next {
+        cursor:pointer;
+    }
+
+/*    .section {
+        height:100vh;
+    }
+*/    </style>
 {% endblock head %}
 
 {% block before %}
@@ -43,27 +70,29 @@
         <div class="finish" data-block="{{ o.number }}">
             <div class="content">
                 <div class="container nosection">
+                    <div class="text-center col-xs-12">
                     <h1>{{ o.name }}</h1>
+                    </div>
                     <form class="form-horizontal block-form" id="form-{{ o.number }}" role="form">
                         <div class="form-group">
-                            <label class="control-label col-sm-3">Number of questions</label>
-                            <div class="col-sm-9">
-                                <input name="question_count" type="text" class="form-control question_count" />
+                            <label class="control-label col-sm-5">Number of questions</label>
+                            <div class="col-sm-2">
+                                <input name="question_count" type="text" pattern="[0-9]*" class="form-control question_count" />
                                 <span class="text-danger questions-error">Please enter a number.</span>
                                 <span class="text-danger number-error">Please enter a number larger than 0.</span>
                                 <span class="text-danger number-size-error">Please enter a number smaller than 1000.</span>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="control-label col-sm-3">Years to pick from</label>
-                            <div class="col-sm-9 years">
+                            <label class="control-label col-sm-5">Years to pick from</label>
+                            <div class="col-sm-7 years">
                                 {% for y in o.block.years.all %}<button type="button" class="btn btn-default" name="year-{{ y.year }}" data-checked="">{{ y.year }}</button>{% endfor %}
                                 <br />
                                 <span class="text-danger year-error">Please choose some years.</span>
                             </div>
                         </div>
                         <div class="form-group">
-                            <div class="col-sm-offset-3 col-sm-10">
+                            <div class="col-sm-offset-5 col-sm-7">
                                 <button type="submit" class="btn btn-primary">Add</button>
                             </div>
                         </div>
@@ -75,17 +104,16 @@
 {% endblock before %}
 
 {% block content %}
-    <div class="row section">
-        <div class="col-md-8 col-md-offset-2 text-center">
-            <h1 class="mega">Test yourself</h1>
-            <h1>Click the button below to begin</h1>
-            <br />
-            <a class="btn btn-lg btn-primary btn-next col-md-2 col-md-offset-5">Start</a>
+    <div class="row section active">
+        <div class="col-sm-12 text-center centre-of-parent">
+            <h1>Test yourself</h1>
+            <p class="lead">Click the button below to begin</p>
+            <button type="button" class="btn btn-primary btn-next" onclick="">Start</button>
         </div>
     </div>
     <div class="row section">
-        <div>
-            <h1 class="mega">Pick blocks</h1>
+        <div class="col-sm-12">
+            <h1>Pick blocks</h1>
             <div class="spacer blocks">
             {% for o in object_list %}
                 <div class="week" data-block="{{ o.number }}">
@@ -95,18 +123,16 @@
                 </div>
             {% endfor %}
             <br />
-            <a class="btn btn-lg btn-primary btn-next btn-continue col-md-offset-5 col-md-2">Continue</a>
+            <a class="btn btn-primary btn-next btn-continue col-md-offset-5 col-md-2">Continue</a>
             </div>
         </div>
     </div>
     <div class="row section">
-        <div class="col-md-offset-1">
-            <h1 class="mega summary">Summary</h1>
+        <div class="centre-of-parent text-center">
+            <h1 class="summary">Summary</h1>
             <div class="summaries">
             </div>
-            <br />
-            <a class="btn btn-lg btn-primary btn-load col-md-offset-3 col-md-2" style="margin-right:40px;">Start</a>
-            <a class="btn btn-lg btn-default btn-reset col-md-2">Reset</a>
+            <button type="button" class="btn btn-primary btn-load" style="margin-right:40px;">Start</button><button type="button" class="btn btn-default btn-reset">Reset</button>
             <form method="get" action="{% url 'quiz-prepare' %}" class="submit-form"></form>
         </div>
     </div>
@@ -114,14 +140,13 @@
 
 {% block javascript %}
     <script src="{{ STATIC_URL }}medbank/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}questions/screen.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/scroller.js"></script>
     <script type="text/javascript">
-        var forward = null;
-        var back = null;
         var block_details = [];
         var to_hide = null;
         var base_questions_url = "{% url 'quiz'%}";
+        var current_translate = 0;
 
         function clear_form () {
             to_hide.hide()
@@ -134,7 +159,7 @@
         };
 
         function summary_element (block, n, years) {
-            $el = $("<h2></h2>")
+            $el = $("<p></p>").addClass("lead")
             y = ""
             if (years.length == 1) {
                 y = years[0]
@@ -165,10 +190,13 @@
             if (!$q.val().match(numbers) || isNaN(parseInt($q.val()))) {
                 ret = false;
                 $qe.show();
+                $ne.hide();
+                $ns.hide();
             } else if (parseInt($q.val()) <= 0) {
                 $qe.hide();
                 ret = false;
                 $ne.show();
+                $ns.hide();
             } else {
                 $qe.hide();
                 $ne.hide();
@@ -204,7 +232,8 @@
                 $t.find(".icon-angle-right").show()
                 $t.find(".week-heading").removeClass("text-success")
             })
-            back()
+            $(".btn-continue").hide();
+            scroller.back()
         }
 
         function get_questions() {
@@ -233,26 +262,11 @@
         }
 
         $(document).ready(function () {
-            $.fn.fullpage({
-                css3: true,
-                resize: false,
-                verticalCentered: false,
-                afterLoad: function (anchorLink, index) {
-                    if (index == 2 && anchorLink == 0) {
-                        clear_form()
-                    } else if (index == 4) {
-                        get_questions()
-                    }
-                },
-                manual: false,
-            })
             block_attribute = "data-block";
             blocks = [];
             $(".blocks .week").each(function () {
                 blocks.push($(this).attr(block_attribute));
             });
-            splash_screen = new Questions.SplashScreenManager(".finish", "data-block", blocks, ["#superContainer"]);
-
             $(".week-heading").click(function () {
                 if ($(this).hasClass("text-success")) {
                     return false;
@@ -260,20 +274,24 @@
                 n = $(this).parent().attr('data-block');
                 splash_screen.show(n);
             })
+            container_selector = ".container.main";
+            screen_selector = ".container.main .section";
+            active_class = "active";
+            active_screen_selector = screen_selector + "." + active_class;
+            transition_class = "pre-blur";
 
-            forward = function () {$.fn.fullpage.moveSlideDown()}
-            back = function () {$.fn.fullpage.moveSlideUp()}
+            scroller = new Questions.PageScroller(container_selector, screen_selector, active_class, active_screen_selector, transition_class);
+            splash_screen = new Questions.SplashScreenManager(".finish", "data-block", blocks, [container_selector, ]);
+
             $(".btn-next").click(function () {
-                forward()
+                scroller.forward();
             })
-            $(".year-error").hide()
-            $(".questions-error").hide()
-            $(".number-error").hide()
-            $(".number-size-error").hide()
-            $(".btn-continue").hide()
-            $(".btn-reset").click(function () {
-                reset()
-            })
+            $(".year-error").hide();
+            $(".questions-error").hide();
+            $(".number-error").hide();
+            $(".number-size-error").hide();
+            $(".btn-continue").hide();
+            $(".btn-reset").click(function () { reset() });
             $(".btn-load").click(function() {
                 $(".submit-form").submit()
             })

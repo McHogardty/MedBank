@@ -96,6 +96,58 @@ fieldset[disabled] .btn-primary.active {
     background:#eeeeee;
 }
 
+.btn-no-hover:hover,
+.btn-no-hover:active,
+.btn-no-hover:focus {
+  cursor:auto;
+  -webkit-box-shadow: 0 0 0 0;
+  -moz-box-shadow: 0 0 0 0;
+  box-shadow: 0 0 0 0;
+
+}
+
+.btn-default.btn-no-hover:hover,
+.btn-default.btn-no-hover:active,
+.btn-default.btn-no-hover:focus {
+  background-color: #ffffff;
+  border-color: #cccccc;
+}
+
+.btn-primary.btn-no-hover:hover,
+.btn-primary.btn-no-hover:active,
+.btn-primary.btn-no-hover:focus {
+  background-color: #b1001d;
+  border-color: #910119;
+}
+
+.btn-warning.btn-no-hover:hover,
+.btn-warning.btn-no-hover:active,
+.btn-warning.btn-no-hover:focus {
+  background-color: #f0ad4e;
+  border-color: #eea236;
+}
+
+.btn-danger.btn-no-hover:hover,
+.btn-danger.btn-no-hover:active,
+.btn-danger.btn-no-hover:focus {
+  background-color: #d9534f;
+  border-color: #d43f3a;
+}
+
+.btn-success.btn-no-hover:hover,
+.btn-success.btn-no-hover:active,
+.btn-success.btn-no-hover:focus {
+  background-color: #5cb85c;
+  border-color: #4cae4c;
+}
+
+.btn-info.btn-no-hover:hover,
+.btn-info.btn-no-hover:active,
+.btn-info.btn-no-hover:focus {
+  background-color: #5bc0de;
+  border-color: #46b8da;
+}
+
 a[data-url] {
   cursor: pointer;
 }

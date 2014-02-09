@@ -73,16 +73,15 @@ class DashboardView(TemplateView):
 
 @class_view_decorator(login_required)
 class MyActivitiesView(ListView):
-    model = models.TeachingActivity
+    model = models.TeachingActivityYear
     template_name = "mine.html"
 
     def get_queryset(self):
         ret = {}
-        ta = models.TeachingActivity.objects.filter(question_writers=self.request.user).order_by('week', 'position')
+        ta = models.TeachingActivityYear.objects.filter(question_writers=self.request.user).order_by('week', 'position')
         for t in ta:
-            if t.current_block():
-                l = ret.setdefault(t.current_block(), [])
-                l.append(t)
+            l = ret.setdefault(t.block_year, [])
+            l.append(t)
         ret = ret.items()
         ret.sort(key=lambda a: a[0].number)
         return ret
@@ -90,7 +89,7 @@ class MyActivitiesView(ListView):
 
 @class_view_decorator(login_required)
 class AllActivitiesView(ListView):
-    model = models.TeachingActivity
+    model = models.TeachingActivityYear
     template_name = "all2.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -110,7 +109,7 @@ class AllActivitiesView(ListView):
         return tb
 
     def get_queryset(self):
-        ta = models.TeachingActivity.objects.filter(block_year__block__number=self.kwargs['number'], block_year__year=self.kwargs['year'])
+        ta = models.TeachingActivityYear.objects.filter(block_year__block__number=self.kwargs['number'], block_year__year=self.kwargs['year'])
         by_week = {}
         for t in ta:
             l = by_week.setdefault(t.week, [])
@@ -192,7 +191,7 @@ class StartApprovalView(QueryStringMixin, RedirectView):
             s = models.Question.FLAGGED_STATUS
         else:
             s = models.Question.PENDING_STATUS
-        q = models.Question.objects.filter(teaching_activity__block_year=b).filter(
+        q = models.Question.objects.filter(teaching_activity_year__block_year=b).filter(
                 db.models.Q(status=s) | db.models.Q(pk=q_id)
             )
         try:
@@ -206,7 +205,7 @@ class StartApprovalView(QueryStringMixin, RedirectView):
                 m = 'There are no more flagged questions in that block.'
             messages.success(self.request, m)
             return reverse('admin')
-        return "%s%s" % (reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity.id}), self.query_string(previous_q == None))
+        return "%s%s" % (reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity_year.id}), self.query_string(previous_q == None))
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -215,7 +214,7 @@ class ApproveQuestionsView(ListView):
     template_name = "approve.html"
 
     def get_query_set(self):
-        return models.Question.objects.filter(teaching_activity__block=self.kwargs['pk'])
+        return models.Question.objects.filter(teaching_activity_year__block=self.kwargs['pk'])
 
     def get_context_data(self, **kwargs):
         c = super(ApproveQuestionsView, self).get_context_data(**kwargs)
@@ -224,7 +223,7 @@ class ApproveQuestionsView(ListView):
 
 
 def check_ta_perm_for_question(ta_id, u):
-    ta = get_object_or_404(models.TeachingActivity, pk=ta_id)
+    ta = get_object_or_404(models.TeachingActivityYear, pk=ta_id)
 
     if not u.student in ta.question_writers.all() and not u.has_perm("questions.can_approve"):
         raise PermissionDenied
@@ -247,7 +246,7 @@ class NewQuestion(CreateView):
 
     def get_initial(self):
         i = super(NewQuestion, self).get_initial().copy()
-        i.update({'teaching_activity': self.ta, 'creator': self.request.user.student})
+        i.update({'teaching_activity_year': self.ta, 'creator': self.request.user.student})
         return i
 
     def get_success_url(self):
@@ -265,7 +264,7 @@ class UpdateQuestion(QueryStringMixin, UpdateView):
         return super(UpdateQuestion, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        return models.Question.objects.filter(teaching_activity__id=self.kwargs['ta_id'])
+        return models.Question.objects.filter(teaching_activity_year__id=self.kwargs['ta_id'])
 
     def get_object(self):
         o = super(UpdateQuestion, self).get_object()
@@ -333,7 +332,7 @@ class AddComment(CreateView):
         if not c['reply_to']:
             c = {
                 'user': self.q.creator.user,
-                'link': self.request.build_absolute_uri(reverse('view', kwargs={'pk': self.q.id, 'ta_id': self.q.teaching_activity.id}))
+                'link': self.request.build_absolute_uri(reverse('view', kwargs={'pk': self.q.id, 'ta_id': self.q.teaching_activity_year.id}))
             }
 
             body = loader.render_to_string('email/newcomment.html', c)
@@ -345,7 +344,7 @@ class AddComment(CreateView):
 
             queue.add_task(t)
 
-        return redirect('view', pk=self.q.id, ta_id=self.q.teaching_activity.id)
+        return redirect('view', pk=self.q.id, ta_id=self.q.teaching_activity_year.id)
 
 
 @class_view_decorator(login_required)
@@ -354,8 +353,8 @@ class UnassignView(RedirectView):
 
     def get_redirect_url(self, pk):
         try:
-            ta = models.TeachingActivity.objects.get(pk=pk)
-        except models.TeachingActivity.DoesNotExist:
+            ta = models.TeachingActivityYear.objects.get(pk=pk)
+        except models.TeachingActivityYear.DoesNotExist:
             return reverse('medbank.views.home')
         if not ta.question_writers.filter(user=self.request.user).count():
             messages.warning(self.request, "You weren't signed up to that activity")
@@ -372,11 +371,9 @@ class UnassignView(RedirectView):
 
 @login_required
 def signup(request, ta_id):
-    import time
-    time.sleep(5)
     try:
-        ta = models.TeachingActivity.objects.get(id=ta_id)
-    except models.TeachingActivity.DoesNotExist:
+        ta = models.TeachingActivityYear.objects.get(id=ta_id)
+    except models.TeachingActivityYear.DoesNotExist:
         if request.is_ajax():
             return HttpResponse(
                 json.dumps({
@@ -436,7 +433,7 @@ def signup(request, ta_id):
 
 @class_view_decorator(login_required)
 class NewActivity(CreateView):
-    model = models.TeachingActivity
+    model = models.TeachingActivityYear
     template_name = "new_ta.html"
     form_class = forms.NewTeachingActivityForm
 
@@ -460,20 +457,18 @@ class NewBlock(CreateView):
     def form_valid(self, form):
         c = form.cleaned_data
         b = form.save()
-        if c['sign_up_mode'] == models.TeachingBlock.WEEK_MODE:
+        if c['sign_up_mode'] == models.TeachingBlockYear.WEEK_MODE:
             for w in range(1, c['weeks'] + 1):
-                i = models.TeachingActivity.objects.aggregate(db.models.Max('id'))['id__max']
-                if i < 100000:
-                    i = 99999
-                i = i + 1
                 a = models.TeachingActivity()
-                a.id = i
                 a.name = "Week %d" % w
-                a.week = w
-                a.position = 1
                 a.activity_type = models.TeachingActivity.WEEK_TYPE
                 a.save()
-                a.block.add(b)
+                tay = models.TeachingActivityYear()
+                tay.week = w
+                tay.position = 1
+                tay.block_year = b
+                tay.teaching_activity = a
+                tay.save()
 
         return redirect('admin')
 
@@ -501,7 +496,7 @@ class EditBlock(UpdateView):
 
 @class_view_decorator(login_required)
 class ViewActivity(DetailView):
-    model = models.TeachingActivity
+    model = models.TeachingActivityYear
 
 
 @class_view_decorator(login_required)
@@ -546,10 +541,9 @@ class QuizView(ListView):
     def get_queryset(self):
         return super(QuizView, self).get_queryset().exclude(release_date__isnull=True)
 
-
 @class_view_decorator(login_required)
-class QuizQuestionsView(TemplateView):
-    def render_to_response(self, context, **response_kwargs):
+class QuizQuestionsView(RedirectView):
+    def generate_questions(self):
         g = self.request.GET
         blocks = []
         questions = []
@@ -560,28 +554,40 @@ class QuizQuestionsView(TemplateView):
             d["years"] = [int(y) for y in g.getlist('block_%s_year' % b)]
             blocks.append(d)
         if not blocks:
-            return redirect('quiz-start')
+            return []
 
         for b in blocks:
             bk = models.TeachingBlockYear.objects.filter(block__number=b['block'], year__in=b['years'])
             q = []
             if not bk.count():
-                print "Not bk.count"
-                return redirect('quiz-start')
+                return []
             for bb in bk:
-                q += models.Question.objects.filter(teaching_activity__block_year=bk, status=models.Question.APPROVED_STATUS)
+                q += models.Question.objects.filter(teaching_activity_year__block_year=bk, status=models.Question.APPROVED_STATUS)
             random.seed()
             if b["question_number"] > len(q):
                 b["question_number"] = len(q)
             q = random.sample(q, b["question_number"])
             questions += q
 
+        return questions
 
-        print "Questions is %s" % questions
+    def get_redirect_url(self, slug=None):
+        questions = None
+        
+        if slug:
+            try:
+                quiz_specification = models.QuizSpecification.objects.get(slug=slug)
+            except models.QuizSpecification.DoesNotExist:
+                return reverse('quiz-start')
+            self.request.session['quizspecification'] = quiz_specification
+            questions = quiz_specification.get_questions()
+        else:
+            questions = self.generate_questions()
+        if not questions:
+            return reverse('quiz-start')
+
         self.request.session['questions'] = questions
-
-
-        return redirect('quiz')
+        return reverse('quiz')
 
 @class_view_decorator(login_required)
 class Quiz(ListView):
@@ -593,6 +599,8 @@ class Quiz(ListView):
             self.questions = request.session.pop('questions')
         else:
             return redirect('quiz-start')
+        if 'quizspecification' in request.session:
+            self.quiz_specification = request.session.pop('quizspecification')
         return super(Quiz, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -601,17 +609,24 @@ class Quiz(ListView):
     def get_context_data(self, **kwargs):
         context = super(Quiz, self).get_context_data(**kwargs)
         context['confidence_range'] = models.QuestionAttempt.CONFIDENCE_CHOICES
-
+        if hasattr(self, "quiz_specification"):
+            context['specification'] = self.quiz_specification
         return context
 
 
 @class_view_decorator(login_required)
 class QuizSubmit(RedirectView):
     def get_redirect_url(self):
-        raise
         if not self.request.method == 'POST':
             return reverse('quiz-start')
         p = self.request.POST
+        specification = p.get('specification')
+        if specification:
+            try:
+                specification = models.QuizSpecification.objects.get(id=specification)
+            except models.QuizSpecification.DoesNotExist:
+                specification = None
+
         questions = []
         qq = models.Question.objects.filter(id__in=p.getlist('question', []))
         if not qq.count():
@@ -623,9 +638,9 @@ class QuizSubmit(RedirectView):
             except ValueError:
                 print "Got a value error"
                 q.position = ""
-            q.choice = p.get("%sanswer" % parameter_prefix, "")
+            q.choice = p.get("%sanswer" % parameter_prefix) or None
             q.time_taken = p.get("%stime-taken" % parameter_prefix)
-            q.confidence_rating = p.get("%sconfidence-rating" % parameter_prefix)
+            q.confidence_rating = p.get("%sconfidence-rating" % parameter_prefix) or None
             if not q.position:
                 return reverse("quiz-start")
             questions.append(q)
@@ -634,6 +649,7 @@ class QuizSubmit(RedirectView):
         
         quiz_attempt = models.QuizAttempt()
         quiz_attempt.student = self.request.user.student
+        quiz_attempt.quiz_specification = specification
         quiz_attempt.save()
 
         for q in questions:
@@ -653,7 +669,13 @@ class QuizReport(ListView):
     template_name = "quiz.html"
 
     def dispatch(self, request, *args, **kwargs):
-        if 'questions' in request.session:
+        if 'slug' in kwargs:
+            try:
+                attempt = models.QuizAttempt.objects.get(slug=kwargs['slug'])
+            except models.QuizAttempt.DoesNotExist:
+                return redirect('quiz-start')
+            self.questions = attempt.get_questions()
+        elif 'questions' in request.session:
             self.questions = request.session.pop('questions')
         else:
             return redirect('quiz-start')
@@ -667,12 +689,15 @@ class QuizReport(ListView):
         c.update({'report': True, 'number_correct': sum(1 for q in self.questions if q.choice == q.answer)})
         by_block = {}
         for q in self.questions:
-            d = by_block.setdefault(q.teaching_activity.current_block(), {})
+            d = by_block.setdefault(q.teaching_activity_year.block_year, {})
             l = d.setdefault('questions', [])
             l.append(q)
         for d in by_block.values():
             d['number_correct'] = sum(1 for q in d['questions'] if q.choice == q.answer)
-        c.update({'by_block': by_block})
+        list_by_block = [[k,v] for k,v in by_block.iteritems()]
+        list_by_block.sort(key=lambda x: (x[0].stage, x[0].number))
+        c['confidence_range'] = models.QuestionAttempt.CONFIDENCE_CHOICES
+        c.update({'by_block': list_by_block})
         return c
 
 @login_required
@@ -682,7 +707,7 @@ def view(request, ta_id, q_id):
     except models.Question.DoesNotExist:
         messages.error(request, "Hmm... that question could not be found")
 
-    if q.teaching_activity.id != int(ta_id):
+    if q.teaching_activity_year.id != int(ta_id):
         messages.error(request, "Sorry, an unknown error occurred. Please try again.")
         return redirect('questions.views.home')
 
@@ -720,7 +745,7 @@ class ChangeStatus(RedirectView):
             messages.error(self.request, "Hmm... that question could not be found.")
             return redirect('questions.views.home')
 
-        if q.teaching_activity.id != int(ta_id):
+        if q.teaching_activity_year.id != int(ta_id):
             messages.error(self.request, "Sorry, an unknown error occurred. Please try again.")
             return redirect('questions.views.home')
 
@@ -731,9 +756,9 @@ class ChangeStatus(RedirectView):
 
         r = "%s%%s"
         if 'approve' in self.request.GET:
-            r = r % reverse('admin-approve', kwargs={'number': q.teaching_activity.current_block().number, 'year': q.teaching_activity.current_block().year, 'q_id': q.id})
+            r = r % reverse('admin-approve', kwargs={'number': q.teaching_activity_year.block_year.number, 'year': q.teaching_activity_year.block_year.year, 'q_id': q.id})
         else:
-            r = r % reverse('view', kwargs={'pk': q_id, 'ta_id': q.teaching_activity.id})
+            r = r % reverse('view', kwargs={'pk': q_id, 'ta_id': q.teaching_activity_year.id})
         r = r % self.query_string()
         return r
 
@@ -807,7 +832,7 @@ class EmailView(FormView):
     def get_recipients(self):
         recipients = models.Student.objects.filter(assigned_activities__block_year=self.tb).distinct()
         if 'document' in self.request.GET:
-            recipients = recipients.filter(questions_created__teaching_activity__block_year=self.tb).distinct()
+            recipients = recipients.filter(questions_created__teaching_activity_year__block_year=self.tb).distinct()
         return recipients
 
 

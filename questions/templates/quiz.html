@@ -108,14 +108,28 @@
         height:100%;
         display:none;
         z-index:1100;
+        overflow:scroll;
     }
 
     .explanation .content {
+        display:inline-block;
+        vertical-align: middle;
+        position:relative;
         width:100%;
-        height:100%;
-        -webkit-column-gap: 20px;
-        -webkit-column-width: 50px;
-        padding:50px 100px;
+        top:50%;
+        transform: translateY(-50px);
+        -webkit-transform: translateY(-50%);
+        -moz-transform: translateY(-50%);
+        -o-transform: translateY(-50%);
+        -ms-transform: translateY(-50%);
+    }
+
+    .explanation .buttons {
+        position:absolute;
+        bottom:30px;
+        width:100%;
+        left:0;
+        text-align:center;
     }
 
     .questions ol {
@@ -188,6 +202,20 @@
             <button class="btn btn-default btn-close" type="button">Close</button>
         </div>
     </div>
+{% if report %}
+{% for q in object_list %}
+    <div class="explanation" data-question="{{ forloop.counter }}">
+        <div class="content">
+            <div class="container nosection">
+                <p>{{ q.explanation }}</p>
+            </div>
+        </div>
+        <div class="buttons">
+            <button class="btn btn-default btn-close" type="button">Close</button>
+        </div>
+    </div>
+{% endfor %}
+{% endif %}
 {% endblock before %}
 
 {% block content %}
@@ -198,7 +226,7 @@
             <h1>Your results</h1>
             <h2 class="text-success">You answered {{ number_correct }} question{{ number_correct|pluralize }} correctly out of {{ object_list|length }}</h2>
             <ul>
-            {% for b, q in by_block.iteritems %}
+            {% for b, q in by_block %}
                 <li>{{ b }}: {{ q.number_correct }} correct out of {{ q.questions|length }}</li>
             {% endfor %}
             </ul>
@@ -207,14 +235,14 @@
     {% for q in object_list %}
         <div class="section{% if forloop.last %} last{% endif %}{% if forloop.first and not report %} first{% endif %}">
             <div class="scroller">
-            <h2>Question {{ forloop.counter }}{% if report %} - {{ q.teaching_activity.current_block.number }}.{{ q.teaching_activity.week|stringformat:"02d" }}: {{ q.teaching_activity.name }}{% endif %}</h2>
+            <h2>Question {{ forloop.counter }}{% if report %} - {{ q.block.number }}.{{ q.teaching_activity_year.week|stringformat:"02d" }}: {{ q.teaching_activity_year.name }}{% endif %}</h2>
             <div class="lead">{{ q.body_html }}</div>
             <form data-question="{{ forloop.counter }}" data-question-id="{{ q.id }}" class="form-horizontal">
                 <div class="question-options">
                 {% for x, y in q.options_dict.iteritems %}
                     <div class="form-group">
                         <div class="col-md-offset-1">
-                            <button type="button" class="btn {% if x == q.choice %}{% if q.choice == q.answer %}btn-success{% else %}btn-danger{% endif %}{% elif report and x == q.answer %}btn-success{% else %}btn-default btn-option{% endif %}" data-option="{{ x }}">
+                            <button type="button" class="btn {% if x == q.choice %}{% if q.choice == q.answer %}btn-success{% else %}btn-danger{% endif %}{% elif report and x == q.answer %}btn-success{% else %}btn-default btn-option{% endif %}{% if report %} btn-no-hover{% endif %}" data-option="{{ x }}">
                                 {% if x == q.choice %}
                                     {% if q.choice == q.answer %}
                                     <i class="glyphicon glyphicon-ok pull-right" style="line-height:20px;top:-1px;"></i>
@@ -234,41 +262,35 @@
                 </div>
                 <br>
                 <div class="lead">
-                How confident are you in your answer?
+                How confident {% if report %}were{% else %}are{% endif %} you in your answer?
                     {% for value, text in confidence_range %}
                     {% if forloop.first %}
                         <div class="btn-group confidence-widget">
                     {% endif %}
-                        <button type="button" class="btn btn-default" data-confidence="{{value}}">{{ text }}</button>
+                        <button type="button" class="btn{% if report and q.confidence_rating == value %} btn-success{% else %} btn-default{% endif %}{% if report %} btn-no-hover{% endif %}" data-confidence="{{value}}">{{ text }}</button>
                     {% if forloop.last %}
                         </div>
                     {% endif %}
                     {% endfor %}
                 </div>
-            </form>
             {% if report %}
                 {% if not q.choice %}
                     <p class="text-danger">You didn't answer this question.</p>
                 {% endif %}
                 <button class="btn btn-default btn-explanation" type="button">View explanation</button>
-                <div class="explanation">
-                    <div class="content">
-                        <p>{{ q.explanation }}</p>
-                    </div>
-                </div>
             {% endif %}
-        </div>
+            </form>
+            </div>
         </div>
     {% endfor %}
     {% if not report %}
     <form action="{% url 'quiz-submit' %}" method="post" class="summary-form">
         {% csrf_token %}
         {% for q in object_list %}
+            {% if specification %}<input type="hidden" name="specification" value="{{ specification.id }}" />{% endif %}
             <input type="hidden" name="question" value="{{ q.id }}" />
-            <input type="hidden" name="question-{{ q.id }}-answer" value="" />
             <input type="hidden" name="question-{{ q.id }}-position" value="{{ forloop.counter }}" />
             <input type="hidden" name="question-{{ q.id }}-time-taken" value="" />
-            <input type="hidden" name="question-{{ q.id }}-confidence-rating" value="" />
         {% endfor %}
     </form>
     {% endif %}

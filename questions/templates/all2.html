@@ -55,7 +55,7 @@
     <p class="lead">You can sign up for activities in this block from {{ teaching_block.start }} until {{ teaching_block.end }}.</p>
     <p class="lead">You will be able to write questions for activities until  {{ teaching_block.close }}</p>
     <p class="lead">The question documents for this block have {% if not teaching_block.released %}not {% endif %}been released{% if not teaching_block.released %} yet{% endif %}.{% if teaching_block.released %} You can download the documents by using the page actions panel.{% endif %}</p>
-    <p class="hidden-xs">Click on a week below to see the classes available for that week.</p>
+    <p class="hidden-xs">Click on a week below to see the classes available for that week. Click on a class to view more information, and questions which have been submitted.</p>
     <p class="visible-xs">Tap on a week below to see the classes available for that week. Tap on a class to assign yourself to it.</p>
     <div class="row spacer">
     {% for w, a, l in object_list %}

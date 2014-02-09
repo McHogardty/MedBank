@@ -2,34 +2,34 @@
 
 {% block actions %}
     <h3>Page actions</h3>
-    <a class="action" href="{% url 'view' ta_id=question.teaching_activity.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode or not show and flagged_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}{% if approval_mode and flagged_mode %}&{% endif %}{% if flagged_mode%}flagged{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
-    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity.id pk=question.id %}{% include 'querystring.html' %}">Edit question</a>
+    <a class="action" href="{% url 'view' ta_id=question.teaching_activity_year.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode or not show and flagged_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}{% if approval_mode and flagged_mode %}&{% endif %}{% if flagged_mode%}flagged{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
+    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity_year.id pk=question.id %}{% include 'querystring.html' %}">Edit question</a>
     {% endif %}
-    {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity.id %}">Back to activity</a>{% endif %}
-    {% if question.teaching_activity.current_block.released %}<a class="action" href="{% url 'comment-new' pk=question.id ta_id=question.teaching_activity.id %}">Add a comment</a>{% endif %}
+    {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity_year.id %}">Back to activity</a>{% endif %}
+    {% if question.teaching_activity_year.current_block.released %}<a class="action" href="{% url 'comment-new' pk=question.id ta_id=question.teaching_activity_year.id %}">Add a comment</a>{% endif %}
     {% if perms.questions.can_approve %}
         <h3>Admin</h3>
         {% if not question.approved %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='approve' %}{% include 'querystring.html' %}">Approve question</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='approve' %}{% include 'querystring.html' %}">Approve question</a>
         {% endif %}
         {% if not question.pending %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='pending' %}{% include 'querystring.html' %}">Set to pending</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='pending' %}{% include 'querystring.html' %}">Set to pending</a>
         {% endif %}
         {% if not question.deleted %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='delete' %}{% include 'querystring.html' %}">Delete question</a>        
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='delete' %}{% include 'querystring.html' %}">Delete question</a>        
         {% endif %}
         {% if approval_mode %}
-            <a class="action" href="{% url 'admin-approve' number=question.teaching_activity.current_block.number year=question.teaching_activity.current_block.year q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
+            <a class="action" href="{% url 'admin-approve' number=question.teaching_activity_year.current_block.number year=question.teaching_activity_year.current_block.year q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
         {% endif %}
         {% if not question.flagged %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity.id q_id=question.id action='flag' %}{% include 'querystring.html' %}">Flag for review</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='flag' %}{% include 'querystring.html' %}">Flag for review</a>
         {% endif %}
     {% endif %}
 {% endblock actions %}
 
 {% block maincontent %}
-    <h1>{{ question.teaching_activity.current_block.number }}.{{ question.teaching_activity.week|stringformat:"02d" }}: {{ question.teaching_activity.name }}</h1>
-    <p class="lead">Block: {{ question.teaching_activity.current_block }}</p>
+    <h1>{{ question.teaching_activity_year.current_block.number }}.{{ question.teaching_activity_year.week|stringformat:"02d" }}: {{ question.teaching_activity_year.name }}</h1>
+    <p class="lead">Block: {{ question.teaching_activity_year.current_block }}</p>
     <h2 class="thin spacer">Question <small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if not perms.questions.can_approve and question.flagged %}Pending{% else %}{{ question.get_status_display }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.approver }}{% endif %}</small></h2>
     {% if perms.questions.can_approve %}<h4>Written by {{ question.creator }}</h4>{% endif %}
     <div style="font-weight:200;font-size:21px;">{{ question.body|linebreaks }}</div>
@@ -64,7 +64,7 @@
             <div class="week-heading comment-heading">
                 <h4 style="display:inline-block">By {{ c.creator }} on {{ c.date_created }}</h4>
                 {{ c.body|linebreaks }}
-                <p><span class="actions">{% if c.replies.count %}<span class="loading action">{{ c.replies.count }} {% if c.replies.count == 1 %}reply{% else %}replies{% endif %}</span><a class="collapse-trigger action" data-target="#replies-{{ c.id }}" style="cursor:pointer">Expand</a>{% endif %}<a class="action" href="{% url 'comment-reply' pk=question.id ta_id=question.teaching_activity.id comment_id=c.id %}">Reply</a></span></p>
+                <p><span class="actions">{% if c.replies.count %}<span class="loading action">{{ c.replies.count }} {% if c.replies.count == 1 %}reply{% else %}replies{% endif %}</span><a class="collapse-trigger action" data-target="#replies-{{ c.id }}" style="cursor:pointer">Expand</a>{% endif %}<a class="action" href="{% url 'comment-reply' pk=question.id ta_id=question.teaching_activity_year.id comment_id=c.id %}">Reply</a></span></p>
             </div>
             <div class="week-activities collapse in" id="replies-{{ c.id}}">
                 {% for r in c.replies %}
