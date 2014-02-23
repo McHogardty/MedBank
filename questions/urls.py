@@ -4,8 +4,9 @@ from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     NewActivity, ViewQuestion, NewQuestion, UpdateQuestion, NewBlock,
     MyActivitiesView, UnassignView, ApproveQuestionsView, StartApprovalView,
     EmailView, ChangeStatus, AdminView, ReleaseBlockView, EditBlock, AddComment,
-    QuizView, Quiz, QuizStartView, QuizQuestionsView, QuizSubmit, QuizReport,
-    DashboardView, BlockAdminView)
+    QuizView, Quiz, QuizStartView, QuizGenerationView, QuizSubmit, QuizReport,
+    DashboardView, BlockAdminView, QuizQuestionView, NewQuizAttempt, QuizQuestionSubmit,
+    QuizIndividualSummary)
 
 from django.views.generic import TemplateView
 
@@ -30,12 +31,15 @@ urlpatterns = patterns(
     url(r'^download/(?P<number>\d{1,2})/(?P<year>\d{4})/(?P<mode>[a-z]+)/$', 'download'),
     #url(r'^send/(?P<pk>\d{1,2})/$', 'send'),
     url(r'^quiz/$', Quiz.as_view(), name='quiz'),
+    url(r'^quiz/question/next/$', QuizQuestionView.as_view(), name='quiz-question'),
+    url(r'^quiz/question/submit/$', QuizQuestionSubmit.as_view(), name='quiz-question-submit'),
+    url(r'^quiz/attempt/generate/$', NewQuizAttempt.as_view(), name='quiz-generate-attempt'),
     url(r'^quiz/start/$', QuizStartView.as_view(), name='quiz-start'),
-    url(r'^quiz/(?P<slug>[a-z]+)/start/$', QuizQuestionsView.as_view(), name='quiz-spec'),
-    url(r'^quiz/prepare/$', QuizQuestionsView.as_view(), name='quiz-prepare'),
+    url(r'^quiz/(?P<slug>[a-z]+)/start/$', QuizGenerationView.as_view(), name='quiz-spec'),
+    url(r'^quiz/prepare/$', QuizGenerationView.as_view(), name='quiz-prepare'),
     url(r'^quiz/submit/$', QuizSubmit.as_view(), name='quiz-submit'),
     url(r'^quiz/report/$', QuizReport.as_view(), name='quiz-report'),
-    url(r'^quiz/report/(?P<slug>[a-z]+)/$', QuizReport.as_view(), name='quiz-report'),
+    url(r'^quiz/(?P<slug>[a-z]+)/report/$', QuizIndividualSummary.as_view(), name='quiz-attempt-report'),
     url(r'^ta/$', MyActivitiesView.as_view(), name='activity-mine'),
     url(r'^ta/new/$', NewActivity.as_view(), name='activity-new'),
     url(r'^block/new/$', NewBlock.as_view(), name='block-new'),

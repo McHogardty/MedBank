@@ -1,7 +1,23 @@
 var Questions = (function (questions_module, $) {
-    questions_module.PageScroller = function (container_selector, screen_selector, active_class, active_screen_selector, transition_class) {
+    questions_module.globals = questions_module.globals || {};
+
+    var container_selector = ".container.main";
+    var screen_selector = container_selector + " .section";
+    $.extend(questions_module.globals, {
+        container_selector: container_selector,
+        screen_selector: screen_selector,
+        active_screen_selector: screen_selector + "." + questions_module.globals.active_class,
+    });
+
+    questions_module.PageScroller = function (options) {
         var self = this;
         var transition_time = 600;
+        var current_translate = 0;
+
+        options = $.extend({
+            before_scroll: null,
+            after_scroll: null,
+        }, options);
 
         if (document.addEventListener) {
             document.addEventListener('DOMMouseScroll', function (e) { e.preventDefault(); }, false);
@@ -12,69 +28,102 @@ var Questions = (function (questions_module, $) {
 
         // 33: pageup, 34: pagedown, 37: left, 38: up, 39: right, 40: down
         to_prevent = [33, 34, 38, 40];
-        $(document).keydown(function (e) {
-            if ($.inArray(e.keyCode, to_prevent) >= 0) { e.preventDefault(); }
-        });
+        $(document).keydown(function (e) { if ($.inArray(e.keyCode, to_prevent) >= 0) { e.preventDefault(); } });
         $(document).on('touchmove', function (e) { e.preventDefault(); });
 
-        this.move = function(diff) {
-            $(container_selector).css({
-                "transform": "translateY(-" + diff + "px)",
-                "-webkit-transform": "translateY(-" + diff + "px)",
-                "-moz-transform": "translateY(-" + diff + "px)",
-                "-o-transform": "translateY(-" + diff + "px)",
-                "-ms-transform": "translateY(-" + diff + "px)"
+        this.get_container = function () { return $(questions_module.globals.container_selector); };
+        this.get_current_slide = function () { return $(questions_module.globals.active_screen_selector); };
+        this.get_previous_slide = function (slide) { return slide.prev(questions_module.globals.screen_selector); };
+        this.get_next_slide = function (slide) { return slide.next(questions_module.globals.screen_selector); };
+        this.get_all_previous_slides = function (slide) { return slide.prevAll(questions_module.globals.screen_selector); };
+
+        this.move = function(container) {
+            container.css({
+                "transform": "translateY(-" + current_translate + "px)",
+                "-webkit-transform": "translateY(-" + current_translate + "px)",
+                "-moz-transform": "translateY(-" + current_translate + "px)",
+                "-o-transform": "translateY(-" + current_translate + "px)",
+                "-ms-transform": "translateY(-" + current_translate + "px)"
             });
         };
 
-        this.do_transition = function(diff) {
-            $(container_selector).addClass(transition_class);
-            self.move(diff);
+        this.do_transition = function() {
+            if (options.before_scroll) options.before_scroll();
+            $container = self.get_container();
+            $container.addClass(questions_module.globals.transition_setup_class);
+            self.move($container);
             setTimeout(function () {
-                $(container_selector).removeClass(transition_class);
+                $container.removeClass(questions_module.globals.transition_setup_class);
+                if (options.after_scroll) options.after_scroll();
             }, transition_time);
         };
 
-        this.set_size = function () {
-            $(screen_selector).each(function () {
-                $(this).height($(window).height());
-            });
-        };
+        this.set_size = function () { $(questions_module.globals.screen_selector).each(function () { $(this).innerHeight($(window).height()); }); };
 
         this.resize = function () {
             self.set_size();
             current_translate = 0;
-            $current = $(active_screen_selector);
-            $current.prevAll(screen_selector).each(function () {
-                current_translate += $(this).height();
+            $current = self.get_current_slide();
+            self.get_all_previous_slides($current).each(function () {
+                current_translate += $(this).innerHeight();
             });
-            this.move(current_translate);
+            this.move(self.get_container());
         };
 
         this.forward = function () {
-            $current = $(active_screen_selector);
-            $next = $current.next(screen_selector);
+            $current = self.get_current_slide();
+            $next = self.get_next_slide($current);
             if ($next.length === 0) { return; }
-            current_translate += $current.height();
+            current_translate += $current.innerHeight();
             self.do_transition(current_translate);
-            $current.removeClass(active_class);
-            $next.addClass(active_class);
-        };
-        this.back = function () {
-            $current = $(active_screen_selector);
-            $prev = $current.prev(screen_selector);
-            if ($prev.length === 0) { return; }
-            current_translate -= $prev.height();
-            self.do_transition(current_translate);
-            $current.removeClass(active_class);
-            $prev.addClass(active_class);
+            $current.removeClass(questions_module.globals.active_class);
+            $next.addClass(questions_module.globals.active_class);
         };
 
-        $(window).resize(function () {
-            self.resize();
-        });
+        this.back = function () {
+            $current = self.get_current_slide();
+            $prev = self.get_previous_slide($current);
+            if ($prev.length === 0) { return; }
+            current_translate -= $prev.innerHeight();
+            self.do_transition(current_translate);
+            $current.removeClass(questions_module.globals.active_class);
+            $prev.addClass(questions_module.globals.active_class);
+        };
+
+        this.slide = function (index) {
+            $current = self.get_current_slide();
+            $slide = $(questions_module.globals.screen_selector + ":eq(" + (index - 1) + ")");
+            current_translate = 0;
+            $slide.prevAll(questions_module.globals.screen_selector).each(function () {
+                current_translate += $(this).innerHeight();
+            });
+            self.do_transition(current_translate);
+            $current.removeClass(questions_module.globals.active_class);
+            $slide.addClass(questions_module.globals.active_class);
+        };
+
+        this.first = function () {
+            $current = self.get_current_slide();
+            $prev = self.get_previous_slide($current);
+            return $prev.length === 0;
+        };
+
+        this.last = function () {
+            $current = self.get_current_slide();
+            $next = self.get_next_slide($current);
+            return $next.length === 0;
+        };
+
+        this.current = function () {
+            $current = self.get_current_slide();
+            $prev = self.get_all_previous_slides($current);
+            return $prev.length + 1;
+        };
+
+        $(window).resize(function () { self.resize(); });
 
         this.set_size();
+        $(questions_module.globals.screen_selector).first().addClass(questions_module.globals.active_class);
     };
 
     return questions_module;

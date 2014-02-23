@@ -15,3 +15,5 @@ Wordpress Authentication, Wordpress Membres
 - Assign to Multiple People
 FIND ALL INSTANCES OF question_writer
 Remove all references to max_questions in templates.
+
+When viewing an explanation on quiz_individual, it hides the loading screen for the next qustion

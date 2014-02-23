@@ -1,0 +1,269 @@
+{% extends "base-no-nav-early-javascript.html" %}
+{% load range from custom_filters %}
+
+{% block head %}
+<style type="text/css">
+    html, body {
+        overflow:hidden;
+    }
+
+    form .btn {
+        float:left;
+    }
+
+    .no-margin {
+        margin:0;
+    }
+
+    .btn-option {
+        width: 40px;
+    }
+
+    .question-indicator {
+        display:inline-block;
+        position:relative;
+        margin:0 10px;
+        top:5px;
+    }
+
+    .centre-of-parent {
+        display: block;
+        vertical-align:middle;
+        position:relative;
+        width:100%;
+        top:50%;
+        transform: translateY(-50%);
+        -webkit-transform: translateY(-50%);
+        -moz-transform: translateY(-50%);
+        -o-transform: translateY(-50%);
+        -ms-transform: translateY(-50%);
+    }
+
+    .question-options span {
+        margin-left:45px;
+        line-height:20px;
+        display:block;
+        padding:7px 12px;
+        vertical-align:middle;
+    }
+
+    .nav-down {
+        position:fixed;
+        bottom:30px;
+        left:0px;
+        width:100%;
+        text-align:center;
+        vertical-align:middle;
+        z-index:1000;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -o-user-select: none;
+        user-select: none; 
+    }
+
+    .loading-screen {
+        position:absolute;
+        z-index:20;
+        height:100%;
+        width:100%;
+        top:0;
+        left:0;
+    }
+
+    @-webkit-keyframes throbber {
+        0% {
+            color: #333;
+        }
+        33% {
+            color: #ccc;
+        }
+        100% {
+            color: #ccc;
+        }
+    }
+
+    .throbber .icon-throb {
+        display: inline-block;
+        -webkit-animation: throbber 1s .08s infinite linear;
+        font-size: 14px;
+        color: #ccc;
+    }
+
+    .throbber .icon-throb:nth-child(2) {
+        -webkit-animation-delay: .16s;
+    }
+
+    .throbber .icon-throb:nth-child(3) {
+        -webkit-animation-delay: .24s;
+    }
+
+    .error-message {
+        display:none;
+    }
+
+    .btn-option .glyphicon {
+        line-height:20px;
+        top:-1px;
+        color:#ffffff;
+    }
+
+    .explanation {
+        position:absolute;
+        width:100%;
+        height:100%;
+        display:none;
+        z-index:1100;
+        overflow:scroll;
+        top:0;
+        left:0;
+    }
+
+/*    .explanation .content {
+        display:inline-block;
+        vertical-align: middle;
+        position:relative;
+        width:100%;
+        top:50%;
+        transform: translateY(-50px);
+        -webkit-transform: translateY(-50%);
+        -moz-transform: translateY(-50%);
+        -o-transform: translateY(-50%);
+        -ms-transform: translateY(-50%);
+    }
+
+*/    .explanation .buttons {
+        position:absolute;
+        bottom:30px;
+        width:100%;
+        left:0;
+        text-align:center;
+        z-index:1100;
+    }
+
+    .timer {
+        position:fixed;
+        top:30px;
+        right:30px;
+        vertical-align:middle;
+        z-index:1000;
+    }
+    .timer h1 {
+        display:inline-block;
+        margin:0;
+        margin-right:10px;
+    }
+    .timer button {
+        position:relative;
+        top:3px;
+        width:80px;
+    }
+    </style>
+{% endblock head %}
+
+{% block before %}
+    <div class="timer">
+        <h1 class="pull-left">00:00</h1> <button class="btn btn-default pull-right">Pause</button>
+    </div>
+    <div class="nav-down">
+        <button class="btn btn-default btn-previous" type="button">Previous question</button>
+        <h3 class="question-indicator">Question <span class="current-question-number">1</span> of <span class="total-question-number">-</span></h3>
+        <button class="btn btn-default btn-next" type="button">Next question</button>
+        <button class="btn btn-default btn-finish" type="button">Finish</button>
+    </div>
+{% endblock before %}
+
+{% block content %}
+    <div class="row section">
+        <div class="col-sm-12 text-center centre-of-parent">
+            <h1>Start quiz</h1>
+            <p class="lead">Click the button below to begin</p>
+            <button type="button" class="btn btn-primary btn-start">Start</button>
+        </div>
+    </div>
+    {% for n in number_of_questions|range %}
+    {% with n|add:"1" as n %}
+    <div class="row section">
+        <div class="col-xs-12" style="height:100%">
+            <div class="loading-screen text-center">
+                <div class="centre-of-parent">
+                    <div class="loading-message">
+                        <h1>Loading...</h1>
+                        <div class="throbber">
+                            <i class="glyphicon glyphicon-minus icon-throb"></i>
+                            <i class="glyphicon glyphicon-minus icon-throb"></i>
+                            <i class="glyphicon glyphicon-minus icon-throb"></i>
+                        </div>
+                    </div>
+                    <div class="error-message">
+                        <h1>Uh oh...</h1>
+                        <p class="lead">Something's gone wrong, but don't worry, we've sent an email to the admins.</p>
+                        <p class="lead">This may be a one-off error, so go back and try again in a couple of moments.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="question-screen blur">
+                <h1 style="display:inline-block;">Question {{ n }}</h1>
+                <p style="display:inline-block;" class="lead text-danger question-unanswered no-margin">You did not answer this question.</p>
+                <form data-question="{{ n }}" data-question-id="" class="form-horizontal">
+                    <div class="lead question-body"></div>
+                    <div class="question-options"></div>
+                    <br>
+                    <div class="lead">
+                    How confident are you in your answer?
+                        {% for value, text in confidence_range %}
+                        {% if forloop.first %}
+                            <div class="btn-group confidence-widget">
+                        {% endif %}
+                            <button type="button" class="btn btn-default" data-confidence="{{value}}">{{ text }}</button>
+                        {% if forloop.last %}
+                            </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </form>
+                <div class="buttons">
+                    <button class="btn btn-default btn-explanation" type="button">View explanation</button>
+                    <button class="btn btn-default btn-view" type="button">View question page</button>
+                </div>
+            </div>
+            <div class="explanation" data-question="{{ n }}">
+                <div class="content centre-of-parent">
+                    <div class="container nosection">
+                        <p class="lead explanation-body"></p>
+                    </div>
+                </div>
+                <div class="buttons">
+                    <button class="btn btn-default btn-close" type="button">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+{% endblock content %}
+
+{% block javascript %}
+    <script src="{{ STATIC_URL }}medbank/jquery.cookie.js"></script>
+    <script src="{{ STATIC_URL }}medbank/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/csrf.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/globals.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/screen.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/timer.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/scroller.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/widget.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/quiz.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            csrf.protect();
+            quiz = new Questions.IndividualQuiz({
+                number_of_questions: {{ number_of_questions }},
+                individual_question_url: "{% url 'quiz-question' %}",
+                question_number_selector: "current-question-number",
+                quiz_attempt_url: "{% url 'quiz-generate-attempt' %}",
+                question_attempt_url: "{% url 'quiz-question-submit' %}",
+                specification: "{{ specification.slug }}",
+            });
+        });
+    </script>
+{% endblock javascript %}

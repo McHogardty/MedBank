@@ -43,3 +43,7 @@ def questions_list_by_year(user, activity):
     for q in qq:
         ret[q.date_created.year].append(q)
     return dict(ret)
+
+@register.filter
+def range(value):
+    return __builtins__.get('range')(value)

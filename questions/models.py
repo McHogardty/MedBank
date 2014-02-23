@@ -1,9 +1,12 @@
+from __future__ import division
+
 from django.db import models
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils.html import format_html
 from django.utils.datastructures import SortedDict
+from django.core.urlresolvers import reverse
 
 import json
 import datetime
@@ -244,7 +247,6 @@ class TeachingBlockYear(models.Model):
     released = property(released)
 
     def can_access(self):
-        print "Can access is %s" % (self.can_write_questions or self.released,)
         return self.can_write_questions or self.released
 
     def can_sign_up(self):
@@ -393,6 +395,20 @@ class Question(models.Model):
 
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
+    def json_repr(self):
+        options = self.options_dict()
+        label = options.keys()
+        label.sort()
+        options['labels'] = label
+        return {
+            'id': self.id,
+            'body': self.body,
+            'options': options,
+            'answer': self.answer,
+            'explanation': self.explanation,
+            'url': reverse('view', kwargs={'pk': self.id, 'ta_id': self.teaching_activity_year.id})
+        }
+
     def options_dict(self):
         d = SortedDict()
         e = json.loads(self.options)
@@ -410,6 +426,9 @@ class Question(models.Model):
     def options_tuple(self):
         j = json.loads(self.options)
         return [(c, j[c]) for c in string.ascii_uppercase[:len(j)]]
+
+    def option_value(self, option):
+        return self.options_dict()[option]
 
     def user_is_creator(self, user):
         return user.has_perm('questions.can_approve') or user.student == self.creator
@@ -432,6 +451,50 @@ class Question(models.Model):
     def block(self):
         return self.teaching_activity_year.block_year
 
+    def number_correct_attempts(self):
+        return self.attempts.filter(answer=models.F("question__answer")).count()
+
+    def total_attempts(self):
+        return self.attempts.count()
+
+    def success_rate(self):
+        return self.number_correct_attempts() / self.total_attempts()
+
+    def percent_success_rate(self):
+        return self.success_rate() * 100
+
+    def get_average_confidence_rating(self):
+        return self.attempts.aggregate(models.Avg('confidence_rating'))['confidence_rating__avg']
+
+    def answer_ratios(self):
+        ratio_dict = {}
+        for option in self.options_dict():
+            ratio_dict[option] = self.attempts.filter(answer=option).count()
+
+        ratio_dict[QuestionAttempt.DEFAULT_ANSWER] = self.attempts.filter(answer="").count()
+
+        total_answers = sum(ratio_dict.values())
+
+        if total_answers == 0:
+            ratio_dict = dict((k, 0) for k in ratio_dict)
+        else:
+            ratio_dict = dict((k, v / total_answers) for k,v in ratio_dict.iteritems())
+
+        return ratio_dict
+
+    def discrimination(self):
+        test_quiz_attempts = list(self.attempts.filter(quiz_attempt__quiz_specification__id=4))
+        test_quiz_attempts.sort(key=lambda a: a.quiz_attempt.score())
+
+        if len(test_quiz_attempts) < 2: return 0
+
+        group_size = int(round(len(test_quiz_attempts) * 0.3))
+        upper_group = test_quiz_attempts[-group_size:]
+        lower_group = test_quiz_attempts[:group_size]
+
+        difference = sum(qa.score() for qa in upper_group) - sum(qa.score() for qa in lower_group)
+        return difference/group_size
+
 
 class QuizSpecification(models.Model):
     name = models.CharField(max_length=100)
@@ -446,13 +509,48 @@ class QuizSpecification(models.Model):
         return hex_to_base_26(hashlib.sha1(self.name).hexdigest())
 
     def get_questions(self):
-        questions_to_return = []
+        questions_to_return = Question.objects.none()
 
         for q in self.questions.all():
-            questions_to_return += q.get_questions()
+            questions_to_return |= q.get_questions()
 
         return questions_to_return
 
+    def number_of_questions(self):
+        return self.get_questions().count()
+
+    def average_score(self):
+        attempts = self.attempts.all()
+
+        if not attempts.count(): return 0
+
+        total_score = 0
+        for attempt in attempts:
+            total_score += attempt.score()
+
+        return float(total_score)/len(attempts)
+
+    def highest_score(self):
+        attempts = self.attempts.all()
+
+        highest = 0
+        for attempt in attempts:
+            score = attempt.score()
+            if score > highest: highest = score
+
+        return highest
+
+    def lowest_score(self):
+        attempts = self.attempts.all()
+
+        if not attempts.count(): return 0
+
+        lowest = self.number_of_questions()
+        for attempt in attempts:
+            score = attempt.score()
+            if score < lowest: lowest = score
+
+        return lowest
 
 class QuizQuestionSpecification(models.Model):
     SPECIFIC_QUESTION = 0
@@ -499,12 +597,12 @@ class QuizQuestionSpecification(models.Model):
 
     def get_questions(self):
         parameters = self.get_parameters_dict()
-        questions_to_return = []
+        questions_to_return = Question.objects.none()
 
         if 'question' in parameters:
             condition = models.Q(id__in=[parameters["question"],])
 
-        questions_to_return += Question.objects.filter(condition)
+        questions_to_return |= Question.objects.filter(condition)
 
         return questions_to_return
 
@@ -523,7 +621,7 @@ class QuizAttempt(models.Model):
 
         for question in self.questions.all():
             qq = question.question
-            qq.choice = qq.answer = question.answer
+            qq.choice = question.answer
             qq.position = question.position
             qq.time_taken = question.time_taken
             qq.confidence_rating = question.confidence_rating
@@ -538,6 +636,12 @@ class QuizAttempt(models.Model):
         to_hash = "%s%s%s%s" % (self.student.user.username, date_string, spec, rand_string)
         return hex_to_base_26(hashlib.sha1(to_hash).hexdigest())
 
+    def questions_in_order(self):
+        return self.questions.order_by('position')
+
+    def score(self):
+        return self.questions.filter(answer=models.F("question__answer")).count()
+
 
 @receiver(models.signals.pre_save, sender=QuizSpecification)
 @receiver(models.signals.pre_save, sender=QuizAttempt)
@@ -546,18 +650,41 @@ def generate_quiz_slug(sender, instance, **args):
 
 
 class QuestionAttempt(models.Model):
+    DEFAULT_ANSWER = ""
+    DEFAULT_CONFIDENCE = 0
     GUESS = 1
     UNSURE = 2
     NEUTRAL = 3
     SURE = 4
     CERTAIN = 5
+    GUESS_WORD = "guessing"
+    UNSURE_WORD = "doubtful"
+    NEUTRAL_WORD = "feeling neutral"
+    SURE_WORD = "fairly sure"
+    CERTAIN_WORD = "certain"
 
     CONFIDENCE_CHOICES = (
-        (GUESS, "I guessed"),
-        (UNSURE, "I'm doubtful"),
-        (NEUTRAL, "Feeling neutral"),
-        (SURE, "Fairly sure"),
-        (CERTAIN, "I'm certain"),
+        (GUESS, "I'm %s" % (GUESS_WORD, )),
+        (UNSURE, "I'm %s" % (UNSURE_WORD, )),
+        (NEUTRAL, "I'm %s" % (NEUTRAL_WORD, )),
+        (SURE, "I'm %s" % (SURE_WORD, )),
+        (CERTAIN, "I'm %s" % (CERTAIN, )),
+    )
+
+    SECOND_PERSON_CONFIDENCE_CHOICES = (
+        (GUESS, "You were %s" % (GUESS_WORD, )),
+        (UNSURE, "You were %s" % (UNSURE_WORD, )),
+        (NEUTRAL, "You were %s" % (NEUTRAL_WORD, )),
+        (SURE, "You were %s" % (SURE_WORD, )),
+        (CERTAIN, "You were %s" % (CERTAIN, )),
+    )
+
+    THIRD_PERSON_CONFIDENCE_CHOICES = (
+        (GUESS, "They were %s" % (GUESS_WORD, )),
+        (UNSURE, "They were %s" % (UNSURE_WORD, )),
+        (NEUTRAL, "They were %s" % (NEUTRAL_WORD, )),
+        (SURE, "They were %s" % (SURE_WORD, )),
+        (CERTAIN, "They were %s" % (CERTAIN, )),
     )
 
     quiz_attempt = models.ForeignKey(QuizAttempt, related_name="questions")
@@ -566,6 +693,28 @@ class QuestionAttempt(models.Model):
     answer = models.CharField(max_length=1, blank=True, null=True)
     time_taken = models.PositiveIntegerField()
     confidence_rating = models.IntegerField(choices=CONFIDENCE_CHOICES, blank=True, null=True)
+
+    def incorrect_answer(self):
+        if not self.answer == self.question.answer:
+            return {'option': self.answer, 'value': self.question.option_value(self.answer)}
+
+        return {}
+
+    def correct_answer(self):
+        return {'option': self.question.answer, 'value': self.question.option_value(self.question.answer)}
+
+    def score(self):
+        return int(self.answer == self.question.answer)
+
+    def get_average_confidence_rating_display(self):
+        average = int(round(self.question.get_average_confidence_rating()))
+        return dict(self.THIRD_PERSON_CONFIDENCE_CHOICES)[average]
+
+    def get_confidence_rating_display_second_person(self):
+        return dict(self.SECOND_PERSON_CONFIDENCE_CHOICES)[self.confidence_rating]
+
+    def get_confidence_rating_display_third_person(self):
+        return dict(self.THIRD_PERSON_CONFIDENCE_CHOICES)[self.confidence_rating]
 
 
 class QuestionRating(models.Model):

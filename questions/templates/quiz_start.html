@@ -16,15 +16,12 @@
         position:fixed;
         width:100%;
         height:100%;
-        z-index:1000;
+        z-index:100;
         display:none;
         overflow:scroll;
     }
 
     .finish .content {
-        z-index:1001;
-    }
-/*    .finish .content {
         display:block;
         vertical-align: middle;
         position:relative;
@@ -36,7 +33,7 @@
         -o-transform: translateY(-50%);
         -ms-transform: translateY(-50%);
     }
-*/
+
     .centre-of-parent {
         display: block;
         vertical-align:middle;
@@ -59,10 +56,7 @@
         cursor:pointer;
     }
 
-/*    .section {
-        height:100vh;
-    }
-*/    </style>
+    </style>
 {% endblock head %}
 
 {% block before %}
@@ -94,6 +88,7 @@
                         <div class="form-group">
                             <div class="col-sm-offset-5 col-sm-7">
                                 <button type="submit" class="btn btn-primary">Add</button>
+                                <button type="button" class="btn btn-default btn-cancel">Back</button>
                             </div>
                         </div>
                     </form>
@@ -112,9 +107,9 @@
         </div>
     </div>
     <div class="row section">
-        <div class="col-sm-12">
+        <div class="col-sm-12 text-xs-center">
             <h1>Pick blocks</h1>
-            <div class="spacer blocks">
+            <div class="blocks">
             {% for o in object_list %}
                 <div class="week" data-block="{{ o.number }}">
                     <div class="week-heading">
@@ -123,7 +118,7 @@
                 </div>
             {% endfor %}
             <br />
-            <a class="btn btn-primary btn-next btn-continue col-md-offset-5 col-md-2">Continue</a>
+            <a class="btn btn-primary btn-next btn-continue">Continue</a>
             </div>
         </div>
     </div>
@@ -146,7 +141,6 @@
         var block_details = [];
         var to_hide = null;
         var base_questions_url = "{% url 'quiz'%}";
-        var current_translate = 0;
 
         function clear_form () {
             to_hide.hide()
@@ -274,18 +268,33 @@
                 n = $(this).parent().attr('data-block');
                 splash_screen.show(n);
             })
-            container_selector = ".container.main";
-            screen_selector = ".container.main .section";
-            active_class = "active";
-            active_screen_selector = screen_selector + "." + active_class;
-            transition_class = "pre-blur";
 
-            scroller = new Questions.PageScroller(container_selector, screen_selector, active_class, active_screen_selector, transition_class);
-            splash_screen = new Questions.SplashScreenManager(".finish", "data-block", blocks, [container_selector, ]);
+            container_selector = ".container.main"
+            screen_selector = ".container.main .section";
+            active_class = "active"
+
+            options = {
+                container_selector: container_selector,
+                screen_selector: screen_selector,
+                active_class: active_class,
+                active_screen_selector: screen_selector + "." + active_class,
+                transition_class: "pre-blur",
+            }
+
+            scroller = new Questions.PageScroller(options);
+            splash_screen = new Questions.SplashScreenManager({
+                screen_selector: ".finish", 
+                specifying_attribute: "data-block",
+                attributes: blocks,
+                to_hide: [container_selector, ],
+            });
 
             $(".btn-next").click(function () {
                 scroller.forward();
-            })
+            });
+            $(".btn-cancel").click(function () {
+                splash_screen.hide($(this).parents(".finish").attr("data-block"));
+            });
             $(".year-error").hide();
             $(".questions-error").hide();
             $(".number-error").hide();

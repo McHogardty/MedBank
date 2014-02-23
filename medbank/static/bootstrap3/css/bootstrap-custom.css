@@ -92,10 +92,6 @@ fieldset[disabled] .btn-primary.active {
   border-color: #357ebd;
 }
 
-.btn-active {
-    background:#eeeeee;
-}
-
 .btn-no-hover:hover,
 .btn-no-hover:active,
 .btn-no-hover:focus {
@@ -480,3 +476,10 @@ div.comment-heading:hover {
 .dashboard h1 + .action {
   margin-top:20px;
 }
+
+@media (max-width: 767px) {
+    .text-xs-center {
+        text-align:center;
+    }
+}
+

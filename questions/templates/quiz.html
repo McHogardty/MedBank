@@ -2,11 +2,13 @@
 {% load numeric %}
 
 {% block head %}
-    <link href="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.css" rel="stylesheet" media="screen">
     <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello.css">
     <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/animation.css"><!--[if IE 7]>
     <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello-ie7.css"><![endif]-->
     <style type="text/css">
+    html, body {
+        overflow:hidden;
+    }
     .controlArrow {
         display:none;
     }
@@ -17,7 +19,6 @@
 
     .btn-option {
         width: 40px;
-
     }
     .section {
         padding-top:20px;
@@ -46,6 +47,21 @@
         position:relative;
         top:3px;
         width:80px;
+    }
+
+    .nav-up {
+        position:fixed;
+        top:5px;
+        left:0;
+        width:100%;
+        text-align:center;
+        vertical-align:middle;
+        z-index:1000;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -o-user-select: none;
+        user-select: none; 
     }
 
     .nav-down {
@@ -102,36 +118,6 @@
         padding:50px 100px;
     }
 
-    .explanation {
-        position:fixed;
-        width:100%;
-        height:100%;
-        display:none;
-        z-index:1100;
-        overflow:scroll;
-    }
-
-    .explanation .content {
-        display:inline-block;
-        vertical-align: middle;
-        position:relative;
-        width:100%;
-        top:50%;
-        transform: translateY(-50px);
-        -webkit-transform: translateY(-50%);
-        -moz-transform: translateY(-50%);
-        -o-transform: translateY(-50%);
-        -ms-transform: translateY(-50%);
-    }
-
-    .explanation .buttons {
-        position:absolute;
-        bottom:30px;
-        width:100%;
-        left:0;
-        text-align:center;
-    }
-
     .questions ol {
         list-style-type: none;
         width:50px;
@@ -152,13 +138,38 @@
         text-align:center;
     }
 
-    .canvas {
-        position:absolute;
-    }
-    /*#canvas {
+    .centre-of-parent {
+        display: block;
+        vertical-align:middle;
         position:relative;
-        top:-100px;
-    }*/
+        width:100%;
+        top:50%;
+        transform: translateY(-50%);
+        -webkit-transform: translateY(-50%);
+        -moz-transform: translateY(-50%);
+        -o-transform: translateY(-50%);
+        -ms-transform: translateY(-50%);
+    }
+
+    @media (max-width: 767px) {
+        .centre-of-xs-parent {
+            display: block;
+            vertical-align:middle;
+            position:relative;
+            width:100%;
+            top:50%;
+            transform: translateY(-50%);
+            -webkit-transform: translateY(-50%);
+            -moz-transform: translateY(-50%);
+            -o-transform: translateY(-50%);
+            -ms-transform: translateY(-50%);
+        }
+    }
+
+    .btn-option .glyphicon {
+        line-height:20px;
+        top:-1px;
+    }
     </style>
 {% endblock head %}
 
@@ -183,7 +194,7 @@
         <div class="content">
             <div class="container nosection">
                 <h1>Are you sure you want to finish?</h1>
-                <h2 class="text-info">You still have <span class="question-remaining">{{ object_list|length }}</span> question<span class="plural">{{ object_list|length|pluralize }}</span> remaining!</h2>
+                <h2 class="text-info">You still have <span class="questions-remaining">{{ object_list|length }}</span> question<span class="plural">{{ object_list|length|pluralize }}</span> remaining!</h2>
                 <p>If you're completely sure, you can submit your answers below. Otherwise, you can return to the quiz and keep on going!</p>
                 <button type="button" class="btn btn-default btn-return">Return</button>
                 <button type="button" class="btn btn-success btn-submit">Submit</button>
@@ -192,9 +203,9 @@
     </div>
     <div class="questions">
         <div class="content">
-            <ol>
+            <ol class="question-list">
                 {% for q in object_list %}
-                    <li class="btn btn-default" data-question="{{ forloop.counter }}" {% if report %}data-type="{% if q.choice == q.answer %}success{% else %}danger{% endif %}"{% endif %}>{{ forloop.counter }}</li>   
+                    <li class="btn{% if not report %} btn-default{% else %}{% if q.choice == q.answer %} btn-success{% elif not q.choice %}{% else %} btn-danger{% endif %}{% endif %}" data-question="{{ forloop.counter }}">{{ forloop.counter }}</li>   
                 {% endfor %}
             </ol>
         </div>
@@ -219,9 +230,8 @@
 {% endblock before %}
 
 {% block content %}
-    <div>
     {% if report %}
-        <div class="section first">
+        <div class="row section first">
             <form data-question="0"></form>
             <h1>Your results</h1>
             <h2 class="text-success">You answered {{ number_correct }} question{{ number_correct|pluralize }} correctly out of {{ object_list|length }}</h2>
@@ -233,24 +243,24 @@
         </div>
     {% endif %}
     {% for q in object_list %}
-        <div class="section{% if forloop.last %} last{% endif %}{% if forloop.first and not report %} first{% endif %}">
-            <div class="scroller">
+        <div style="padding-top:40px;" class="row section{% if forloop.last %} last{% endif %}{% if forloop.first and not report %} first{% endif %}">
+            <div class="col-sm-12">
             <h2>Question {{ forloop.counter }}{% if report %} - {{ q.block.number }}.{{ q.teaching_activity_year.week|stringformat:"02d" }}: {{ q.teaching_activity_year.name }}{% endif %}</h2>
             <div class="lead">{{ q.body_html }}</div>
             <form data-question="{{ forloop.counter }}" data-question-id="{{ q.id }}" class="form-horizontal">
                 <div class="question-options">
                 {% for x, y in q.options_dict.iteritems %}
                     <div class="form-group">
-                        <div class="col-md-offset-1">
+                        <div class="col-xs-offset-1">
                             <button type="button" class="btn {% if x == q.choice %}{% if q.choice == q.answer %}btn-success{% else %}btn-danger{% endif %}{% elif report and x == q.answer %}btn-success{% else %}btn-default btn-option{% endif %}{% if report %} btn-no-hover{% endif %}" data-option="{{ x }}">
                                 {% if x == q.choice %}
                                     {% if q.choice == q.answer %}
-                                    <i class="glyphicon glyphicon-ok pull-right" style="line-height:20px;top:-1px;"></i>
+                                    <i class="glyphicon glyphicon-ok pull-right"></i>
                                     {% elif report %}
-                                    <i class="glyphicon glyphicon-remove pull-right" style="line-height:20px;top:-1px;"></i>
+                                    <i class="glyphicon glyphicon-remove pull-right"></i>
                                     {% endif %}
                                 {% elif report and x == q.answer %}
-                                    <i class="glyphicon glyphicon-ok pull-right" style="line-height:20px;top:-1px;"></i>
+                                    <i class="glyphicon glyphicon-ok pull-right"></i>
                                 {% else %}
                                     {{ x }}
                                 {% endif %}
@@ -286,25 +296,31 @@
     {% if not report %}
     <form action="{% url 'quiz-submit' %}" method="post" class="summary-form">
         {% csrf_token %}
-        {% for q in object_list %}
-            {% if specification %}<input type="hidden" name="specification" value="{{ specification.id }}" />{% endif %}
+        {% if specification %}<input type="hidden" name="specification" value="{{ specification.id }}" />{% endif %}
+        {% comment %}{% for q in object_list %}
             <input type="hidden" name="question" value="{{ q.id }}" />
             <input type="hidden" name="question-{{ q.id }}-position" value="{{ forloop.counter }}" />
             <input type="hidden" name="question-{{ q.id }}-time-taken" value="" />
-        {% endfor %}
+        {% endfor %}{% endcomment %}
     </form>
     {% endif %}
-</div>
 {% endblock content %}
 
 {% block javascript %}
     <script src="{{ STATIC_URL }}medbank/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.js"></script>
+    {% comment %}<script type="text/javascript" src="{{ STATIC_URL }}medbank/fullPage/jquery.fullPage.js"></script>{% endcomment %}
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/globals.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/scroller.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/timer.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/widget.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}questions/screen.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}questions/quiz.js"></script>
     <script type="text/javascript">
         $(document).ready(function () {
-            quiz = new Questions.Quiz({{ report|default:"false"|lower }});
+            quiz = new Questions.Quiz({
+                report_results: {{ report|default:"false"|lower }},
+                home_url: "{% url 'dashboard' %}"
+            });
             {% if not report %}quiz.start();{% endif %}
         });
     </script>

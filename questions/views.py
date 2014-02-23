@@ -6,7 +6,7 @@ from django.http import HttpResponse, Http404, HttpResponseServerError
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.core.mail import EmailMessage, send_mail
-from django.views.generic import ListView, DetailView, FormView, TemplateView
+from django.views.generic import View, ListView, DetailView, FormView, TemplateView
 from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
@@ -28,6 +28,7 @@ import pwd
 import random
 import smtplib
 import html2text
+import time
 
 
 def class_view_decorator(function_decorator):
@@ -542,7 +543,7 @@ class QuizView(ListView):
         return super(QuizView, self).get_queryset().exclude(release_date__isnull=True)
 
 @class_view_decorator(login_required)
-class QuizQuestionsView(RedirectView):
+class QuizGenerationView(RedirectView):
     def generate_questions(self):
         g = self.request.GET
         blocks = []
@@ -571,15 +572,34 @@ class QuizQuestionsView(RedirectView):
 
         return questions
 
+    def number_of_questions(self):
+        number = 0
+        for b in self.request.GET.getlist('block'):
+            number += int(self.request.GET.get('block_%s_question_number', 0))
+
+        return number
+
     def get_redirect_url(self, slug=None):
         questions = None
-        
+        self.request.session['mode'] = mode = self.request.GET.get('mode', 'block')
+
         if slug:
             try:
                 quiz_specification = models.QuizSpecification.objects.get(slug=slug)
             except models.QuizSpecification.DoesNotExist:
                 return reverse('quiz-start')
             self.request.session['quizspecification'] = quiz_specification
+
+        if mode == 'individual':
+            number = 0
+            if quiz_specification:
+                number += quiz_specification.number_of_questions()
+            else:
+                number += self.number_of_questions()
+            self.request.session['number_of_questions'] = number
+            return reverse('quiz')
+
+        if quiz_specification:
             questions = quiz_specification.get_questions()
         else:
             questions = self.generate_questions()
@@ -589,16 +609,102 @@ class QuizQuestionsView(RedirectView):
         self.request.session['questions'] = questions
         return reverse('quiz')
 
+
+@class_view_decorator(login_required)
+class QuizQuestionView(View):
+    http_method_names = ['get', ]
+
+    def get(self, request, *args, **kwargs):
+        # if settings.DEBUG: time.sleep(1)
+        GET = request.GET
+        spec = None
+        attempt = None
+        if 'specification' in GET:
+            try:
+                spec = models.QuizSpecification.objects.get(slug=GET.get('specification'))
+            except models.QuizSpecification.DoesNotExist:
+                return HttpResponseServerError(json.dumps({'error': 'Quiz specification does not exist.'}), mimetype="application/json")
+        if 'quiz_attempt' in GET:
+            try:
+                attempt = models.QuizAttempt.objects.get(slug=GET.get('quiz_attempt'))
+            except models.QuizAttempt.DoesNotExist:
+                return HttpResponseServerError(json.dumps({'error': 'Quiz specification does not exist.'}), mimetype="application/json")
+
+        done = GET.getlist('done')
+        possible_questions = models.Question.objects.all()
+        if spec:
+            possible_questions = spec.get_questions()
+
+        for question in done:
+            possible_questions = possible_questions.exclude(id=question)
+
+        if attempt:
+            to_exclude = attempt.questions.all()
+            possible_questions = possible_questions.exclude(id__in=to_exclude)
+
+        try:
+            question = possible_questions.order_by("?")[0]
+        except IndexError:
+            return HttpResponse(json.dumps({'status': 'done'}), mimetype="application/json")
+        question = question.json_repr()
+        question['status'] = "question"
+        return HttpResponse(json.dumps(question), mimetype="application/json")
+
+
+@class_view_decorator(login_required)
+class NewQuizAttempt(View):
+    def post(self, request, *args, **kwargs):
+        POST = request.POST
+
+        spec = None
+        if 'specification' in POST:
+            try:
+                spec = models.QuizSpecification.objects.get(slug=POST.get('specification'))
+            except models.QuizSpecification.DoesNotExist:
+                # TODO: make this a status 500
+                return HttpResponse(json.dumps({'error': 'That specification does not exist.', }), mimetype='application/json')
+
+        attempt = models.QuizAttempt()
+        attempt.student = request.user.student
+        if spec: attempt.quiz_specification = spec
+        attempt.save()
+
+        return HttpResponse(json.dumps({'status': 'attempt', 'attempt': attempt.slug, }), mimetype='application/json')
+
+
+@class_view_decorator(login_required)
+class QuizQuestionSubmit(View):
+    def post(self, request, *args, **kwargs):
+        POST = request.POST
+        print "Got post %s" % POST
+        attempt = models.QuizAttempt.objects.get(slug=POST["quiz_attempt"])
+        question = models.Question.objects.get(id=POST["id"])
+        question_attempt = models.QuestionAttempt()
+        question_attempt.quiz_attempt = attempt
+        question_attempt.question = question
+        question_attempt.position = POST["position"]
+        question_attempt.answer = POST.get("choice")
+        question_attempt.time_taken = POST.get("time_taken", 0)
+        question_attempt.confidence_rating = POST.get("confidence") or models.QuestionAttempt.DEFAULT_CONFIDENCE;
+        question_attempt.save()
+
+        return HttpResponse(json.dumps(question.json_repr()), mimetype="application/json")
+
+
 @class_view_decorator(login_required)
 class Quiz(ListView):
     model = models.Question
     template_name = "quiz.html"
 
     def dispatch(self, request, *args, **kwargs):
-        if 'questions' in request.session:
-            self.questions = request.session.pop('questions')
-        else:
+        try:
+            self.questions = request.session.pop('questions', models.Question.objects.none())
+            self.mode = request.session.pop('mode')
+            if self.mode == 'individual':
+                self.number_of_questions = request.session.pop('number_of_questions')
+        except KeyError:
             return redirect('quiz-start')
+
         if 'quizspecification' in request.session:
             self.quiz_specification = request.session.pop('quizspecification')
         return super(Quiz, self).dispatch(request, *args, **kwargs)
@@ -606,11 +712,18 @@ class Quiz(ListView):
     def get_queryset(self):
         return self.questions
 
+    def get_template_names(self):
+        modes_to_templates = {'individual': 'quiz_individual.html', 'block': 'quiz.html'}
+
+        return modes_to_templates.get(self.mode, 'quiz.html')
+
     def get_context_data(self, **kwargs):
         context = super(Quiz, self).get_context_data(**kwargs)
         context['confidence_range'] = models.QuestionAttempt.CONFIDENCE_CHOICES
         if hasattr(self, "quiz_specification"):
             context['specification'] = self.quiz_specification
+        if hasattr(self, "number_of_questions"):
+            context['number_of_questions'] = self.number_of_questions
         return context
 
 
@@ -699,6 +812,11 @@ class QuizReport(ListView):
         c['confidence_range'] = models.QuestionAttempt.CONFIDENCE_CHOICES
         c.update({'by_block': list_by_block})
         return c
+
+@class_view_decorator(login_required)
+class QuizIndividualSummary(DetailView):
+    model = models.QuizAttempt
+    template_name = "quiz_summary.html"
 
 @login_required
 def view(request, ta_id, q_id):
