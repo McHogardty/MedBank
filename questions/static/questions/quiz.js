@@ -209,10 +209,7 @@ var Questions = (function (questions_module, $) {
             e.preventDefault();
         });
 
-        $(questions_module.globals.home_button_selector).click(function (e) {
-            window.location.href = questions_module.globals.home_url;
-            e.preventDefault();
-        });
+        $(questions_module.globals.home_button_selector).click(function (e) { window.location.href = questions_module.globals.home_url; });
 
         this.forward = function () { self.scroller.forward(); };
         this.back = function () { self.scroller.back(); };

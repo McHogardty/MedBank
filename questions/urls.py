@@ -6,7 +6,7 @@ from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     EmailView, ChangeStatus, AdminView, ReleaseBlockView, EditBlock, AddComment,
     QuizView, Quiz, QuizStartView, QuizGenerationView, QuizSubmit, QuizReport,
     DashboardView, BlockAdminView, QuizQuestionView, NewQuizAttempt, QuizQuestionSubmit,
-    QuizIndividualSummary)
+    QuizIndividualSummary, QuizSpecificationView, QuizSpecificationAdd, QuizChooseView, NewQuizSpecificationView)
 
 from django.views.generic import TemplateView
 
@@ -28,14 +28,17 @@ urlpatterns = patterns(
     url(r'^admin/approve/$', AllBlocksView.as_view(template_name="approve.html"), name='admin-approve-choose'),
     url(r'^admin/approve/(?P<number>\d{1,2})/(?P<year>\d{4})/$', StartApprovalView.as_view(), name='admin-approve-start'),
     url(r'^admin/approve/(?P<number>\d{1,2})/(?P<year>\d{4})/(?P<q_id>\d+)/$', StartApprovalView.as_view(), name='admin-approve'),
+    url(r'^quiz/add/$', NewQuizSpecificationView.as_view(), name='quiz-spec-new'),
     url(r'^download/(?P<number>\d{1,2})/(?P<year>\d{4})/(?P<mode>[a-z]+)/$', 'download'),
     #url(r'^send/(?P<pk>\d{1,2})/$', 'send'),
     url(r'^quiz/$', Quiz.as_view(), name='quiz'),
+    url(r'^quiz/choose/$', QuizChooseView.as_view(), name="quiz-choose"),
     url(r'^quiz/question/next/$', QuizQuestionView.as_view(), name='quiz-question'),
     url(r'^quiz/question/submit/$', QuizQuestionSubmit.as_view(), name='quiz-question-submit'),
     url(r'^quiz/attempt/generate/$', NewQuizAttempt.as_view(), name='quiz-generate-attempt'),
     url(r'^quiz/start/$', QuizStartView.as_view(), name='quiz-start'),
     url(r'^quiz/(?P<slug>[a-z]+)/start/$', QuizGenerationView.as_view(), name='quiz-spec'),
+    url(r'^quiz/(?P<slug>[a-z]+)/view/$', QuizSpecificationView.as_view(), name='quiz-spec-view'),
     url(r'^quiz/prepare/$', QuizGenerationView.as_view(), name='quiz-prepare'),
     url(r'^quiz/submit/$', QuizSubmit.as_view(), name='quiz-submit'),
     url(r'^quiz/report/$', QuizReport.as_view(), name='quiz-report'),
@@ -47,6 +50,7 @@ urlpatterns = patterns(
     url(r'^ta/(?P<pk>\d+)/$', ViewActivity.as_view(template_name="view_ta.html"), name='ta'),
     url(r'^ta/(?P<ta_id>\d+)/question/new/$', NewQuestion.as_view(), name='new'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/edit/$', UpdateQuestion.as_view(), name='edit'),
+    url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/specification/add/$', QuizSpecificationAdd.as_view(), name='quiz-spec-add'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/$', ViewQuestion.as_view(template_name="view.html"), name='view'),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/comment/new/$', AddComment.as_view(), name="comment-new"),
     url(r'^ta/(?P<ta_id>\d+)/question/(?P<pk>\d+)/comment/reply/(?P<comment_id>\d+)/$', AddComment.as_view(), name="comment-reply"),

@@ -471,6 +471,7 @@ div.comment-heading:hover {
   font-weight: 200;
   line-height: 1.4;
   padding-top:10px;
+  margin-bottom: 0;
 }
 
 .dashboard h1 + .action {

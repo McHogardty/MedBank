@@ -6,6 +6,7 @@
     <a class="action" href="{% url 'edit' ta_id=question.teaching_activity_year.id pk=question.id %}{% include 'querystring.html' %}">Edit question</a>
     {% endif %}
     {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity_year.id %}">Back to activity</a>{% endif %}
+    <a class="action" href="{% url 'quiz-spec-add' ta_id=question.teaching_activity_year.id pk=question.id %}">Add to specification</a>
     {% if question.teaching_activity_year.current_block.released %}<a class="action" href="{% url 'comment-new' pk=question.id ta_id=question.teaching_activity_year.id %}">Add a comment</a>{% endif %}
     {% if perms.questions.can_approve %}
         <h3>Admin</h3>

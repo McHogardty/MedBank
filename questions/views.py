@@ -3,7 +3,7 @@ from django.template import RequestContext, loader
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.http import HttpResponse, Http404, HttpResponseServerError
-from django.core.urlresolvers import reverse
+from django.core.urlresolvers import reverse, reverse_lazy
 from django.conf import settings
 from django.core.mail import EmailMessage, send_mail
 from django.views.generic import View, ListView, DetailView, FormView, TemplateView
@@ -70,6 +70,13 @@ class AllBlocksView(ListView):
 @class_view_decorator(login_required)
 class DashboardView(TemplateView):
     template_name = "dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        c = super(DashboardView, self).get_context_data(**kwargs)
+        c.update({'example_quiz_slug': settings.EXAMPLE_QUIZ_SLUG})
+        block_count = models.TeachingBlockYear.objects.filter(start__lte=datetime.datetime.now(), end__gte=datetime.datetime.now()).count()
+        c.update({'block_count': block_count})
+        return c
 
 
 @class_view_decorator(login_required)
@@ -139,6 +146,7 @@ class AdminView(TemplateView):
         c.update({'blocks': tb, 'questions_pending': questions_pending, 'questions_flagged': questions_flagged,})
         c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
         c.update({'u': pwd.getpwuid(os.getuid()).pw_name, 'd': os.environ})
+        c.update({'quiz_specifications': models.QuizSpecification.objects.order_by('stage')})
         return c
 
 
@@ -309,13 +317,13 @@ class AddComment(CreateView):
             self.q = models.Question.objects.get(pk=self.kwargs['pk'])
         except models.Question.DoesNotExist:
             messages.error(self.request, "That question does not exist")
-            return redirect('activity-mine')
+            return redirect('dashboard')
         if 'comment_id' in self.kwargs:
             try:
                 self.c = models.Comment.objects.get(pk=self.kwargs['comment_id'])
             except models.Comment.DoesNotExist:
                 messages.error(self.request, "That comment does not exist")
-                return redirect('activity-mine')
+                return redirect('dashboard')
 
         return super(AddComment, self).dispatch(request, *args, **kwargs)
 
@@ -523,6 +531,15 @@ class ViewQuestion(DetailView):
 
 
 @class_view_decorator(login_required)
+class QuizChooseView(ListView):
+    template_name = "quiz/choose.html"
+    model = models.QuizSpecification
+
+    def get_queryset(self):
+        return super(QuizChooseView, self).get_queryset().exclude(stage__number__gt=self.request.user.student.get_current_stage().number)
+
+
+@class_view_decorator(login_required)
 class QuizStartView(ListView):
     template_name = "quiz_start.html"
     model = models.TeachingBlockYear
@@ -581,13 +598,13 @@ class QuizGenerationView(RedirectView):
 
     def get_redirect_url(self, slug=None):
         questions = None
-        self.request.session['mode'] = mode = self.request.GET.get('mode', 'block')
+        self.request.session['mode'] = mode = self.request.GET.get('mode', 'individual')
 
         if slug:
             try:
                 quiz_specification = models.QuizSpecification.objects.get(slug=slug)
             except models.QuizSpecification.DoesNotExist:
-                return reverse('quiz-start')
+                return reverse('quiz-choose')
             self.request.session['quizspecification'] = quiz_specification
 
         if mode == 'individual':
@@ -604,7 +621,7 @@ class QuizGenerationView(RedirectView):
         else:
             questions = self.generate_questions()
         if not questions:
-            return reverse('quiz-start')
+            return reverse('quiz-choose')
 
         self.request.session['questions'] = questions
         return reverse('quiz')
@@ -615,7 +632,7 @@ class QuizQuestionView(View):
     http_method_names = ['get', ]
 
     def get(self, request, *args, **kwargs):
-        # if settings.DEBUG: time.sleep(1)
+        if settings.DEBUG: time.sleep(1)
         GET = request.GET
         spec = None
         attempt = None
@@ -676,7 +693,7 @@ class NewQuizAttempt(View):
 class QuizQuestionSubmit(View):
     def post(self, request, *args, **kwargs):
         POST = request.POST
-        print "Got post %s" % POST
+        if settings.DEBUG: print "Got post %s" % POST
         attempt = models.QuizAttempt.objects.get(slug=POST["quiz_attempt"])
         question = models.Question.objects.get(id=POST["id"])
         question_attempt = models.QuestionAttempt()
@@ -703,7 +720,7 @@ class Quiz(ListView):
             if self.mode == 'individual':
                 self.number_of_questions = request.session.pop('number_of_questions')
         except KeyError:
-            return redirect('quiz-start')
+            return redirect('quiz-choose')
 
         if 'quizspecification' in request.session:
             self.quiz_specification = request.session.pop('quizspecification')
@@ -731,7 +748,7 @@ class Quiz(ListView):
 class QuizSubmit(RedirectView):
     def get_redirect_url(self):
         if not self.request.method == 'POST':
-            return reverse('quiz-start')
+            return reverse('quiz-choose')
         p = self.request.POST
         specification = p.get('specification')
         if specification:
@@ -743,19 +760,19 @@ class QuizSubmit(RedirectView):
         questions = []
         qq = models.Question.objects.filter(id__in=p.getlist('question', []))
         if not qq.count():
-            return reverse('quiz-start')
+            return reverse('quiz-choose')
         for q in qq:
             parameter_prefix = "question-%d-" % q.id
             try:
                 q.position = p.get("%sposition" % parameter_prefix, "")
             except ValueError:
-                print "Got a value error"
+                if settings.DEBUG: print "Got a value error"
                 q.position = ""
             q.choice = p.get("%sanswer" % parameter_prefix) or None
             q.time_taken = p.get("%stime-taken" % parameter_prefix)
             q.confidence_rating = p.get("%sconfidence-rating" % parameter_prefix) or None
             if not q.position:
-                return reverse("quiz-start")
+                return reverse("quiz-choose")
             questions.append(q)
         questions.sort(key=lambda x: x.position)
         self.request.session['questions'] = questions
@@ -786,12 +803,12 @@ class QuizReport(ListView):
             try:
                 attempt = models.QuizAttempt.objects.get(slug=kwargs['slug'])
             except models.QuizAttempt.DoesNotExist:
-                return redirect('quiz-start')
+                return redirect('quiz-choose')
             self.questions = attempt.get_questions()
         elif 'questions' in request.session:
             self.questions = request.session.pop('questions')
         else:
-            return redirect('quiz-start')
+            return redirect('quiz-choose')
         return super(QuizReport, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -817,6 +834,41 @@ class QuizReport(ListView):
 class QuizIndividualSummary(DetailView):
     model = models.QuizAttempt
     template_name = "quiz_summary.html"
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class NewQuizSpecificationView(CreateView):
+    model = models.QuizSpecification
+    form_class = forms.NewQuizSpecificationForm
+    template_name = "admin/new.html"
+    success_url = reverse_lazy('admin')
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class QuizSpecificationView(DetailView):
+    model = models.QuizSpecification
+    template_name = "admin/specification.html"
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class QuizSpecificationAdd(FormView):
+    form_class = forms.QuestionQuizSpecificationForm
+    template_name = "admin/add_specification.html"
+
+    def form_valid(self, form):
+        try:
+            question = models.Question.objects.get(pk=self.kwargs["pk"])
+        except models.Question.DoesNotExist:
+            messages.error(self.request, "That question does not exist.")
+            return redirect('admin')
+
+        spec = form.cleaned_data['specification']
+
+        qa = models.QuizQuestionSpecification.from_specific_question(question)
+        qa.quiz_specification = spec
+        qa.save()
+
+        messages.success(self.request, "This question was successfully added to the specification %s." % spec.name)
+        return redirect('view', pk=question.pk, ta_id=question.teaching_activity_year.id)
 
 @login_required
 def view(request, ta_id, q_id):
@@ -914,7 +966,7 @@ def download(request, number, year, mode):
 
     if not tb.question_count_for_student(request.user.student) and not request.user.has_perm("questions.can_approve") and not (tb.stage != request.user.student.get_current_stage() and tb.stage in request.user.student.get_all_stages()):
         messages.error(request, "Unfortunately you haven't written any questions for this block, so you are unable to download the other questions.")
-        return redirect('activity-mine')
+        return redirect('dashboard')
 
     f = document.generate_document(tb, mode == "answer", request)
     r = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')

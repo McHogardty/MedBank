@@ -1,0 +1,35 @@
+{% extends "newbase.html" %}
+
+{% block head %}
+	<style type="text/css">
+/*	td.question a, th.body {
+		width:450px;
+		display:block;
+		white-space:nowrap;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}*/
+	td.stage, th.stage {
+		width:70px;
+	}
+	</style>
+{% endblock head %}
+
+{% block content %}
+	<h1>{{ object.name }} ({{ object.stage }})</h1>
+	<h2>Questions</h2>
+	<table class="table">
+		<tr>
+			<th class="stage">Stage</th>
+			<th class="block">Block</th>
+			<th>Question</th>
+		</tr>
+		{% for question in object.get_questions_in_order %}
+		<tr>
+			<td class="stage">{{ question.teaching_activity_year.block_year.stage }}</td>
+			<td class="block">{{ question.teaching_activity_year.block_year }}</td>
+			<td class="question"><a href="{% url 'view' pk=question.id ta_id=question.teaching_activity_year.id%}">{{ question.body }}</a></td>
+		</tr>
+		{% endfor %}
+	</table>
+{% endblock content %}

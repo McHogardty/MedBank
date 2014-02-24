@@ -5,7 +5,7 @@ from django.utils.encoding import force_text
 from django.db import models
 
 from medbank import bsforms
-from .models import Question, TeachingActivity, TeachingBlock, TeachingBlockYear, Student, Comment, TeachingActivityYear
+from .models import Question, TeachingActivity, TeachingBlock, TeachingBlockYear, Student, Comment, TeachingActivityYear, QuizSpecification
 
 import string
 import json
@@ -192,6 +192,17 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
     class Meta:
         model = TeachingBlock
         exclude = ('stage', 'number', 'start', 'end')
+
+
+class NewQuizSpecificationForm(bsforms.NewBootstrapModelForm):
+    class Meta:
+        model = QuizSpecification
+        exclude = ('slug', )
+
+
+class QuestionQuizSpecificationForm(bsforms.NewBootstrapForm):
+    specification = forms.ModelChoiceField(queryset=QuizSpecification.objects.all())
+
 
 class EmailForm(bsforms.NewBootstrapForm):
     from_address = forms.CharField(widget=bsforms.StaticControl())

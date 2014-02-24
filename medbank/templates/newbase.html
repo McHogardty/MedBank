@@ -24,9 +24,9 @@
         </div>
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
-            <li><a href="{% url 'activity-mine' %}">Home</a></li>
-            <li><a target="_blank" href="{% url 'quiz' %}">Quiz</a></li>
-            <li><a href="{% url 'admin' %}">Admin</a></li>
+            <li><a href="{% url 'dashboard' %}">Home</a></li>
+            <li><a href="{% url 'quiz-choose' %}">Quiz</a></li>
+            {% if perms.questions.can_approve %}<li><a href="{% url 'admin' %}">Admin</a></li>{% endif %}
             <li><a href="{% url 'logout' %}">Logout</a></li>
           </ul>
           <p class="navbar-text pull-right hidden-xs">Welcome, {{ user.username }} {% if user.student.get_current_stage %}({{ user.student.get_current_stage }}){% endif %}</p>
@@ -39,7 +39,7 @@
   <div class="starter-template">
     <h1>SUMS MedBank</h1>
     <p class="lead">MedBank is a peer-reviewed database of practice exam questions written by students in the Sydney Medical Program.<br>
-      <a class="btn btn-large btn-primary" style="margin-bottom:15px;" href="{% url 'activity-mine' %}">Start writing questions</a><br>
+      <a class="btn btn-large btn-primary" style="margin-bottom:15px;" href="{% url 'dashboard' %}">Start writing questions</a><br>
       <a type="button" class="btn btn-large" href="{% url 'create_user' %}">I don't have an account yet</a></p>
   </div>
 {% endblock content %}

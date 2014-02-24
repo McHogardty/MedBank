@@ -1,0 +1,21 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Choose a preset quiz</h1>
+
+	{% if object_list.count %}
+	{% regroup object_list by stage as by_stage %}
+
+	{% for stage in by_stage %}
+		<h2>{{ stage.grouper }}</h2>
+		{% for spec in stage.list %}
+			<h3>{{ spec.name }} <small><a target="_blank" href="{% url 'quiz-spec' slug=spec.slug %}">Choose</a></small></h3>
+			{% if spec.description %}
+				<p>{{ spec.description }}</p>
+			{% endif %}
+		{% endfor %}
+	{% endfor %}
+	{% else %}
+	<p>No preset quizzes have been added to MedBank yet. Please check back later.</p>
+	{% endif %}
+{% endblock content %}

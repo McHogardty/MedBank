@@ -37,7 +37,7 @@ def class_view_decorator(function_decorator):
 
 def home(request):
     print request.body
-    return render_to_response("base-no-nav.html", {'next_url': reverse('activity-mine')}, context_instance=RequestContext(request))
+    return render_to_response("base-no-nav.html", context_instance=RequestContext(request))
 
 
 def test(request, name):
@@ -58,7 +58,7 @@ def create_user(request):
             u.save()
             u = authenticate(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
             login(request, u)
-            return redirect("activity-mine")
+            return redirect("dashboard")
     else:
         form = forms.StudentCreationForm()
 
@@ -74,7 +74,8 @@ def pick_stage(request):
         form = form(request.POST)
         if form.is_valid():
             request.user.student.add_stage(form.cleaned_data['stage'])
-            return redirect('activity-mine')
+            messages.success(request, "Your stage was saved successfully!")
+            return redirect('dashboard')
     else:
         form = form()
     return render_to_response("pick_stage.html", {'form': form}, context_instance=RequestContext(request))

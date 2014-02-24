@@ -16,7 +16,7 @@ urlpatterns = patterns(
     url(r'^(?P<name>[0-9]+)/$', 'medbank.views.test'),
     url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', {'authentication_form': forms.BootstrapAuthenticationForm}, name="login"),
     url(r'^logout/$', 'medbank.views.logout_view', name="logout"),
-    url(r'^newuser/$', 'medbank.views.create_user', name="create_user"),
+    url(r'^user/new/$', 'medbank.views.create_user', name="create_user"),
     url(r'^password/reset/sent/$', TemplateView.as_view(template_name="password/reset_email_success.html"), name="reset_password_sent"),
     url(r'^password/reset/success/$', TemplateView.as_view(template_name="password/reset_success.html"), name="reset_password_success"),
     url(r'^password/reset/(?P<token>[\w:-]+)/$', ResetPassword.as_view(), name="reset_password"),

@@ -166,7 +166,7 @@
         <button class="btn btn-default btn-previous" type="button">Previous question</button>
         <h3 class="question-indicator">Question <span class="current-question-number">1</span> of <span class="total-question-number">{{ object.questions.count }}</span></h3>
         <button class="btn btn-default btn-next" type="button">Next question</button>
-        <button class="btn btn-default btn-finish" type="button">Finish</button>
+        <button class="btn btn-default btn-home" type="button">Back to dashboard</button>
     </div>
 {% endblock before %}
 
@@ -207,7 +207,7 @@
                         </div>
                     </div>
                     <p class="lead">
-                        You said that {{ attempt.get_confidence_rating_display_second_person.lower }}. Most people answering this question said that {{ attempt.get_average_confidence_rating_display.lower }}.
+                        {% if attempt.get_confidence_rating_display_second_person.lower %}You said that {{ attempt.get_confidence_rating_display_second_person.lower }}. {% endif %}Most people answering this question said that {{ attempt.get_average_confidence_rating_display.lower }}.
                     </p>
                     <p class="lead">This question was answered correctly {{ attempt.question.percent_success_rate|floatformat }}% of the time.</p>
                     <div class="buttons btn-group">
@@ -253,7 +253,9 @@
             //     question_attempt_url: "{% url 'quiz-question-submit' %}",
             //     specification: "{{ specification.slug }}",
             // });
-            report = new Questions.IndividualQuizReport();
+            report = new Questions.IndividualQuizReport({
+                home_url: "{% url 'dashboard' %}",
+            });
         });
     </script>
 {% endblock javascript %}

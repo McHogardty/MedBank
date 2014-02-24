@@ -23,7 +23,7 @@ def int_to_base(x, base, places=0):
     digits = []
     while x:
         digits.append(digs[x % base])
-        x /= base
+        x //= base
     if places and len(digits) > places: raise ValueError("There must be enough places to represent the number.")
 
     while places and len(digits) < places:
@@ -129,6 +129,9 @@ class Student(models.Model):
 
     def future_block_count(self):
         return TeachingBlockYear.objects.filter(close__gte=datetime.datetime.now(), activities__question_writers=self).count()
+
+    def latest_quiz_attempt(self):
+        return self.quiz_attempts.latest('date_submitted')
 
 
 @receiver(models.signals.post_save, sender=User)
@@ -498,15 +501,16 @@ class Question(models.Model):
 
 class QuizSpecification(models.Model):
     name = models.CharField(max_length=100)
-    stage = models.ForeignKey(Stage, blank=True, null=True)
+    stage = models.ForeignKey(Stage)
+    description = models.TextField(blank=True)
     # A 160-bit SHA1 hash converted to base 26 requires 36 characters to be represented.
     slug = models.SlugField(max_length=36)
 
     def __unicode__(self):
-        return self.name
+        return "%s (%s)" % (self.name, self.stage)
 
     def generate_slug(self):
-        return hex_to_base_26(hashlib.sha1(self.name).hexdigest())
+        return hex_to_base_26(hashlib.sha1("%s%s" % (self.name, self.description)).hexdigest())
 
     def get_questions(self):
         questions_to_return = Question.objects.none()
@@ -515,6 +519,9 @@ class QuizSpecification(models.Model):
             questions_to_return |= q.get_questions()
 
         return questions_to_return
+
+    def get_questions_in_order(self):
+        return self.get_questions().order_by('teaching_activity_year__block_year__block__stage', 'teaching_activity_year__block_year__block__number')
 
     def number_of_questions(self):
         return self.get_questions().count()
@@ -642,6 +649,11 @@ class QuizAttempt(models.Model):
     def score(self):
         return self.questions.filter(answer=models.F("question__answer")).count()
 
+    def percent_score(self):
+        number_of_questions = self.quiz_specification.number_of_questions() if self.quiz_specification else self.questions.count()
+
+        return self.score() / number_of_questions * 100
+
 
 @receiver(models.signals.pre_save, sender=QuizSpecification)
 @receiver(models.signals.pre_save, sender=QuizAttempt)
@@ -668,7 +680,7 @@ class QuestionAttempt(models.Model):
         (UNSURE, "I'm %s" % (UNSURE_WORD, )),
         (NEUTRAL, "I'm %s" % (NEUTRAL_WORD, )),
         (SURE, "I'm %s" % (SURE_WORD, )),
-        (CERTAIN, "I'm %s" % (CERTAIN, )),
+        (CERTAIN, "I'm %s" % (CERTAIN_WORD, )),
     )
 
     SECOND_PERSON_CONFIDENCE_CHOICES = (
@@ -676,7 +688,7 @@ class QuestionAttempt(models.Model):
         (UNSURE, "You were %s" % (UNSURE_WORD, )),
         (NEUTRAL, "You were %s" % (NEUTRAL_WORD, )),
         (SURE, "You were %s" % (SURE_WORD, )),
-        (CERTAIN, "You were %s" % (CERTAIN, )),
+        (CERTAIN, "You were %s" % (CERTAIN_WORD, )),
     )
 
     THIRD_PERSON_CONFIDENCE_CHOICES = (
@@ -684,7 +696,7 @@ class QuestionAttempt(models.Model):
         (UNSURE, "They were %s" % (UNSURE_WORD, )),
         (NEUTRAL, "They were %s" % (NEUTRAL_WORD, )),
         (SURE, "They were %s" % (SURE_WORD, )),
-        (CERTAIN, "They were %s" % (CERTAIN, )),
+        (CERTAIN, "They were %s" % (CERTAIN_WORD, )),
     )
 
     quiz_attempt = models.ForeignKey(QuizAttempt, related_name="questions")
@@ -695,7 +707,7 @@ class QuestionAttempt(models.Model):
     confidence_rating = models.IntegerField(choices=CONFIDENCE_CHOICES, blank=True, null=True)
 
     def incorrect_answer(self):
-        if not self.answer == self.question.answer:
+        if self.answer and not self.answer == self.question.answer:
             return {'option': self.answer, 'value': self.question.option_value(self.answer)}
 
         return {}
@@ -711,9 +723,13 @@ class QuestionAttempt(models.Model):
         return dict(self.THIRD_PERSON_CONFIDENCE_CHOICES)[average]
 
     def get_confidence_rating_display_second_person(self):
+        if not self.confidence_rating:
+            return ""
         return dict(self.SECOND_PERSON_CONFIDENCE_CHOICES)[self.confidence_rating]
 
     def get_confidence_rating_display_third_person(self):
+        if not self.confidence_rating:
+            return ""
         return dict(self.THIRD_PERSON_CONFIDENCE_CHOICES)[self.confidence_rating]
 
 
