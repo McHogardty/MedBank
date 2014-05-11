@@ -41,12 +41,12 @@
         {% if b.is_active %}
             <tr>
                 <td>{{ b.stage }}</td>
-                <td><a href="{% url 'activity-list' number=b.number year=b.year %}">{{ b.name }}</a></td>
+                <td><a href="{% url 'activity-list' code=b.code year=b.year %}">{{ b.name }}</a></td>
                 <td>{{ b.start }}</td>
                 <td>{{ b.end }}</td>
                 <td>{{ b.close }}</td>
-                <td><a href="{% url 'block-edit' number=b.number year=b.year %}">Edit</a></td>
-                <td><a href="{% url 'block-admin' number=b.number year=b.year %}">Admin</a></td>
+                <td><a href="{% url 'block-edit' code=b.code year=b.year %}">Edit</a></td>
+                <td><a href="{% url 'block-admin' code=b.code year=b.year %}">Admin</a></td>
             </tr>
         {% endif %}
         {% if forloop.last %}
@@ -98,10 +98,10 @@
         <tr>
             <td>{{ b.stage }}</td>
             <td>{{ b.name }}</td>
-            <td><a href="{% url 'questions.views.download' number=b.number year=b.year mode='question' %}">Download</a></td>
-            <td><a href="{% url 'questions.views.download' number=b.number year=b.year mode='answer' %}">Download</a></td>
-            <td><a href="{% url 'release' number=b.number year=b.year %}">Release</a></td>
-            <td>{% if b.released %}<a href="{% url 'email' number=b.number year=b.year %}?document">Email</a>{% endif %}</td>
+            <td><a href="{% url 'questions.views.download' code=b.number year=b.year mode='question' %}">Download</a></td>
+            <td><a href="{% url 'questions.views.download' code=b.number year=b.year mode='answer' %}">Download</a></td>
+            <td><a href="{% url 'release' code=b.number year=b.year %}">Release</a></td>
+            <td>{% if b.released %}<a href="{% url 'email' code=b.number year=b.year %}?document">Email</a>{% endif %}</td>
         </tr>
     {% endif %}
     {% if forloop.last %}
