@@ -26,7 +26,8 @@
           <ul class="nav navbar-nav">
             <li><a href="{% url 'dashboard' %}">Home</a></li>
             <li><a href="{% url 'quiz-choose' %}">Quiz</a></li>
-            {% if perms.questions.can_approve %}<li><a href="{% url 'admin' %}">Admin</a></li>{% endif %}
+            {% if user.is_superuser %}<li><a href="{% url 'admin' %}">Admin</a></li>{% endif %}
+            {% if perms.questions.can_approve %}<li><a href="{% url 'approve-home' %}">Approve</a></li>{% endif %}
             <li><a href="{% url 'logout' %}">Logout</a></li>
           </ul>
           <p class="navbar-text pull-right hidden-xs">Welcome, {{ user.username }} {% if user.student.get_current_stage %}({{ user.student.get_current_stage }}){% endif %}</p>
