@@ -53,12 +53,24 @@ class AllBlocksView(ListView):
 
     def get_queryset(self):
         s = [stage.number for stage in self.request.user.student.get_all_stages()]
-        bb = models.TeachingBlockYear.objects.filter(db.models.Q(release_date__year=datetime.datetime.now().year) | db.models.Q(start__year=datetime.datetime.now().year)).filter(block__stage__number__in=s).order_by('block__number')
-        print bb.query
+        bb = models.TeachingBlockYear.objects.filter(block__stage__number__in=s).order_by('block__code').distinct()
+        if 'pending' in self.request.GET or 'flagged' in self.request.GET:
+            records=models.ApprovalRecord.objects \
+                .annotate(max=db.models.Max('question__approval_records__date_completed')) \
+                .filter(max=db.models.F('date_completed'))
+        else:
+            bb = bb.filter(db.models.Q(release_date__year=datetime.datetime.now().year) | db.models.Q(start__year=datetime.datetime.now().year))
+
         if 'pending' in self.request.GET:
-            bb = bb.filter(activities__questions__status=models.Question.PENDING_STATUS).distinct()
+            # We have all the blocks with questions that have approval records. Now we need
+            # The block with questions that
+            records = records.filter(db.models.Q(status=models.ApprovalRecord.PENDING_STATUS) | db.models.Q(date_completed__isnull=True))
+            bb = bb.filter(activities__questions__approval_records__in=records)
+            bb |= models.TeachingBlockYear.objects.filter(activities__questions__approval_records__isnull=True).distinct()
         elif 'flagged' in self.request.GET:
-            bb = bb.filter(activities__questions__status=models.Question.FLAGGED_STATUS).distinct()
+            records = records.filter(status=models.ApprovalRecord.FLAGGED_STATUS)
+            bb = bb.filter(activities__questions__approval_records__in=records)
+
         return bb
 
     def get_context_data(self, **kwargs):
@@ -74,7 +86,8 @@ class DashboardView(TemplateView):
     def get_context_data(self, **kwargs):
         c = super(DashboardView, self).get_context_data(**kwargs)
         c.update({'example_quiz_slug': settings.EXAMPLE_QUIZ_SLUG})
-        block_count = models.TeachingBlockYear.objects.filter(start__lte=datetime.datetime.now(), end__gte=datetime.datetime.now()).count()
+        allowed_blocks = models.TeachingBlockYear.objects.filter(block__stage=self.request.user.student.get_current_stage())
+        block_count = allowed_blocks.filter(start__lte=datetime.datetime.now(), end__gte=datetime.datetime.now()).count()
         c.update({'block_count': block_count})
         return c
 
@@ -91,16 +104,16 @@ class MyActivitiesView(ListView):
             l = ret.setdefault(t.block_year, [])
             l.append(t)
         ret = ret.items()
-        ret.sort(key=lambda a: a[0].number)
+        ret.sort(key=lambda a: a[0].code)
         return ret
 
 
 @class_view_decorator(login_required)
 class AllActivitiesView(ListView):
     model = models.TeachingActivityYear
-    template_name = "all2.html"
 
     def dispatch(self, request, *args, **kwargs):
+        self.teaching_block = None
         r = super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
         b = self.teaching_block
         s = self.request.user.student
@@ -112,12 +125,27 @@ class AllActivitiesView(ListView):
         return r
 
     def get_teaching_block(self):
-        tb = models.TeachingBlockYear.objects.get(block__number=self.kwargs['number'], year=self.kwargs['year'])
+        if self.teaching_block:
+            return self.teaching_block
+        tb = models.TeachingBlockYear.objects.select_related().get(block__code=self.kwargs['code'], year=self.kwargs['year'])
         self.teaching_block = tb
         return tb
 
     def get_queryset(self):
-        ta = models.TeachingActivityYear.objects.filter(block_year__block__number=self.kwargs['number'], block_year__year=self.kwargs['year'])
+        ta = models.TeachingActivityYear.objects.filter(block_year__block__code=self.kwargs['code'], block_year__year=self.kwargs['year']).select_related().prefetch_related('question_writers')
+        if 'approve' in self.request.GET:
+            ta = ta.exclude(questions__isnull=True)
+
+            # We want all of those teaching activities who have questions without records,
+            # or pending questions whose latest record is complete. These are the only ones
+            # who we can assign an approver to.
+            records = models.ApprovalRecord.objects.annotate(max=db.models.Max('question__approval_records__date_completed')) \
+                .filter(max=db.models.F('date_completed')) \
+                .filter(status=models.ApprovalRecord.PENDING_STATUS) \
+                .select_related('question', 'question__teaching_activity_year')
+            activities = list(set([record.question.teaching_activity_year.id for record in records]))
+            ta = ta.filter(db.models.Q(id__in=activities) | db.models.Q(questions__approval_records__isnull=True))
+
         by_week = {}
         for t in ta:
             l = by_week.setdefault(t.week, [])
@@ -133,6 +161,9 @@ class AllActivitiesView(ListView):
             c['override_base'] = "newbase_with_actions.html"
         return c
 
+    def get_template_names(self):
+        return "approval/assign.html" if 'approve' in self.request.GET else "all2.html"
+
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class AdminView(TemplateView):
@@ -140,16 +171,16 @@ class AdminView(TemplateView):
 
     def get_context_data(self, **kwargs):
         c = super(AdminView, self).get_context_data(**kwargs)
-        tb = models.TeachingBlockYear.objects.order_by('block__stage', 'block__number')
-        questions_pending = any(b.questions_need_approval() for b in tb)
-        questions_flagged = any(b.questions_flagged_count() for b in tb)
+        tb = models.TeachingBlockYear.objects.order_by('block__stage', 'block__code')
+        questions_pending = models.Question.questions_pending()
+        questions_flagged = models.Question.questions_flagged()
         c.update({'blocks': tb, 'questions_pending': questions_pending, 'questions_flagged': questions_flagged,})
         c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
-        c.update({'u': pwd.getpwuid(os.getuid()).pw_name, 'd': os.environ})
         c.update({'quiz_specifications': models.QuizSpecification.objects.order_by('stage')})
         return c
 
 
+@class_view_decorator(permission_required('questions.can_approve'))
 class BlockAdminView(DetailView):
     model = models.TeachingBlockYear
     template_name = "admin/block_admin.html"
@@ -157,17 +188,22 @@ class BlockAdminView(DetailView):
     def get_object(self, queryset=None):
         queryset = queryset or self.get_queryset()
 
-        return queryset.get(year=self.kwargs["year"], block__number=self.kwargs["number"])
+        return queryset.get(year=self.kwargs["year"], block__code=self.kwargs["code"])
 
 
 class QueryStringMixin(object):
     def query_string(self):
-        allowed = ['show', 'approve', 'flagged']
+        allowed = ['show', 'approve', 'flagged', 'assigned']
         g = self.request.GET.keys()
         if not g:
             return ""
         params = [k for k in g if k in allowed]
         return "?%s" % ("&".join(params))
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class ApprovalHome(TemplateView):
+    template_name = "approval/home.html"
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -179,41 +215,75 @@ class StartApprovalView(QueryStringMixin, RedirectView):
             qs =  "?show&approve"
             if 'flagged' in self.request.GET:
                 qs += "&flagged"
+            if 'assigned' in self.request.GET:
+                qs += "&assigned"
             return qs
         else:
             return super(StartApprovalView, self).query_string()
 
-    def get_redirect_url(self, number, year, q_id=None):
-        try:
-            b = models.TeachingBlockYear.objects.get(block__number=number, year=year)
-        except models.TeachingBlockYear.DoesNotExist:
-            messages.error(self.request, "That teaching block does not exist.")
-            return reverse('admin')
-        tb = models.TeachingBlockYear.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
-
+    def get_redirect_url(self, code=None, year=None, q_id=None):
+        # q_id contains the ID of the question which was just approved in approval mode.
         previous_q = None
         try:
             previous_q = models.Question.objects.get(pk=q_id)
         except models.Question.DoesNotExist:
             pass
-        if 'flagged' in self.request.GET:
-            s = models.Question.FLAGGED_STATUS
-        else:
-            s = models.Question.PENDING_STATUS
-        q = models.Question.objects.filter(teaching_activity_year__block_year=b).filter(
-                db.models.Q(status=s) | db.models.Q(pk=q_id)
-            )
-        try:
+
+        if 'assigned' in self.request.GET:
+            # Get all approval records which have not been completed. Order them by those assigned first.
+            # Unless they are super human, they can only sign up to one activity at a particular moment in time,
+            # so sorting by date_assigned should nicely sort the approval records by teaching activity.
+            # We allow people to skip questions. These approval records will still be present so we just get all the
+            # ones which were assigned AFTER the question with the record which was skipped.
+            previous_latest_record = None
             if previous_q:
-                q = q.filter(date_created__gte=previous_q.date_created).order_by('date_created')[1:2].get()
+                previous_latest_record = previous_q.latest_approval_record()
+
+            approval_records = self.request.user.student.approval_records.all()
+            if previous_latest_record:
+                approval_records = approval_records.filter(db.models.Q(date_completed__isnull=True) | db.models.Q(id=previous_latest_record.id))
+                approval_records = approval_records.filter(date_assigned__gte=previous_q.latest_approval_record().date_assigned)
             else:
-                q = q.order_by('date_created')[:1].get()
-        except models.Question.DoesNotExist:
-            m = 'All questions for that block have been approved'
+                approval_records = approval_records.filter(date_completed__isnull=True)
+
+            approval_records = approval_records.order_by('date_assigned')
+
+            try:
+                if previous_q:
+                    # It is possible that we can assign them to two questions at the same date and time because we do three at once. Use the ID as a fallback since it is autoincrement.
+                    # Think of a better way to do this later.
+                    q = approval_records.filter(id__gte=previous_latest_record.id)[1:2].get().question
+                else:
+                    q = approval_records[:1].get().question
+            except models.ApprovalRecord.DoesNotExist:
+                messages.success(self.request, "All of your assigned questions have been approved.")
+                return reverse('approve-home')
+        else:
+            try:
+                b = models.TeachingBlockYear.objects.get(block__code=code, year=year)
+            except models.TeachingBlockYear.DoesNotExist:
+                messages.error(self.request, "That teaching block does not exist.")
+                return reverse('admin')
+            tb = models.TeachingBlockYear.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
+
             if 'flagged' in self.request.GET:
-                m = 'There are no more flagged questions in that block.'
-            messages.success(self.request, m)
-            return reverse('admin')
+                s = models.ApprovalRecord.FLAGGED_STATUS
+            else:
+                s = models.ApprovalRecord.PENDING_STATUS
+            q = models.Question.objects.filter(teaching_activity_year__block_year=b).filter(
+                    db.models.Q(status=s) | db.models.Q(pk=q_id)
+                )
+            try:
+                if previous_q:
+                    q = q.filter(date_created__gte=previous_q.date_created).order_by('date_created')[1:2].get()
+                else:
+                    q = q.order_by('date_created')[:1].get()
+            except models.Question.DoesNotExist:
+                m = 'All questions for that block have been approved'
+                if 'flagged' in self.request.GET:
+                    m = 'There are no more flagged questions in that block.'
+                messages.success(self.request, m)
+                return reverse('admin')
         return "%s%s" % (reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity_year.id}), self.query_string(previous_q == None))
 
 
@@ -258,6 +328,10 @@ class NewQuestion(CreateView):
         i.update({'teaching_activity_year': self.ta, 'creator': self.request.user.student})
         return i
 
+    def form_valid(self, form):
+        messages.success(self.request, "Thanks, your question has been submitted! You'll get an email when it's approved.")
+        return super(NewQuestion, self).form_valid(form)
+
     def get_success_url(self):
         return reverse('view', kwargs={'pk': self.object.id, 'ta_id': self.ta.id})
 
@@ -298,6 +372,7 @@ class UpdateQuestion(QueryStringMixin, UpdateView):
                 r.body = c['reason']
                 r.creator = self.request.user.student
                 r.question = o
+                r.reason_type = models.Reason.TYPE_EDIT
                 r.save()
         return super(UpdateQuestion, self).form_valid(form)
 
@@ -369,7 +444,7 @@ class UnassignView(RedirectView):
             messages.warning(self.request, "You weren't signed up to that activity")
             return reverse('ta', kwargs={'pk': pk})
 
-        if ta.questions_for(self.request.user).count():
+        if ta.questions_for(self.request.user):
             messages.error(self.request, "Once you have started writing questions for an activity, you can't unassign yourself from it.")
             return reverse('ta', kwargs={'pk': pk})
 
@@ -440,6 +515,48 @@ def signup(request, ta_id):
         return redirect("ta", pk=ta_id)
 
 
+@class_view_decorator(permission_required('questions.can_approve'))
+class AssignApproval(RedirectView):
+    def get_redirect_url(self, ta_id):
+        try:
+            activity = models.TeachingActivityYear.objects.get(id=ta_id)
+        except:
+            messages.error(self.request, 'That teaching activity does not exist.')
+            return reverse('approve-home')
+
+        if activity.has_assigned_approver():
+            messages.error(self.request, 'The teaching activity %s already has an assigned approver.' % activity)
+        else:
+            for question in activity.questions.all():
+                print "Question %s" % question.__dict__
+                try:
+                    # Make them the approver on the latest record if it is incomplete.
+                    latest_record = question.latest_approval_record()
+                    print "There is an approval record"
+                except models.ApprovalRecord.DoesNotExist:
+                    # No records at all, make one.
+                    print "There are no approval records."
+                    latest_record = models.ApprovalRecord()
+
+                if latest_record.date_completed:
+                    print "The record is complete."
+                    if latest_record.status == models.ApprovalRecord.PENDING_STATUS:
+                        # Latest record was to make the question pending. So we need a new record.
+                        latest_record = models.ApprovalRecord()
+                    else:
+                        print "The record is not complete."
+                        # Question is not pending, so it doesn't need a new record.
+                        continue
+
+                record = models.ApprovalRecord()
+                record.question = question
+                record.approver = self.request.user.student
+                record.save()
+
+            messages.success(self.request, 'You have been assigned to approve the activity %s with record %s' % (activity, record.id))
+        return "%s?approve" % reverse('activity-list', kwargs={'code':activity.block_year.block.code, 'year': activity.block_year.year,})
+
+
 @class_view_decorator(login_required)
 class NewActivity(CreateView):
     model = models.TeachingActivityYear
@@ -497,7 +614,7 @@ class EditBlock(UpdateView):
         return c
 
     def get_object(self):
-        return models.TeachingBlockYear.objects.get(year=self.kwargs["year"], block__number=self.kwargs["number"])
+        return models.TeachingBlockYear.objects.get(year=self.kwargs["year"], block__code=self.kwargs["code"])
 
     def get_success_url(self):
         return reverse('admin')
@@ -506,6 +623,11 @@ class EditBlock(UpdateView):
 @class_view_decorator(login_required)
 class ViewActivity(DetailView):
     model = models.TeachingActivityYear
+
+    def get_context_data(self, **kwargs):
+        c = super(ViewActivity, self).get_context_data(**kwargs)
+        c['can_view_questions'] = bool(self.object.block_year.question_count_for_student(self.request.user.student)) or self.request.user.has_perm("questions.can_approve")
+        return c
 
 
 @class_view_decorator(login_required)
@@ -517,7 +639,7 @@ class ViewQuestion(DetailView):
 
         if self.object.pending and not self.object.user_is_creator(self.request.user):
             raise Http404
-        if self.object.deleted and not self.request.user.has_perm("can_approve"):
+        if self.object.deleted and not self.request.user.is_superuser:
             raise Http404
 
         return r
@@ -527,7 +649,22 @@ class ViewQuestion(DetailView):
         c['show'] = 'show' in self.request.GET
         c['approval_mode'] = 'approve' in self.request.GET
         c['flagged_mode'] = 'flagged' in self.request.GET
+        c['assigned'] = 'assigned' in self.request.GET
         return c
+
+
+@class_view_decorator(login_required)
+class ViewQuestionApprovalHistory(DetailView):
+    model = models.Question
+    template_name = "question/history.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        r = super(ViewQuestionApprovalHistory, self).dispatch(request, *args, **kwargs)
+
+        if self.object.deleted and not self.request.user.is_superuser:
+            raise Http404
+
+        return r
 
 
 @class_view_decorator(login_required)
@@ -548,7 +685,7 @@ class QuizStartView(ListView):
         start_of_year = datetime.date(year=datetime.datetime.now().year, month=1, day=1)
         q = super(QuizStartView, self).get_queryset()
         s = [stage.number for stage in self.request.user.student.get_all_stages()]
-        return q.filter(block__stage__number__in=s).exclude(release_date__isnull=True).exclude(release_date__lte=start_of_year).order_by("block__stage__number", "block__number")
+        return q.filter(block__stage__number__in=s).exclude(release_date__isnull=True).exclude(release_date__lte=start_of_year).order_by("block__stage__number", "block__code")
 
 
 @class_view_decorator(login_required)
@@ -575,12 +712,18 @@ class QuizGenerationView(RedirectView):
             return []
 
         for b in blocks:
-            bk = models.TeachingBlockYear.objects.filter(block__number=b['block'], year__in=b['years'])
+            bk = models.TeachingBlockYear.objects.filter(block__code=b['block'], year__in=b['years'])
             q = []
             if not bk.count():
                 return []
             for bb in bk:
-                q += models.Question.objects.filter(teaching_activity_year__block_year=bk, status=models.Question.APPROVED_STATUS)
+                records = models.ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=bk) \
+                            .annotate(max=models.Max('question__approval_records__date_completed')) \
+                            .filter(max=models.F('date_completed')) \
+                            .select_related('question') \
+                            .filter(status=ApprovalRecord.APPROVED_STATUS)
+                # q += models.Question.objects.filter(teaching_activity_year__block_year=bk, status=models.ApprovalRecord.APPROVED_STATUS)
+                q += [record.question for record in records]
             random.seed()
             if b["question_number"] > len(q):
                 b["question_number"] = len(q)
@@ -685,15 +828,16 @@ class NewQuizAttempt(View):
         attempt.student = request.user.student
         if spec: attempt.quiz_specification = spec
         attempt.save()
+        open("saved.attempt", "w").close()
 
-        return HttpResponse(json.dumps({'status': 'attempt', 'attempt': attempt.slug, }), mimetype='application/json')
+        return HttpResponse(json.dumps({'status': 'attempt', 'attempt': attempt.slug, 'report_url': reverse('quiz-attempt-report', kwargs={'slug': attempt.slug}) }), mimetype='application/json')
 
 
 @class_view_decorator(login_required)
 class QuizQuestionSubmit(View):
     def post(self, request, *args, **kwargs):
         POST = request.POST
-        if settings.DEBUG: print "Got post %s" % POST
+        # if settings.DEBUG: print "Got post %s" % POST
         attempt = models.QuizAttempt.objects.get(slug=POST["quiz_attempt"])
         question = models.Question.objects.get(id=POST["id"])
         question_attempt = models.QuestionAttempt()
@@ -740,7 +884,8 @@ class Quiz(ListView):
         if hasattr(self, "quiz_specification"):
             context['specification'] = self.quiz_specification
         if hasattr(self, "number_of_questions"):
-            context['number_of_questions'] = self.number_of_questions
+            print "Setting number of questions as "
+            context['questions'] = range(self.number_of_questions)
         return context
 
 
@@ -825,7 +970,7 @@ class QuizReport(ListView):
         for d in by_block.values():
             d['number_correct'] = sum(1 for q in d['questions'] if q.choice == q.answer)
         list_by_block = [[k,v] for k,v in by_block.iteritems()]
-        list_by_block.sort(key=lambda x: (x[0].stage, x[0].number))
+        list_by_block.sort(key=lambda x: (x[0].stage, x[0].code))
         c['confidence_range'] = models.QuestionAttempt.CONFIDENCE_CHOICES
         c.update({'by_block': list_by_block})
         return c
@@ -833,7 +978,13 @@ class QuizReport(ListView):
 @class_view_decorator(login_required)
 class QuizIndividualSummary(DetailView):
     model = models.QuizAttempt
-    template_name = "quiz_summary.html"
+    template_name = "quiz_individual.html"
+
+    def get_context_data(self, **kwargs):
+        c = super(QuizIndividualSummary, self).get_context_data(**kwargs)
+        c['summary_mode'] = True
+        c['questions'] = c['object'].complete_questions_in_order()
+        return c
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -895,10 +1046,14 @@ class ChangeStatus(RedirectView):
         qs = "?"
         if 'show' in g:
             qs += 'show'
-            if 'approve' in g:
+            if 'approve' in g or 'assigned' in g:
                 qs += "&"
         if 'approve' in g:
             qs += "approve"
+            if 'assigned' in g:
+                qs += "&"
+        if 'assigned' in g:
+            qs += "assigned"
 
         return qs
 
@@ -919,25 +1074,125 @@ class ChangeStatus(RedirectView):
             messages.error(self.request, "Sorry, an unknown error occurred. Please try again.")
             return redirect('questions.views.home')
 
+        if action == "flag":
+            return "%s%s" % (reverse('question-flag', kwargs={'ta_id': q.teaching_activity_year.id, 'q_id': q_id}), self.query_string())
+
         if not getattr(q, actions_to_props[action]):
-            q.status = getattr(models.Question, '%s_STATUS' % actions_to_props[action].upper())
-            q.approver = self.request.user.student
-            q.save()
+            try:
+                # Look for existing approval record as someone may have been assigned.
+                record = q.latest_approval_record()
+            except models.ApprovalRecord.DoesNotExist:
+                # No approval records, so question was not assigned to anyone.
+                record = models.ApprovalRecord()
+
+            if record.date_completed:
+                # Question was assigned and completed, so we don't want to overwrite the old record.
+                record = models.ApprovalRecord()
+
+            record.status = getattr(models.ApprovalRecord, '%s_STATUS' % actions_to_props[action].upper())
+            record.approver = self.request.user.student
+            record.question = q
+            record.save()
+
+            # Makes sure that date_completed is not earlier than date_assigned which is automatically saved with a new record.
+            record.date_completed = datetime.datetime.now()
+            record.save()
 
         r = "%s%%s"
         if 'approve' in self.request.GET:
-            r = r % reverse('admin-approve', kwargs={'number': q.teaching_activity_year.block_year.number, 'year': q.teaching_activity_year.block_year.year, 'q_id': q.id})
+            r = r % reverse('admin-approve', kwargs={'code': q.teaching_activity_year.block_year.code, 'year': q.teaching_activity_year.block_year.year, 'q_id': q.id})
         else:
             r = r % reverse('view', kwargs={'pk': q_id, 'ta_id': q.teaching_activity_year.id})
         r = r % self.query_string()
+        print "Going back with query_string %s" % self.query_string() 
         return r
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
-class ReleaseBlockView(RedirectView):
-    def get_redirect_url(self, number, year):
+class FlagQuestion(FormView, QueryStringMixin):
+    form_class = forms.ReasonForFlaggingForm
+    template_name = "approval/flag.html"
+
+    def dispatch(self, request, *args, **kwargs):
         try:
-            block =  models.TeachingBlockYear.objects.get(year=year, block__number=number)
+            self.question = models.Question.objects.get(id=self.kwargs['q_id'])
+        except models.Question.DoesNotExist:
+            messages.error(request, "That question does not exist.")
+            return redirect('home')
+
+        return super(FlagQuestion, self).dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super(FlagQuestion, self).get_form_kwargs()
+        kwargs.update({'initial': {'question': self.question, 'creator': self.request.user.student, 'reason_type': models.Reason.TYPE_FLAG}})
+        return kwargs
+
+    def form_valid(self, form):
+        q = self.question
+        try:
+            # If there is an incomplete record, it should be edited with the current info.
+            record = q.latest_approval_record()
+        except models.ApprovalRecord.DoesNotExist:
+            # There are no records at all.
+            record = models.ApprovalRecord()
+
+        if record.date_completed:
+            # The last record is complete. So we need a new one.
+            record = models.ApprovalRecord()
+
+        record.status = models.ApprovalRecord.FLAGGED_STATUS
+        record.question = q
+        record.approver = self.request.user.student
+        record.reason = form.cleaned_data['reason']
+        record.save()
+
+        # Ensures that date_completed is later than date_assigned, which is automatically added when saved the first time.
+        record.date_completed = datetime.datetime.now()
+        record.save()
+
+        r = "%s%%s"
+        if 'approve' in self.request.GET:
+            r = r % reverse('admin-approve', kwargs={'code': q.teaching_activity_year.block_year.code, 'year': q.teaching_activity_year.block_year.year, 'q_id': q.id})
+        else:
+            r = r % reverse('view', kwargs={'pk': q.id, 'ta_id': q.teaching_activity_year.id})
+        r = r % self.query_string()
+
+        return redirect(r)
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class QuestionAttributes(QueryStringMixin, FormView):
+    form_class = forms.QuestionAttributesForm
+    template_name = "question/attributes.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.question = models.Question.objects.get(id=self.kwargs['q_id'])
+        except models.Question.DoesNotExist:
+            messages.error(request, "That question does not exist.")
+            return redirect('home')
+
+        return super(QuestionAttributes, self).dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super(QuestionAttributes, self).get_form_kwargs()
+        kwargs.update({'instance': self.question})
+        return kwargs
+
+    def form_valid(self, form):
+        form.save()
+        return super(QuestionAttributes, self).form_valid(form)
+
+    def get_success_url(self):
+        return "%s%s" % (reverse('view', kwargs={'pk': self.question.id, 'ta_id': self.question.teaching_activity_year.id}), self.query_string())
+
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class ReleaseBlockView(RedirectView):
+    def get_redirect_url(self, code, year):
+        try:
+            block =  models.TeachingBlockYear.objects.get(year=year, block__code=code)
         except models.TeachingBlockYear.DoesNotExist:
             messages.error(self.request, "That block does not exist.")
         else:
@@ -954,9 +1209,9 @@ class ReleaseBlockView(RedirectView):
 
 
 @login_required
-def download(request, number, year, mode):
+def download(request, code, year, mode):
     try:
-        tb = models.TeachingBlockYear.objects.get(year=year, block__number=number)
+        tb = models.TeachingBlockYear.objects.get(year=year, block__code=code)
     except models.TeachingBlockYear.DoesNotExist:
         messages.error(request, 'That block does not exist.')
         return redirect('admin')
@@ -990,7 +1245,7 @@ class EmailView(FormView):
 
     def dispatch(self, request, *args, **kwargs):
         try:
-            self.tb = models.TeachingBlockYear.objects.get(block__number=self.kwargs['number'], year=self.kwargs['year'])
+            self.tb = models.TeachingBlockYear.objects.get(block__code=self.kwargs['code'], year=self.kwargs['year'])
         except models.TeachingBlockYear.DoesNotExist:
             messages.error(request, "That teaching block does not exist.")
             return redirect("admin")
@@ -1016,8 +1271,8 @@ class EmailView(FormView):
         i.update({ 'block': self.tb, 'from_address': settings.EMAIL_FROM_ADDRESS, })
         if 'document' in self.request.GET:
             i.update({'email' : '<p><a href="%s">Click here</a> to access the questions document.</p>\n<p><a href="%s">Click here</a> to access the document with answers.</p>' % (
-                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'year': self.tb.year, 'number': self.tb.number, 'mode': 'question'})),
-                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'year': self.tb.year, 'number': self.tb.number, 'mode': 'answer'})),
+                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'year': self.tb.year, 'code': self.tb.code, 'mode': 'question'})),
+                self.request.build_absolute_uri(reverse('questions.views.download', kwargs={'year': self.tb.year, 'code': self.tb.code, 'mode': 'answer'})),
             )})
         return i
 
@@ -1057,11 +1312,198 @@ def copy_block(block):
     b.name = block.name
     b.year = block.year
     b.stage = block.stage
-    b.number = block.number
+    b.code = block.code
     b.start = block.start
     b.end = block.end
 
     return b
+
+
+class UploadView(FormView):
+    form_class = forms.TeachingActivityBulkUploadForm
+
+    def dispatch(self, request, *args, **kwargs):
+        if not models.TeachingBlock.objects.count():
+            messages.error(request, "You can't upload teaching activities without first having created a teaching block.")
+            return redirect('admin')
+
+        return super(UploadView, self).dispatch(request, *args, **kwargs)
+
+    def process_form(self, form):
+        y = form.cleaned_data['year']
+        r = list(csv.reader(form.cleaned_data['ta_file'].read().splitlines()))
+        h = [hh.lower().replace(" ", "_") for hh in r[0]]
+        by_position = {}
+        by_name = {}
+        by_block = {}
+        already_exist = []
+        blocks = list(set(dict(zip(h, row))['block'] for row in r[1:]))
+        errors = []
+        existing_blocks = models.TeachingBlock.objects.filter(code__in=blocks)
+        existing_block_years_by_block = {} # Years by block.
+        for b in existing_blocks:
+            by_year = existing_block_years_by_block.setdefault(b.code, {})
+            for by in b.years.all():
+                by_year[by.year] = by
+
+        for block_number in blocks:
+            if not block_number: continue
+            block_number = block_number
+            if block_number in existing_block_years_by_block:
+                if y in existing_block_years_by_block[block_number]:
+                    block_year = existing_block_years_by_block[block_number][y]
+                else:
+                    errors.append("Block %s does not yet exist in %s" % (block_number, y))
+                    continue
+                by_block[existing_block_years_by_block[block_number][y]] = []
+            else:
+                errors.append("Block %s was not found" % block_number)
+        if errors:
+            self.request.session['block_errors'] = errors
+            return
+        
+        for row in r[1:]:
+            hr = dict(zip(h, row))
+            try:
+                hr['activity_type'] = self.get_accepted_types()[hr['teaching_activity_type']]
+                # hr['block'] = existing_block_years_by_block[int(hr["block"])][y]
+            except KeyError:
+                errors.append(hr)
+                continue
+
+            activity_form = forms.TeachingActivityValidationForm(hr)
+            if activity_form.is_valid():
+                activity = activity_form.save(commit=False)
+                activity_year_form = forms.TeachingActivityYearValidationForm(hr)
+                if activity_year_form.is_valid():
+                    activity_year = activity_year_form.save(commit=False)
+                    activity_year.teaching_activity = activity
+                    l = by_position.setdefault((activity_year.week, activity_year.position, activity.activity_type), [])
+                    l.append(activity_year)
+                    l = by_name.setdefault(activity.name.lower(), [])
+                    l.append(activity_year)
+                    by_block[existing_block_years_by_block[hr['block']][y]].append(activity_year)
+                else:
+                    errors.append(hr)
+            else:
+                if str(f.errors).find("exists"):
+                    already_exist.append(hr)
+                else:
+                    errors.append(hr)
+        if errors or already_exist:
+            self.request.session['errors'] = errors
+            self.request.session['already_exist'] = already_exist
+            return
+        else:
+            dup_by_position = [v for k, v in by_position.iteritems() if len(v) > 1]
+            dup_by_name = [v for k, v in by_name.iteritems() if len(v) > 1]
+            if dup_by_position or dup_by_name:
+                self.request.session["dup_by_position"] = [v for k, v in by_position.iteritems() if len(v) > 1]
+                self.request.session["dup_by_name"] = [v for k, v in by_name.iteritems() if len(v) > 1]
+                return
+            else:
+                for bb in by_block:
+                    by_block[bb].sort(key=lambda ta: (ta.week, ta.position))
+                self.request.session["by_block"] = by_block
+                self.request.session["blocks"] = existing_block_years_by_block.keys()
+                self.request.session["year"] = y
+                self.request.session["accepted_types"] = self.get_accepted_types().keys()
+                return
+
+    def form_valid(self, form):
+        self.process_form(form)
+        return super(UploadView, self).form_valid(form)
+
+    def get_success_url(self):
+        error_attributes = ['block_errors', 'errors', 'already_exist', 'dup_by_position', 'dup_by_name']
+        if any(att in self.request.session for att in error_attributes):
+            return reverse('activity-upload-error')
+        return reverse('activity-upload-confirm')
+
+    def get_template_names(self):
+        return "admin/upload.html"
+
+    def get_accepted_types(self):
+        if not hasattr(self, "accepted_types"):
+            self.accepted_types = collections.defaultdict(None)
+            for k, v in models.TeachingActivity.TYPE_CHOICES:
+                self.accepted_types[v] = k
+
+        return self.accepted_types
+            
+
+    def get_context_data(self, **kwargs):
+        c = super(UploadView, self).get_context_data(**kwargs)
+        c['accepted_types'] = self.get_accepted_types().keys()
+        return c
+
+
+class UploadConfirmationView(TemplateView):
+    template_name = "admin/confirm_upload.html"
+
+    def set_extra_context(self, session):
+        self.extra_context = {}
+        self.extra_context['tab'] = session.pop("by_block")
+        self.extra_context['blocks'] = session.pop("blocks")
+        self.extra_context['year'] = session.pop("year")
+        self.extra_context['accepted_types'] = session.pop("accepted_types")
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.set_extra_context(request.session)
+        except:
+            return redirect('activity-upload')
+        return super(UploadConfirmationView, self).dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        c = super(UploadConfirmationView, self).get_context_data(**kwargs)
+        c.update(self.extra_context)
+        return c
+
+
+class UploadSubmissionView(View):
+    def post(self, request, *args, **kwargs):
+        y = request.POST.get('year')
+        i = request.POST.getlist('reference_id')
+        r = request.POST.copy()
+        # blocks = dict((b.number, b) for b in models.TeachingBlock.objects.filter(year=y))
+        block_years = dict((b.code, b) for b in models.TeachingBlockYear.objects.filter(year=y))
+        for ii in i:
+            data = {
+                'reference_id': ii,
+                'name': request.POST.get('name_%s' % ii),
+                'block_year': block_years[request.POST.get('block_%s' % ii)].id,
+                'week': request.POST.get('week_%s' % ii),
+                'position': request.POST.get('position_%s' % ii),
+                'activity_type': request.POST.get('activity_type_%s' % ii),
+            }
+            activity_form = forms.NewTeachingActivityForm(data)
+            if activity_form.is_valid():
+                activity = activity_form.save(commit=False)
+                activity_year_form = forms.NewTeachingActivityYearForm(data)
+                if activity_year_form.is_valid():
+                    activity_year = activity_year_form.save(commit=False)
+                    activity.save()
+                    activity_year.teaching_activity = activity
+                    activity_year.save()
+            else:
+                return redirect('activity-upload')
+        return redirect('admin')
+
+
+class UploadErrorView(TemplateView):
+    template_name = "admin/upload_error.html"
+
+    def get_context_data(self, **kwargs):
+        c = super(UploadErrorView, self).get_context_data(**kwargs)
+        c["block_errors"] = self.request.session.pop("block_errors", None)
+        c["errors"] = self.request.session.pop("errors", None)
+        c["already_exist"] = self.request.session.pop("already_exist", None)
+        c["dup_by_position"] = self.request.session.pop("dup_by_position", None)
+        c["dup_by_name"] = self.request.session.pop("dup_by_name", None)
+        c["duplicates"] = bool(c["dup_by_position"] or c["dup_by_name"])
+
+        return c
 
 
 @login_required
@@ -1071,13 +1513,14 @@ def new_ta_upload(request):
         messages.error(request, "You can't upload teaching activities without first having created a teaching block.")
         return redirect('admin')
     for k, v in models.TeachingActivity.TYPE_CHOICES:
+        print "%s\t%s" % (k,v)
         accepted_types[v] = k
     if request.method == "POST":
         if 'id' in request.POST:
             y = request.POST.get('year')
             i = request.POST.getlist('id')
             r = request.POST.copy()
-            blocks = dict((b.number, b) for b in models.TeachingBlock.objects.filter(year=y))
+            blocks = dict((b.code, b) for b in models.TeachingBlock.objects.filter(year=y))
             new_blocks = request.POST.getlist('new_block')
             for bb in new_blocks:
                 data = {
@@ -1091,7 +1534,7 @@ def new_ta_upload(request):
                 f = forms.NewTeachingBlockForm(data)
                 if f.is_valid():
                     bb = f.save()
-                    blocks[bb.number] = bb
+                    blocks[bb.code] = bb
                 else:
                     raise
             for ii in i:
@@ -1122,10 +1565,10 @@ def new_ta_upload(request):
                 blocks = list(set(dict(zip(h, row))['block'] for row in r[1:]))
                 errors = []
                 new_blocks = []
-                existing_blocks = models.TeachingBlock.objects.filter(number__in=blocks)
+                existing_blocks = models.TeachingBlock.objects.filter(code_in=blocks)
                 b = {}
                 for bb in existing_blocks:
-                    d = b.setdefault(bb.number, {})
+                    d = b.setdefault(bb.code, {})
                     d[bb.year] = bb
                 for bb in blocks:
                     try:
@@ -1140,13 +1583,13 @@ def new_ta_upload(request):
                             bb.year = y
                             bb.start.year = y
                             bb.end.year = y
-                            b[bb.number][y] = bb
+                            b[bb.code][y] = bb
                             new_blocks.append(bb)
                         by_block[bb] = []
                     else:
                         errors.append("Block %s was not found" % bb)
                 if errors:
-                    return render_to_response("upload.html", {
+                    return render_to_response("admin/upload.html", {
                         'block_errors': errors
                     }, context_instance=RequestContext(request))
                 for row in r[1:]:
@@ -1167,7 +1610,7 @@ def new_ta_upload(request):
                             errors.append(hr)
                 if errors or already_exist:
                     return render_to_response(
-                        "upload.html",
+                        "admin/upload.html",
                         {'errors': errors, 'already_exist': already_exist},
                         context_instance=RequestContext(request)
                     )
@@ -1176,7 +1619,7 @@ def new_ta_upload(request):
                     dup_by_name = [v for k, v in by_name.iteritems() if len(v) > 1]
                     if dup_by_position or dup_by_name:
                         return render_to_response(
-                            "upload.html",
+                            "admin/upload.html",
                             {
                                 'duplicates': True,
                                 'dup_by_position': dup_by_position,
@@ -1188,7 +1631,7 @@ def new_ta_upload(request):
                         for bb in by_block:
                             by_block[bb].sort(key=lambda ta: (ta.week, ta.position))
                         return render_to_response(
-                            "upload.html",
+                            "admin/upload.html",
                             {
                                 'tab': by_block,
                                 'blocks': b.keys(),
@@ -1201,7 +1644,7 @@ def new_ta_upload(request):
     else:
         form = forms.TeachingActivityBulkUploadForm()
     return render_to_response(
-        "upload.html",
+        "admin/upload.html",
         {
             'form': form,
             'accepted_types': accepted_types.keys(),
