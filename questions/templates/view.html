@@ -5,6 +5,9 @@
     <a class="action" href="{% url 'view' ta_id=question.teaching_activity_year.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode or not show and flagged_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}{% if approval_mode and flagged_mode %}&{% endif %}{% if flagged_mode%}flagged{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
     <a class="action" href="{% url 'edit' ta_id=question.teaching_activity_year.id pk=question.id %}{% include 'querystring.html' %}">Edit question</a>
     {% endif %}
+    {% if perms.questions.can_approve %}
+        <a class="action" href="{% url 'question-approval-history' ta_id=question.teaching_activity_year.id pk=question.id %}">View approval history</a>
+    {% endif %}
     {% if not approval_mode %}<a class="action" href="{% url 'ta' pk=question.teaching_activity_year.id %}">Back to activity</a>{% endif %}
     <a class="action" href="{% url 'quiz-spec-add' ta_id=question.teaching_activity_year.id pk=question.id %}">Add to specification</a>
     {% if question.teaching_activity_year.current_block.released %}<a class="action" href="{% url 'comment-new' pk=question.id ta_id=question.teaching_activity_year.id %}">Add a comment</a>{% endif %}
@@ -20,18 +23,27 @@
             <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='delete' %}{% include 'querystring.html' %}">Delete question</a>        
         {% endif %}
         {% if approval_mode %}
-            <a class="action" href="{% url 'admin-approve' number=question.teaching_activity_year.current_block.number year=question.teaching_activity_year.current_block.year q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
+            <a class="action" href="{% url 'admin-approve' code=question.teaching_activity_year.current_block.code year=question.teaching_activity_year.current_block.year q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
         {% endif %}
         {% if not question.flagged %}
             <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='flag' %}{% include 'querystring.html' %}">Flag for review</a>
         {% endif %}
+        <a class="action" href="{% url 'question-attributes' ta_id=question.teaching_activity_year.id q_id=question.id %}{% include 'querystring.html' %}">Edit attributes</a>
     {% endif %}
 {% endblock actions %}
 
 {% block maincontent %}
-    <h1>{{ question.teaching_activity_year.current_block.number }}.{{ question.teaching_activity_year.week|stringformat:"02d" }}: {{ question.teaching_activity_year.name }}</h1>
+    <h1>{{ question.teaching_activity_year.current_block.code }}.{{ question.teaching_activity_year.week|stringformat:"02d" }}: {{ question.teaching_activity_year.name }}</h1>
     <p class="lead">Block: {{ question.teaching_activity_year.current_block }}</p>
-    <h2 class="thin spacer">Question <small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if not perms.questions.can_approve and question.flagged %}Pending{% else %}{{ question.get_status_display }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.approver }}{% endif %}</small></h2>
+    {% if perms.questions.can_approve %}
+        {% if question.suitable_for_faculty or question.suitable_for_quiz %}
+            <p><strong>This question is suitable {% if question.suitable_for_faculty %}for submission to the faculty{% endif %}{% if question.suitable_for_faculty and question.suitable_for_quiz %} and {% endif %}{% if question.suitable_for_quiz %} for inclusion in the model quiz for this block{% endif %}.</strong></p>
+        {% endif %}
+        {% if question.requires_special_formatting %}
+            <p><strong>This question has been marked as requiring special formatting.</strong></p>
+        {% endif %}
+    {% endif %}
+    <h2 class="thin spacer">Question <small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if question.flagged and not perms.questions.can_approve %}Pending{% else %}{{ question.latest_approval_record.get_status_display|default:"Pending" }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.latest_approver }}{% endif %}</small></h2>
     {% if perms.questions.can_approve %}<h4>Written by {{ question.creator }}</h4>{% endif %}
     <div style="font-weight:200;font-size:21px;">{{ question.body|linebreaks }}</div>
     <ol class="alpha">
@@ -40,16 +52,35 @@
         {% endfor %}
     </ol>
     {% if show %}
-    <p class="spacer">Answer: {{ question.answer }}</p>
-    {{ question.explanation|linebreaks }}
+    <p class="spacer">Answer: {% if question.answer %}{{ question.answer }}{% else %}{{ question.correct_answer}}{% endif %}</p>
+    {% if question.explanation_dict %}
+        <ol class="alpha">
+        {% for option, answer in question.explanation_dict.iteritems %}
+            <li {% if not answer %}class="loading"{% endif %}>{{ answer|default:"Explanation was not provided."}}</li>
+        {% endfor %}
+        </ol>
+    {% else %}{{ question.explanation|linebreaks }}{% endif %}
 
     {% endif %}
+    <br><br>
     {% if perms.questions.can_approve %}
+        {% for record in question.approval_records.all %}
+            {% if forloop.first %}
+                <dl>
+            {% endif %}
+            {% if record.reason %}
+                <dt>Flagged by {{ record.approver }} on {{ record.date_completed }}</dt>
+                <dd>{{ record.reason }}</dd>
+            {% endif %}
+            {% if forloop.last %}
+                </dl>
+            {% endif %}
+        {% endfor %}
         {% for r in question.reasons_edited.all %}
             {% if forloop.first %}
                 <dl>
             {% endif %}
-                <dt>Edited by {{ r.creator }} on {{ r.date_created }}</dt>
+                <dt>{% if r.for_editing %}Edited{% elif r.for_flagging %}Flagged{% endif %} by {{ r.creator }} on {{ r.date_created }}</dt>
                 <dd>{{ r.body|linebreaksbr }}</dd>
             {% if forloop.last %}
                 </dl>
@@ -72,7 +103,7 @@
                     <div class="activity comment">
                         <h4>Reply by {{ r.creator }} on {{ r.date_created }}</h4>
                         {{ r.body|linebreaks }}
-                    </div>   
+                    </div>
                 {% endfor %}
             </div>
         </div>
