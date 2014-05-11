@@ -9,7 +9,7 @@
 	{% for stage in by_stage %}
 		<h2>{{ stage.grouper }}</h2>
 		{% for spec in stage.list %}
-			<h3>{{ spec.name }} <small><a target="_blank" href="{% url 'quiz-spec' slug=spec.slug %}">Choose</a></small></h3>
+			<h3>{{ spec.name }} <small><a href="{% url 'quiz-spec' slug=spec.slug %}">Choose</a></small></h3>
 			{% if spec.description %}
 				<p>{{ spec.description }}</p>
 			{% endif %}
