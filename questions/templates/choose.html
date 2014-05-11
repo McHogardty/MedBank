@@ -11,10 +11,7 @@
             {% if b.has_started %}
             {% if user.student.get_current_stage == b.stage or b.released or perms.questions.can_approve %}
                 <div class="week">
-                    <input type="hidden" value="{{ user.student.get_current_stage }}">
-                    <input type="hidden" value="{{ b.stage }}">
-                    <input type="hidden" value="{{ b.released }}">
-                    <div class="week-heading"{% if b.can_access or perms.questions.can_approve %} onclick="location.href='{% url 'activity-list' year=b.year number=b.number %}'"{% endif %}>
+                    <div class="week-heading"{% if b.can_access or perms.questions.can_approve %} onclick="location.href='{% url 'activity-list' year=b.year code=b.code %}'"{% endif %}>
                         <h3 class="thin{% if not b.can_access and not perms.questions.can_approve %} cross-out{% endif %}">{{ b.name }}</h3>
                         <h3 class="thin pull-right hidden-xs{% if b.can_access or perms.questions.can_approve %} text-success{% endif %}">{% if b.can_access %}Open{% if b.released %} for viewing{% endif %}{% else %}{% if perms.questions.can_approve %}Open for approvals{% else %}{% if b.has_ended %}Not currently available{% else %}Not available yet{% endif %}{% endif %}{% endif %}</h3>
                     </div>
