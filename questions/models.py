@@ -96,15 +96,13 @@ class Student(models.Model):
         return self.user.username
 
 
-    def add_stage(self, stage):
+    def add_stage(self, stage, year=datetime.datetime.now().year):
         try:
             y = Year.objects.get(student=self, year__exact=datetime.datetime.now().year)
-            print "Stage retrieved"
         except Year.DoesNotExist:
             y = Year()
             y.student = self
-            y.year = datetime.datetime.now().year
-            print "Stage created"
+            y.year = year
         y.stage = stage
 
         y.save()
@@ -153,7 +151,7 @@ def user_created(sender, **kwargs):
 class TeachingBlock(models.Model):
     name = models.CharField(max_length=50)
     stage = models.ForeignKey(Stage)
-    number = models.IntegerField(verbose_name=u'Block number')
+    code = models.CharField(max_length=10)
 
     def __unicode__(self):
         return self.name
@@ -211,9 +209,13 @@ class TeachingBlockYear(models.Model):
         return self.block.stage
     stage = property(stage)
 
-    def number(self):
-        return self.block.number
-    number = property(number)
+    # def number(self):
+    #     return self.block.number
+    # number = property(number)
+
+    def code(self):
+        return self.block.code
+    code = property(code)
 
     def assigned_activities_count(self):
         return self.activities.exclude(question_writers=None).count()
@@ -257,16 +259,50 @@ class TeachingBlockYear(models.Model):
     can_sign_up = property(can_sign_up)
 
     def questions_need_approval(self):
-        return bool(self.activities.filter(questions__status=Question.PENDING_STATUS).count())
+        return bool(self.questions_pending_count())
 
     def questions_approved_count(self):
-        return Question.objects.filter(teaching_activity_year__block_year=self, status=Question.APPROVED_STATUS).count()
+        # This is a complex query to count the number of questions which have been approved.
+        # We do this by constructing a set of (ApprovalRecord, Question) pairs and counting those.
+        # Get the latest approval date for each of the questions records and select it in the query.
+        # Filter the approval records by those whose completion date equals the max date.
+        # This means that for each question, we should only select the approval record with the
+        # latest completion date, so we only select each question once.
+        # Then, only select records which have the status approved and whose question is in this block year.
+        # It does not matter that this ignores questions without approval records or completion dates because they can't possibly have been approved.
+        return ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
+            .annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .filter(status=ApprovalRecord.APPROVED_STATUS) \
+            .count()
 
     def questions_pending_count(self):
-        return Question.objects.filter(teaching_activity_year__block_year=self, status=Question.PENDING_STATUS).count()
+        # See self.questions_approved_count() for an explanation of how this query works.
+        # Note that a question is also pending if it has no approval records whatsoever, so we
+        # have to include them too. This is the case aswell if the latest record has no completion date.
+        pending_with_records = ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
+            .annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .filter(status=ApprovalRecord.PENDING_STATUS) \
+            .count()
+
+        # If a question has a record which has no completion date, this must always be the latest record. So it doesn't matter if there is an approval history.
+        pending_without_records= Question.objects.filter(teaching_activity_year__block_year=self) \
+            .filter(models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True)) \
+            .count()
+
+        return pending_with_records + pending_without_records
 
     def questions_flagged_count(self):
-        return Question.objects.filter(teaching_activity_year__block_year=self, status=Question.FLAGGED_STATUS).count()
+        # See self.questions_approved_count() for the explanation of how this query works.
+        return ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
+            .annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .filter(status=ApprovalRecord.FLAGGED_STATUS) \
+            .count()
 
     def question_count_for_student(self, s):
         return Question.objects.filter(teaching_activity_year__block_year=self, creator=s).count()
@@ -283,7 +319,7 @@ class TeachingActivity(models.Model):
         (PBL_TYPE, 'PBL'),
         (PRACTICAL_TYPE, 'Practical'),
         (SEMINAR_TYPE, 'Seminar'),
-        (WEEK_TYPE, ''),
+        (WEEK_TYPE, 'Week'),
     )
     name = models.CharField(max_length=100)
     activity_type = models.IntegerField(choices=TYPE_CHOICES)
@@ -300,12 +336,12 @@ class TeachingActivityYear(models.Model):
     block_year = models.ForeignKey(TeachingBlockYear, related_name='activities')
     question_writers = models.ManyToManyField(Student, blank=True, null=True, related_name='assigned_activities')
 
-    def __unicode__(self):
-        return self.name
-
     def name(self):
         return self.teaching_activity.name
     name = property(name)
+
+    def __unicode__(self):
+        return self.name
 
     def activity_type(self):
         return self.teaching_activity.activity_type
@@ -330,11 +366,39 @@ class TeachingActivityYear(models.Model):
     def has_questions(self):
         return bool(self.questions.count())
 
+    def has_assigned_approver(self):
+        # Get all of the questions with a status of pending and check whether they have assigned approvers.
+        # First, get all of the questions with no approval record. They won't have an approver.
+        if self.questions.filter(approval_records__isnull=True).count():
+            return False
+
+
+        # Like TeachingBlockYear.questions_pending_count(), find all the questions whose latest approval
+        # record is status pending and was completed.
+        if ApprovalRecord.objects.filter(question__teaching_activity_year=self) \
+            .annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .filter(status=ApprovalRecord.PENDING_STATUS) \
+            .filter(date_completed__isnull=False) \
+            .count():
+            return False
+
+        return True
+
     def questions_left_for(self, user):
         # Max number of questions to write.
         m = settings.QUESTIONS_PER_USER
         # Current question count.
-        c = self.questions.filter(creator=user.student).exclude(status=Question.DELETED_STATUS).count()
+        c = ApprovalRecord.objects.filter(question__creator=user.student) \
+            .annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .exclude(status=ApprovalRecord.DELETED_STATUS) \
+            .count()
+        c += self.questions.filter(creator=user.student).filter(
+            models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True)
+            ).count()
         # User is a question writer?
         u = self.question_writers.filter(id=user.student.id).count()
         r = 0
@@ -345,12 +409,45 @@ class TeachingActivityYear(models.Model):
         return r
 
     def questions_for(self, user):
-        r = self.questions.exclude(status=Question.DELETED_STATUS)
-        if not user.has_perm('questions.can.approve'):
-            r = r.filter(
-                models.Q(creator=user.student) | models.Q(status=Question.APPROVED_STATUS)
+        questions = []
+
+        # See TeachingBlockYear.questions_approved_count() for the logic of this query.
+        # Only consider questions from this teaching activity.
+        # Nobody can view questions which have been deleted.
+        records = ApprovalRecord.objects.filter(question__teaching_activity_year=self) \
+            .annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .exclude(status=ApprovalRecord.DELETED_STATUS)
+
+        if not user.has_perm('questions.can_approve'):
+            # The user is not an approver so they are only allowed to view questions they wrote, or
+            # questions which have been approved.
+            records = records.filter(
+                models.Q(question__creator=user.student) | models.Q(status=ApprovalRecord.APPROVED_STATUS)
             )
-        return r
+
+        questions = [record.question for record in records]
+
+        # The above query only misses questions without completion dates, and questions without records.
+        # We only need to consider questions without records, and only if the user is an approver.
+        # If their latest approval record doesn't have a completion date, we would like to consider
+        # the previous record as this gives the current status of the question, so we don't need to
+        # include the records without a completion date.
+        questions_without_records = self.questions.filter(models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True))
+        if not user.has_perm('questions.can_approve'):
+            questions_without_records = questions_without_records.filter(creator=user.student)
+
+        for question in questions_without_records:
+            questions.append(question)
+        questions = list(set(questions))
+
+        # if not user.has_perm('questions.can_approve'):
+        #     # Students should only be able to see their own questions, and questions which have been approved.
+        #     r = r.filter(
+        #         models.Q(creator=user.student) | models.Q(status=ApprovalRecord.APPROVED_STATUS)
+        #     )
+        return questions
 
     def can_sign_up(self):
         return self.current_block().can_sign_up
@@ -362,12 +459,15 @@ class Question(models.Model):
     PENDING_STATUS = 1
     DELETED_STATUS = 2
     FLAGGED_STATUS = 3
+    EDITING_STATUS = 4
     STATUS_CHOICES = (
         (APPROVED_STATUS, 'Approved'),
         (PENDING_STATUS, 'Pending'),
         (DELETED_STATUS, 'Deleted'),
-        (FLAGGED_STATUS, 'Flagged')
+        (FLAGGED_STATUS, 'Flagged'),
+        (EDITING_STATUS, 'Editing'),
     )
+
     body = models.TextField()
     options = models.TextField(blank=True)
     answer = models.CharField(max_length=1)
@@ -377,6 +477,9 @@ class Question(models.Model):
     approver = models.ForeignKey(Student, null=True, blank=True, related_name="questions_approved")
     teaching_activity_year = models.ForeignKey(TeachingActivityYear, related_name="questions")
     status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS)
+    suitable_for_faculty = models.BooleanField()
+    suitable_for_quiz = models.BooleanField()
+    requires_special_formatting = models.BooleanField()
 
     class Meta:
         permissions = (
@@ -392,9 +495,57 @@ class Question(models.Model):
 
             self.add_model_status_property_method(k)
 
+        self.sorted_options = None
+
+        if '"answer":' in self.options:
+            self.sorted_options = SortedDict()
+            self.answer_letter = ""
+            decoded_options = json.loads(self.options)
+            flattened_options = [decoded_options["answer"], ] + decoded_options["distractor"]
+            random.shuffle(flattened_options)
+            for letter, option in zip(string.uppercase[:5], flattened_options):
+                self.sorted_options[letter] = option
+                if option == decoded_options["answer"]:
+                    self.answer_letter = letter
+
+        self.approval_status = -1
+        if not self.approval_records.count():
+            self.approval_status = ApprovalRecord.PENDING_STATUS
+        elif self.approval_records.filter(date_completed__isnull=True).count():
+            self.approval_status = ApprovalRecord.PENDING_STATUS
+        else:
+            self.approval_status = self.approval_records.latest('date_completed').status
+
+
+    @classmethod
+    def questions_pending(cls):
+        # Returns a boolean indicating whether or not there are questions with status pending.
+        pending_with_records = ApprovalRecord.objects.annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .filter(status=ApprovalRecord.PENDING_STATUS) \
+            .count()
+
+        # If a question has a record which has no completion date, this must always be the latest record. So it doesn't matter if there is an approval history.
+        pending_without_records= Question.objects.filter(
+                models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True)
+            ).count()
+
+        return bool(pending_with_records + pending_without_records)
+
+    @classmethod
+    def questions_flagged(cls):
+        return bool(ApprovalRecord.objects.annotate(max=models.Max('question__approval_records__date_completed'))
+                .filter(max=models.F('date_completed')) \
+                .select_related('question') \
+                .filter(status=ApprovalRecord.FLAGGED_STATUS) \
+                .count()
+            )
+
+
     def add_model_status_property_method(self, k):
         def check_status_function(self):
-            return self.status == getattr(self, k)
+            return self.approval_status == getattr(ApprovalRecord, k)
 
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
@@ -413,18 +564,25 @@ class Question(models.Model):
         }
 
     def options_dict(self):
-        d = SortedDict()
-        e = json.loads(self.options)
-        f = e.keys()
-        f.sort()
-        for k in f:
-            d[k] = e[k]
+        if self.sorted_options:
+            return dict((letter, option["text"]) for letter, option in self.sorted_options.items())
+        else:
+            d = SortedDict()
+            e = json.loads(self.options)
+            f = e.keys()
+            f.sort()
+            for k in f:
+                d[k] = e[k]
         return d
 
     def options_list(self):
-        l = list(json.loads(self.options).iteritems())
-        l.sort(key=lambda x: x[0])
-        return [j for i, j in l]
+        if self.sorted_options:
+            print [option["text"] for option in self.sorted_options.values()]
+            return [option["text"] for option in self.sorted_options.values()]
+        else:
+            l = list(json.loads(self.options).iteritems())
+            l.sort(key=lambda x: x[0])
+            return [j for i, j in l]
 
     def options_tuple(self):
         j = json.loads(self.options)
@@ -433,8 +591,44 @@ class Question(models.Model):
     def option_value(self, option):
         return self.options_dict()[option]
 
+    def correct_answer(self):
+        return self.answer_letter
+
+    def explanation_dict(self):
+        if self.sorted_options:
+            explanation_dict = SortedDict()
+            for letter, option in self.sorted_options.items():
+                explanation_dict[letter] = option["explanation"]
+            return explanation_dict
+        else:
+            if "{" not in self.explanation:
+                return {}
+            explanation_dict = SortedDict()
+            explanation = json.loads(self.explanation)
+            keys = explanation.keys()
+            keys.sort()
+            for key in keys:
+                explanation_dict[key] = explanation[key]
+            return explanation_dict
+
+    def explanation_for_answer(self):
+        explanation = self.explanation_dict()
+        if explanation:
+            return explanation[self.answer]
+        else:
+            return self.explanation
+
     def user_is_creator(self, user):
         return user.has_perm('questions.can_approve') or user.student == self.creator
+
+    def latest_approver(self):
+        return self.latest_approval_record().approver
+
+    def latest_approval_record(self):
+        return self.approval_records.latest('date_assigned')
+
+    def all_approval_records_except_latest(self):
+        return self.approval_records.order_by('-date_assigned')[1:]
 
     def principal_comments(self):
         return self.comments.filter(reply_to__isnull=True)
@@ -499,6 +693,47 @@ class Question(models.Model):
         return difference/group_size
 
 
+class ApprovalRecord(models.Model):
+    APPROVED_STATUS = 0
+    PENDING_STATUS = 1
+    DELETED_STATUS = 2
+    FLAGGED_STATUS = 3
+    EDITING_STATUS = 4
+    STATUS_CHOICES = (
+        (APPROVED_STATUS, 'Approved'),
+        (PENDING_STATUS, 'Pending'),
+        (DELETED_STATUS, 'Deleted'),
+        (FLAGGED_STATUS, 'Flagged'),
+        (EDITING_STATUS, 'Editing'),
+    )
+
+    approver = models.ForeignKey(Student, related_name="approval_records")
+    question = models.ForeignKey(Question, related_name="approval_records")
+    date_assigned = models.DateTimeField(auto_now_add=True)
+    date_completed = models.DateTimeField(blank=True, null=True)
+    status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS, blank=True, null=True)
+    reason = models.TextField(blank=True, null=True)
+
+
+    def __init__(self, *args, **kwargs):
+        super(ApprovalRecord, self).__init__(*args, **kwargs)
+        # Adds properties to the model to check the status, e.g. self.approved, self.flagged
+        for k in self.__class__.__dict__.keys():
+            if not "_STATUS" in k or hasattr(self, k.split("_")[0].lower()):
+                continue
+
+            self.add_model_status_property_method(k)
+
+    def add_model_status_property_method(self, k):
+        def check_status_function(self):
+            if self.status is not None:
+                return self.status == getattr(self, k)
+            else:
+                return self.PENDING_STATUS == getattr(self, k)
+
+        setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
+
+
 class QuizSpecification(models.Model):
     name = models.CharField(max_length=100)
     stage = models.ForeignKey(Stage)
@@ -521,7 +756,7 @@ class QuizSpecification(models.Model):
         return questions_to_return
 
     def get_questions_in_order(self):
-        return self.get_questions().order_by('teaching_activity_year__block_year__block__stage', 'teaching_activity_year__block_year__block__number')
+        return self.get_questions().order_by('teaching_activity_year__block_year__block__stage', 'teaching_activity_year__block_year__block__code')
 
     def number_of_questions(self):
         return self.get_questions().count()
@@ -649,6 +884,22 @@ class QuizAttempt(models.Model):
     def score(self):
         return self.questions.filter(answer=models.F("question__answer")).count()
 
+    def complete(self):
+        return self.questions.count() == self.quiz_specification.number_of_questions()
+    complete = property(complete)
+
+    def complete_questions_in_order(self):
+        attempts = list(self.questions.all())
+        attempt_questions = list(a.question.id for a in attempts)
+        all_questions = list(self.quiz_specification.get_questions())
+        for question in all_questions:
+            if question.id not in attempt_questions:
+                question_attempt = QuestionAttempt()
+                question_attempt.quiz_attempt = self
+                question_attempt.question = question
+                attempts.append(question_attempt)
+        return attempts
+
     def percent_score(self):
         number_of_questions = self.quiz_specification.number_of_questions() if self.quiz_specification else self.questions.count()
 
@@ -720,7 +971,10 @@ class QuestionAttempt(models.Model):
 
     def get_average_confidence_rating_display(self):
         average = int(round(self.question.get_average_confidence_rating()))
-        return dict(self.THIRD_PERSON_CONFIDENCE_CHOICES)[average]
+        try:
+            return dict(self.THIRD_PERSON_CONFIDENCE_CHOICES)[average]
+        except:
+            return ""
 
     def get_confidence_rating_display_second_person(self):
         if not self.confidence_rating:
@@ -749,10 +1003,25 @@ class QuestionRating(models.Model):
 
 
 class Reason(models.Model):
+    TYPE_EDIT = 0
+    TYPE_FLAG = 1
+    
+    REASON_TYPES = (
+        (TYPE_EDIT, "Reason for editing"),
+        (TYPE_FLAG, "Reason for flagging"),
+    )
+    
     body = models.TextField()
     question = models.ForeignKey(Question, related_name="reasons_edited")
     creator = models.ForeignKey(Student, related_name="reasons")
     date_created = models.DateTimeField(auto_now_add=True)
+    reason_type = models.IntegerField(choices=REASON_TYPES)
+
+    def for_flagging(self):
+        return self.reason_type == self.TYPE_FLAG
+
+    def for_editing(self):
+        return self.reason_type == self.TYPE_EDIT
 
 
 class Comment(models.Model):
