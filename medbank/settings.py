@@ -7,14 +7,6 @@ import sys
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
-MAINTENANCE_MODE = False
-DEBUG = True
-#if os.environ.get('MEDBANK_PRODUCTION'):
-#    DEBUG = False
-#else:
-#    DEBUG = True
-TEMPLATE_DEBUG = DEBUG
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.',  # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
@@ -129,6 +121,8 @@ INSTALLED_APPS = (
     'medbank',
     'questions',
     'south',
+    # 'tastypie',
+    # 'debug_toolbar'
 )
 
 # A sample logging configuration. The only tangible logging
