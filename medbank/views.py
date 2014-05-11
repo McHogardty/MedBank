@@ -18,6 +18,7 @@ from django.utils.decorators import method_decorator
 import forms
 import queue
 from questions import tasks
+from questions import models
 
 
 def class_view_decorator(function_decorator):
@@ -77,7 +78,10 @@ def pick_stage(request):
             messages.success(request, "Your stage was saved successfully!")
             return redirect('dashboard')
     else:
-        form = form()
+        try:
+            form = form(initial={'stage': request.user.student.get_current_stage()})
+        except models.Stage.DoesNotExist:
+            form = form()
     return render_to_response("pick_stage.html", {'form': form}, context_instance=RequestContext(request))
 
 
