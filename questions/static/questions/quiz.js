@@ -11,6 +11,7 @@ var Questions = (function (questions_module, $) {
         home_url: "",
         individual_question_url: "",
         quiz_attempt_url: "",
+        report_url: "",
         report_results: false,
         question_element: "form",
         question_attribute: "data-question",
@@ -42,6 +43,7 @@ var Questions = (function (questions_module, $) {
         progress_button_selector: ".btn-progress",
         previous_button_selector: ".btn-previous",
         summary_button_selector: ".btn-summary",
+        finish_button_selector: ".btn-finish",
         home_button_selector: ".btn-home",
         main_screen_elements: [],
         summary_form_selector: ".summary-form",
@@ -53,7 +55,7 @@ var Questions = (function (questions_module, $) {
     });
 
     questions_module.QuestionTimer = function () {
-        var question_timer = new questions_module.Timer();
+        var question_timer = new questions_module.Timer({is_global: false});
         var attempted = false;
         question_timer.total = 0;
 
@@ -161,7 +163,6 @@ var Questions = (function (questions_module, $) {
         this.show = function () { nav_viewer.show(); };
         this.hide = function () { nav_viewer.hide(); };
         this.get_next_button = function () { return $(questions_module.globals.next_button_selector); };
-
         this.update_question_number = function () {
             n = parseInt($(questions_module.globals.active_question_selector).attr(questions_module.globals.question_attribute), 10) || "-";
             $(questions_module.globals.current_question_number_selector).each(function () { $(this).html(n); });
@@ -214,6 +215,7 @@ var Questions = (function (questions_module, $) {
         this.forward = function () { self.scroller.forward(); };
         this.back = function () { self.scroller.back(); };
         this.slide = function (slide_number) { self.scroller.slide(slide_number); };
+        this.last = function () { return self.scroller.last() }
         this.update_display();
         $(questions_module.globals.next_button_selector).on('click', self.forward);
     };
@@ -630,7 +632,7 @@ var Questions = (function (questions_module, $) {
         };
 
         scroller = new questions_module.QuizScroller(this.before_scroll, this.after_scroll);
-        timer = new questions_module.Timer(this.pause_callback);
+        timer = new questions_module.Timer({ callback: this.pause_callback});
 
         question_list = new questions_module.QuestionList({
             progress_button_callback: this.progress_button_callback,
@@ -682,6 +684,7 @@ var Questions = (function (questions_module, $) {
                     },
                     success: function (data) {
                         attempt = data.attempt;
+                        questions_module.globals.report_url = data.report_url;
                     }
                 });
             }
@@ -716,6 +719,7 @@ var Questions = (function (questions_module, $) {
             question_manager.mark_current_question();
             //timer.complete_pause();
             scroller.toggle_report_mode();
+            if (scroller.last()) $(questions_module.globals.finish_button_selector).prop("disabled", false);
         };
 
         scroller = new questions_module.QuizScroller({
@@ -735,7 +739,12 @@ var Questions = (function (questions_module, $) {
             $(questions_module.globals.nav_selector).toggle(!timer.paused());
         };
 
-        timer = new questions_module.Timer(this.pause_callback);
+        timer = new questions_module.Timer({ callback: this.pause_callback});
+
+        $(questions_module.globals.finish_button_selector).click(function () {
+            window.location.href = questions_module.globals.report_url;
+        })
+        .prop('disabled', true);
 
         this.handle_ajax_error = function () {
             question_manager.error();
@@ -767,7 +776,6 @@ var Questions = (function (questions_module, $) {
             to_fade_out: [questions_module.globals.nav_selector, ],
         });
         $(questions_module.globals.explanation_button_selector).click(function () {
-            // alert("Showing attribute " + )
             explanation.show($(this).parents(questions_module.globals.question_selector).attr(questions_module.globals.question_attribute));
         });
         $(questions_module.globals.close_button_selector).click(function () {
