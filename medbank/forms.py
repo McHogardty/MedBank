@@ -22,9 +22,10 @@ class BootstrapAuthenticationForm(bsforms.NewBootstrapForm, AuthenticationForm):
 
 class StudentCreationForm(bsforms.NewBootstrapModelForm, UserCreationForm):
     username = forms.RegexField(label=_("Unikey"), max_length=20,
-        regex=r'^([a-z]{4}\d{4})|[a-z]+$',
+        regex=r'^(([a-z]{4}\d{4})|([a-z]+))$',
         help_text=_("We'll use your Unikey to email the questions to you when they're ready."),
-        error_message=_("Your unikey should be either four lowercase letters followed by four digits, or all lowercase letters.")
+        error_message=_("Your unikey should be either four lowercase letters followed by four digits, or all lowercase letters."),
+        widget=bsforms.TextInputWithAddon(post_add_on="@uni.sydney.edu.au"),
     )
     stage = forms.ModelChoiceField(queryset=models.Stage.objects.all(), empty_label=None)
 
