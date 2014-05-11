@@ -25,7 +25,7 @@
 {% block maincontent %}
     {% questions_left user=user activity=object as remaining %}
     {% questions_list_by_year user=user activity=object as question_list %}
-    <h1>{% if object.current_block.by_activity %}{{ object.get_activity_type_display }} - {% endif %}{{ object.name }} ({{ object.current_block.number }}.{{ object.week|stringformat:"02d" }})</h1>
+    <h1>{% if object.current_block.by_activity %}{{ object.get_activity_type_display }} - {% endif %}{{ object.name }} ({{ object.current_block.code }}.{{ object.week|stringformat:"02d" }})</h1>
     <p>Block: {{ object.current_block }}</p>
     {% if not object.has_writers %}
         <p>Nobody has assigned themselves to write questions for this activity.</p>
@@ -34,13 +34,15 @@
     {% endif %}
     {% if user.student in object.question_writers.all %}
         {% if remaining %}
-            <p>You have {{ remaining }} question{{ remaining|pluralize }} left to write.</p>
+            <p>You ha{% if not object.current_block.has_closed %}ve{% else %}d{% endif %} {{ remaining }} question{{ remaining|pluralize }} left to write.
         {% else %}
-            <p>Thankyou! You've given us enough questions for this teaching activity, but there's no limit to how many you can submit.</p>
+            <p>Thankyou! You've given us enough questions for this teaching activity, but there's no limit to how many you can submit.
         {% endif %}
     {% endif %}
-    <p>Questions for this activity {% if object.current_block.has_closed %}were{% else %}are{% endif %} due by {{ object.current_block.close }}</p>
+    Questions for this activity {% if object.current_block.has_closed %}were{% else %}are{% endif %} due by {{ object.current_block.close }}.</p>
     <div class="spacer">
+    <input type="hidden" value="{{ can_view_questions }}" />
+    {% if can_view_questions %}
     {% for y, qq in question_list.iteritems %}
     <div class="week">
         <div class="week-heading collapse-trigger" data-target="#week-activities-{{ y }}">
@@ -54,7 +56,7 @@
                     <span class="body">{{ q.body }}</span>
                     <span class="actions pull-right text-right">
                         <span class="visible-desktop">
-                        <span class="text-{% if q.approved %}success{% elif q.pending %}warning{% elif q.flagged %}{% if perms.questions.can_approve %}info{% else %}warning{% endif %}{% endif %}">{% if q.flagged and not perms.questions.can_approve %}Pending{% else %}{{ q.get_status_display }}{% endif %}</span>
+                        <span class="text-{% if q.approved %}success{% elif q.pending %}warning{% elif q.flagged %}{% if perms.questions.can_approve %}info{% else %}warning{% endif %}{% endif %}">{% if q.flagged and not perms.questions.can_approve %}Pending{% else %}{{ q.latest_approval_record.get_status_display|default:"Pending" }}{% endif %}</span>
                         <a class="action view" href="{% url 'view' pk=q.id ta_id=object.id %}{% if perms.questions.can_approve %}?show{% endif %}">
                             View
                         </a>
@@ -72,6 +74,10 @@
     {% empty %}
     <p>There are currently no questions in the database.</p>
     {% endfor %}
+    {% else %}
+    <p>You cannot currently view questions for this block.</p>
+    <p>You can view questions from previous years by writing questions for this year. You can only view questions from this year once you have written questions and the block has been released on MedBank.</p>
+    {% endif %}
     </div>
 {% endblock maincontent %}
 
