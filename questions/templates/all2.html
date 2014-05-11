@@ -64,7 +64,7 @@
             <h3>Week {{ w }}</h3>
             {% if teaching_block.by_activity %}
             <i class="icon-angle-down"></i>
-            {% if b.released %}<h3 class="pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>{% endif %}
+            {% if not b.released %}<h3 class="pull-right{% if a %} text-success{% endif %} hidden-xs">{% if a %}Classes available{% else %}No classes available{% endif %}</h3>{% endif %}
             {% else %}
             <h3 class="pull-right hidden-xs{% if user.student in l.0.question_writers.all %} text-success{% endif %}">{% if user.student in l.0.question_writers.all %}Assigned{% else %}<a data-url="{% url 'questions.views.signup' ta_id=l.0.id %}">Assign to me</a></h3>
             {% endif %}
@@ -103,8 +103,8 @@
     <div class="col-md-3 action-column">
         <div class="text-center page-actions">
             <h3>Page Actions</h3>
-            <a class="action" href="{% url 'questions.views.download' number=teaching_block.number year=teaching_block.year mode='question' %}">Download questions</a>
-            <a class="action" href="{% url 'questions.views.download' number=teaching_block.number year=teaching_block.year mode='answer' %}">Download answers</a>
+            <a class="action" href="{% url 'questions.views.download' code=teaching_block.code year=teaching_block.year mode='question' %}">Download questions</a>
+            <a class="action" href="{% url 'questions.views.download' code=teaching_block.code year=teaching_block.year mode='answer' %}">Download answers</a>
         </div>
     </div>
     {% endspaceless %}
