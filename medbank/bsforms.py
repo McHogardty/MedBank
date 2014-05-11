@@ -8,6 +8,9 @@ from django.forms.util import flatatt
 from django.utils.html import format_html
 from django.utils.encoding import force_text
 
+# Required for _html_output. Should go away in the future.
+from django.utils import six
+
 from itertools import chain
 
 
@@ -80,8 +83,6 @@ class BootstrapModelForm(forms.ModelForm):
                     hasattr(self, 'get_%s_display' % (f.html_name, )):
                 self.add_model_get_FOO_display_method(f)
 
-        print "Form init"
-
     def add_model_get_FOO_display_method(self, f):
         def model_get_FOO_display_method():
             for k, c in f.field.choices:
@@ -137,25 +138,39 @@ class BoundField(forms.forms.BoundField):
             extra_classes = extra_classes.split()
         extra_classes = set(extra_classes or [])
         extra_classes.add("form-group")
-        c = super(BoundField, self).css_classes(extra_classes)
-        return c
+        return super(BoundField, self).css_classes(extra_classes)
 
     def label_tag(self, contents=None, attrs=None):
-        if attrs:
-            if 'class' in attrs:
-                c = attrs['class'].split()
-                c.append('control-label')
-                c.append('col-md-2')
-                attrs['class'] = " ".join(c)
-            else:
-                attrs['class'] = 'control-label col-md-2'
-        else:
-            attrs = {'class': 'control-label col-md-2'}
+        if self.field.widget.__class__.__name__ in ["CheckboxInput",]:
+            return ""
 
+        attrs = attrs or {}
+        c = attrs['class'].split() if 'class' in attrs else []
+        # if attrs:
+        #     if 'class' in attrs:
+        #         c = attrs['class'].split()
+        #         c.append('control-label')
+        #         c.append('col-md-2')
+        #         c.append()
+        #         attrs['class'] = " ".join(c)
+        #     else:
+        #         attrs['class'] = 'control-label col-md-2'
+        # else:
+        #     attrs = {'class': 'control-label col-md-2'}
+        c.append('control-label')
+        c.append('col-md-2')
+        attrs['class'] = " ".join(c)
         return super(BoundField, self).label_tag(contents, attrs)
 
+    def size_classes(self):
+        classes = ['col-md-6']
+        if self.field.widget.__class__.__name__ in ["CheckboxInput",]:
+            classes.append('col-md-offset-2')
+        return " ".join(classes)
+
     def as_widget(self, widget=None, attrs=None, only_initial=False):
-        if self.field.widget.__class__.__name__ == "RadioSelect":
+        if self.field.widget.__class__.__name__ in ["RadioSelect", "ClearableFileInput", "CheckboxInput"]:
+            self.field.widget.label = self.label
             return super(BoundField, self).as_widget(widget, attrs, only_initial)
 
         widget = widget or self.field.widget
@@ -197,12 +212,95 @@ class NewBootstrapFormMixin(object):
             raise KeyError('Key %r not found in Form' % name)
         return BoundField(self, field, name)
 
+    def _html_output(self, normal_row, error_row, row_ender, help_text_html, errors_on_separate_row):
+        "Helper function for outputting HTML. Used by as_table(), as_ul(), as_p()."
+        top_errors = self.non_field_errors() # Errors that should be displayed above all fields.
+        output, hidden_fields = [], []
+
+        for name, field in self.fields.items():
+            html_class_attr = ''
+            size_class_attr = ''
+            bf = self[name]
+            bf_errors = self.error_class([conditional_escape(error) for error in bf.errors]) # Escape and cache in local variable.
+            if bf.is_hidden:
+                if bf_errors:
+                    top_errors.extend(['(Hidden field %s) %s' % (name, force_text(e)) for e in bf_errors])
+                hidden_fields.append(six.text_type(bf))
+            else:
+                # Create a 'class="..."' atribute if the row should have any
+                # CSS classes applied.
+                css_classes = bf.css_classes()
+                if css_classes:
+                    html_class_attr = ' class="%s"' % css_classes
+
+                size_classes = bf.size_classes()
+                if size_classes:
+                    size_class_attr = ' class="%s"' % size_classes
+
+                if errors_on_separate_row and bf_errors:
+                    output.append(error_row % force_text(bf_errors))
+
+                if bf.label:
+                    label = conditional_escape(force_text(bf.label))
+                    # Only add the suffix if the label does not end in
+                    # punctuation.
+                    if self.label_suffix:
+                        if label[-1] not in ':?.!':
+                            label = format_html('{0}{1}', label, self.label_suffix)
+                    label = bf.label_tag(label) or ''
+                else:
+                    label = ''
+
+                help_text = force_text(field.help_text) if field.help_text else ""
+                messages = help_text_html % help_text
+
+                error_text = force_text(bf_errors) if bf_errors else ""
+                if field.help_text and error_text:
+                    error_text += " "
+                messages = messages % {'errors': error_text}
+
+
+                output.append(normal_row % {
+                    'errors': force_text(bf_errors),
+                    'label': force_text(label),
+                    'field': six.text_type(bf),
+                    # 'help_text': help_text,
+                    'html_class_attr': html_class_attr,
+                    'size_class_attr': size_class_attr,
+                    'messages': messages
+                })
+
+        if top_errors:
+            output.insert(0, error_row % force_text(top_errors))
+
+        if hidden_fields: # Insert any hidden fields in the last row.
+            str_hidden = ''.join(hidden_fields)
+            if output:
+                last_row = output[-1]
+                # Chop off the trailing row_ender (e.g. '</td></tr>') and
+                # insert the hidden fields.
+                if not last_row.endswith(row_ender):
+                    # This can happen in the as_p() case (and possibly others
+                    # that users write): if there are only top errors, we may
+                    # not be able to conscript the last row for our purposes,
+                    # so insert a new, empty row.
+                    last_row = (normal_row % {'errors': '', 'label': '',
+                                              'field': '', 'help_text':'',
+                                              'html_class_attr': html_class_attr})
+                    output.append(last_row)
+                output[-1] = last_row[:-len(row_ender)] + str_hidden + row_ender
+            else:
+                # If there aren't any rows in the output, just append the
+                # hidden fields.
+                output.append(str_hidden)
+        return mark_safe('\n'.join(output))
+
     def as_bootstrap(self):
         return self._html_output(
-            normal_row="<div%(html_class_attr)s>%(label)s<div class='col-md-6'>%(field)s<span class='help-block'>%(errors)s %(help_text)s</span></div></div>",
+            normal_row="<div%(html_class_attr)s>%(label)s<div%(size_class_attr)s>%(field)s %(messages)s</div></div>",
             error_row="<span class='help-block'>%s</span>",
             row_ender="</div>",
-            help_text_html="%s",
+            help_text_html="<span class='help-block'>%%(errors)s%s</span>",
             errors_on_separate_row=False
         )
 
@@ -258,12 +356,28 @@ class RichTextarea(forms.Textarea):
 
 
 class TextInputWithAddon(forms.TextInput):
-    def __init__(self, add_on=None, **kwargs):
+    def __init__(self, add_on=None, post_add_on=None, **kwargs):
         self.add_on = add_on
+        self.post_add_on = post_add_on
         super(TextInputWithAddon, self).__init__(**kwargs)
 
     def render(self, name, value, attrs=None):
         i = super(TextInputWithAddon, self).render(name, value, attrs)
-        if self.add_on:
+        if self.add_on and not self.post_add_on:
             i = format_html('<div class="input-group"><span class="input-group-addon">{0}</span>{1}</div>', self.add_on, i)
+        if self.post_add_on and not self.add_on:
+            i = format_html('<div class="input-group">{0}<span class="input-group-addon">{1}</span></div>', i, self.post_add_on)
         return i
+
+class CheckboxInput(forms.CheckboxInput):
+    def render(self, name, value, attrs=None):
+        checkbox_input = super(CheckboxInput, self).render(name, value, attrs)
+        checkbox = """
+        <div class="checkbox">
+            <label>
+                {0} {1}
+            </label>
+        </div>
+        """
+        return format_html(checkbox, checkbox_input, self.label)
+
