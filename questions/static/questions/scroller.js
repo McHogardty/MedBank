@@ -1,6 +1,11 @@
 var Questions = (function (questions_module, $) {
     questions_module.globals = questions_module.globals || {};
 
+    questions_module.globals = $.extend(questions_module.globals, {
+        minimum_screen_height: 600,
+        minimium_screen_width: 800,
+    });
+
     var container_selector = ".container.main";
     var screen_selector = container_selector + " .section";
     $.extend(questions_module.globals, {
@@ -19,17 +24,17 @@ var Questions = (function (questions_module, $) {
             after_scroll: null,
         }, options);
 
-        if (document.addEventListener) {
-            document.addEventListener('DOMMouseScroll', function (e) { e.preventDefault(); }, false);
-            document.addEventListener('mousewheel', function (e) { e.preventDefault(); }, false);
-        } else {
-            document.attachEvent('onmousewheel', function (e) { e.preventDefault(); }, false);
-        }
+        // if (document.addEventListener) {
+        //     document.addEventListener('DOMMouseScroll', function (e) { e.preventDefault(); }, false);
+        //     document.addEventListener('mousewheel', function (e) { e.preventDefault(); }, false);
+        // } else {
+        //     document.attachEvent('onmousewheel', function (e) { e.preventDefault(); }, false);
+        // }
 
         // 33: pageup, 34: pagedown, 37: left, 38: up, 39: right, 40: down
-        to_prevent = [33, 34, 38, 40];
-        $(document).keydown(function (e) { if ($.inArray(e.keyCode, to_prevent) >= 0) { e.preventDefault(); } });
-        $(document).on('touchmove', function (e) { e.preventDefault(); });
+        // to_prevent = [33, 34, 38, 40];
+        // $(document).keydown(function (e) { if ($.inArray(e.keyCode, to_prevent) >= 0) { e.preventDefault(); } });
+        // $(document).on('touchmove', function (e) { e.preventDefault(); });
 
         this.get_container = function () { return $(questions_module.globals.container_selector); };
         this.get_current_slide = function () { return $(questions_module.globals.active_screen_selector); };
@@ -58,7 +63,12 @@ var Questions = (function (questions_module, $) {
             }, transition_time);
         };
 
-        this.set_size = function () { $(questions_module.globals.screen_selector).each(function () { $(this).innerHeight($(window).height()); }); };
+        this.set_size = function () {
+            // new_height = $(window).height();
+            // if (new_height < questions_module.globals.minimum_screen_height) new_height = questions_module.globals.minimum_screen_height;
+            // $(questions_module.globals.screen_selector).each(function () { $(this).innerHeight(new_height); });
+            // $("body").innerHeight(new_height);
+        };
 
         this.resize = function () {
             self.set_size();
@@ -121,7 +131,6 @@ var Questions = (function (questions_module, $) {
         };
 
         $(window).resize(function () { self.resize(); });
-
         this.set_size();
         $(questions_module.globals.screen_selector).first().addClass(questions_module.globals.active_class);
     };
