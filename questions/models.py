@@ -386,21 +386,21 @@ class TeachingActivityYear(models.Model):
 
         return True
 
-    def questions_left_for(self, user):
+    def questions_left_for(self, student):
         # Max number of questions to write.
         m = settings.QUESTIONS_PER_USER
         # Current question count.
-        c = ApprovalRecord.objects.filter(question__creator=user.student) \
+        c = ApprovalRecord.objects.filter(question__creator=student) \
             .annotate(max=models.Max('question__approval_records__date_completed')) \
             .filter(max=models.F('date_completed')) \
             .select_related('question') \
             .exclude(status=ApprovalRecord.DELETED_STATUS) \
             .count()
-        c += self.questions.filter(creator=user.student).filter(
+        c += self.questions.filter(creator=student).filter(
             models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True)
             ).count()
         # User is a question writer?
-        u = self.question_writers.filter(id=user.student.id).count()
+        u = self.question_writers.filter(id=student.id).count()
         r = 0
 
         if c < m and u:
