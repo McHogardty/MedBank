@@ -146,6 +146,8 @@ class AllActivitiesView(ListView):
             activities = list(set([record.question.teaching_activity_year.id for record in records]))
             ta = ta.filter(db.models.Q(id__in=activities) | db.models.Q(questions__approval_records__isnull=True))
 
+        ta = ta.distinct()
+
         by_week = {}
         for t in ta:
             l = by_week.setdefault(t.week, [])
@@ -193,17 +195,29 @@ class BlockAdminView(DetailView):
 
 class QueryStringMixin(object):
     def query_string(self):
+        print "Checking query string"
         allowed = ['show', 'approve', 'flagged', 'assigned']
+        allowed_with_parameters = ['total', 'progress']
         g = self.request.GET.keys()
         if not g:
             return ""
         params = [k for k in g if k in allowed]
+        if hasattr(self, "total") and hasattr(self, "progress") and self.total:
+            params.append("total=%s" % self.total)
+            params.append("progress=%s" % self.progress)
+        else:
+            params += ["%s=%s" % (k, self.request.GET[k]) for k in g if k in allowed_with_parameters]
         return "?%s" % ("&".join(params))
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class ApprovalHome(TemplateView):
     template_name = "approval/home.html"
+
+    def get_context_data(self, **kwargs):
+        c = super(ApprovalHome, self).get_context_data(**kwargs)
+        c['has_assigned_approvals'] = models.ApprovalRecord.objects.filter(approver=self.request.user.student, date_completed__isnull=True).count()
+        return c
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -212,16 +226,25 @@ class StartApprovalView(QueryStringMixin, RedirectView):
 
     def query_string(self, initial):
         if initial:
+            parameters = ['show', 'approve']
             qs =  "?show&approve"
             if 'flagged' in self.request.GET:
-                qs += "&flagged"
+                parameters.append('flagged')
             if 'assigned' in self.request.GET:
-                qs += "&assigned"
+                parameters.append('assigned')
+            if self.total:
+                parameters.append('total=%s' % self.total)
+                parameters.append('progress=%s' % self.progress)
+            qs = "?%s" % ("&".join(parameters))
             return qs
         else:
             return super(StartApprovalView, self).query_string()
 
     def get_redirect_url(self, code=None, year=None, q_id=None):
+        # Measure the progress and total records for an assigned approver.
+        self.progress = 0
+        self.total = 0
+
         # q_id contains the ID of the question which was just approved in approval mode.
         previous_q = None
         try:
@@ -246,18 +269,53 @@ class StartApprovalView(QueryStringMixin, RedirectView):
             else:
                 approval_records = approval_records.filter(date_completed__isnull=True)
 
-            approval_records = approval_records.order_by('date_assigned')
+            approval_records = approval_records.order_by('date_assigned', 'id')
 
             try:
                 if previous_q:
                     # It is possible that we can assign them to two questions at the same date and time because we do three at once. Use the ID as a fallback since it is autoincrement.
-                    # Think of a better way to do this later.
                     q = approval_records.filter(id__gte=previous_latest_record.id)[1:2].get().question
                 else:
                     q = approval_records[:1].get().question
             except models.ApprovalRecord.DoesNotExist:
                 messages.success(self.request, "All of your assigned questions have been approved.")
                 return reverse('approve-home')
+
+            # Add a progress bar to the top of the page. We will consider the progress bar 'reset' if they had no questions left to approve
+            # when they last assigned some questions to themselves.
+            all_approval_records = list(self.request.user.student.approval_records.all())
+            completed_approval_records = []
+            incomplete_approval_records = []
+            for record in all_approval_records:
+                if record.date_completed:
+                    completed_approval_records.append(record)
+                else:
+                    incomplete_approval_records.append(record)
+
+            incomplete_approval_records.sort(key=lambda r: r.date_assigned)
+            completed_approval_records.sort(key=lambda r: r.date_completed)
+
+            # If the incomplete record was assigned before the last completion date, it counts as part of that group.
+            if completed_approval_records:
+                for index, record in enumerate(completed_approval_records):
+                    # Is the earliest assigned incomplete record before this complete record?
+
+                    if incomplete_approval_records[0].date_assigned <= record.date_completed:
+                        # It counts as part of this group of approvals
+                        self.request.session['total_records'] = len(incomplete_approval_records) + len(completed_approval_records[index:])
+                        self.total = len(incomplete_approval_records) + len(completed_approval_records[index:])
+                        break
+
+                    # The earliest incomplete record was assigned after all the others were completed. Start the count from the beginning.
+                    self.request.session['total_records'] = len(incomplete_approval_records)
+                    self.total = len(incomplete_approval_records)
+            else:
+                self.request.session['total_records'] = len(incomplete_approval_records)
+                self.total = len(incomplete_approval_records)
+
+            self.request.session['records_remaining'] = len(incomplete_approval_records)
+            self.progress = self.total - len(incomplete_approval_records)
+
         else:
             try:
                 b = models.TeachingBlockYear.objects.get(block__code=code, year=year)
@@ -266,13 +324,20 @@ class StartApprovalView(QueryStringMixin, RedirectView):
                 return reverse('admin')
             tb = models.TeachingBlockYear.objects.filter(start__lte=datetime.datetime.now().date).latest("start")
 
+            records = models.ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=b) \
+                        .annotate(max=db.models.Max('question__approval_records__date_completed')) \
+                        .filter(max=db.models.F('date_completed'))
+            q = models.Question.objects.filter(teaching_activity_year__block_year=b)
             if 'flagged' in self.request.GET:
-                s = models.ApprovalRecord.FLAGGED_STATUS
+                records = records.filter(status=models.ApprovalRecord.FLAGGED_STATUS)
             else:
-                s = models.ApprovalRecord.PENDING_STATUS
-            q = models.Question.objects.filter(teaching_activity_year__block_year=b).filter(
-                    db.models.Q(status=s) | db.models.Q(pk=q_id)
-                )
+                records = records.filter(status=models.ApprovalRecord.PENDING_STATUS)
+
+            q = q.filter(db.models.Q(approval_records__in=records) | db.models.Q(pk=q_id))
+
+            if 'flagged' not in self.request.GET:
+                q |= models.Question.objects.filter(db.models.Q(approval_records__isnull=True) | db.models.Q(date_completed__isnull=True))
+
             try:
                 if previous_q:
                     q = q.filter(date_created__gte=previous_q.date_created).order_by('date_created')[1:2].get()
@@ -444,7 +509,7 @@ class UnassignView(RedirectView):
             messages.warning(self.request, "You weren't signed up to that activity")
             return reverse('ta', kwargs={'pk': pk})
 
-        if ta.questions_for(self.request.user):
+        if ta.questions.filter(creator=self.request.user.student).count():
             messages.error(self.request, "Once you have started writing questions for an activity, you can't unassign yourself from it.")
             return reverse('ta', kwargs={'pk': pk})
 
@@ -627,6 +692,7 @@ class ViewActivity(DetailView):
     def get_context_data(self, **kwargs):
         c = super(ViewActivity, self).get_context_data(**kwargs)
         c['can_view_questions'] = bool(self.object.block_year.question_count_for_student(self.request.user.student)) or self.request.user.has_perm("questions.can_approve")
+        c['has_written_questions'] = bool(self.object.questions.filter(creator=self.request.user.student))
         return c
 
 
@@ -650,6 +716,10 @@ class ViewQuestion(DetailView):
         c['approval_mode'] = 'approve' in self.request.GET
         c['flagged_mode'] = 'flagged' in self.request.GET
         c['assigned'] = 'assigned' in self.request.GET
+        if 'total' in self.request.GET:
+            c['total_assigned_approvals'] = int(self.request.GET.get('total', 0))
+            c['records_completed'] = int(self.request.GET.get('progress', 0))
+            c['records_remaining'] = c['total_assigned_approvals'] - c['records_completed']
         return c
 
 
@@ -1036,26 +1106,8 @@ def view(request, ta_id, q_id):
 
 
 @class_view_decorator(permission_required("questions.can_approve"))
-class ChangeStatus(RedirectView):
+class ChangeStatus(QueryStringMixin, RedirectView):
     permanent = False
-
-    def query_string(self):
-        g = self.request.GET
-        if not g:
-            return ""
-        qs = "?"
-        if 'show' in g:
-            qs += 'show'
-            if 'approve' in g or 'assigned' in g:
-                qs += "&"
-        if 'approve' in g:
-            qs += "approve"
-            if 'assigned' in g:
-                qs += "&"
-        if 'assigned' in g:
-            qs += "assigned"
-
-        return qs
 
     def get_redirect_url(self, ta_id, q_id, action):
         actions_to_props = {
@@ -1077,10 +1129,12 @@ class ChangeStatus(RedirectView):
         if action == "flag":
             return "%s%s" % (reverse('question-flag', kwargs={'ta_id': q.teaching_activity_year.id, 'q_id': q_id}), self.query_string())
 
+        is_new = True
         if not getattr(q, actions_to_props[action]):
             try:
                 # Look for existing approval record as someone may have been assigned.
                 record = q.latest_approval_record()
+                is_new = False
             except models.ApprovalRecord.DoesNotExist:
                 # No approval records, so question was not assigned to anyone.
                 record = models.ApprovalRecord()
@@ -1089,13 +1143,16 @@ class ChangeStatus(RedirectView):
                 # Question was assigned and completed, so we don't want to overwrite the old record.
                 record = models.ApprovalRecord()
 
+            update_date_assigned = not is_new and record.approver != self.request.user.student
             record.status = getattr(models.ApprovalRecord, '%s_STATUS' % actions_to_props[action].upper())
             record.approver = self.request.user.student
             record.question = q
             record.save()
 
             # Makes sure that date_completed is not earlier than date_assigned which is automatically saved with a new record.
-            record.date_completed = datetime.datetime.now()
+            if update_date_assigned:
+                record.date_assigned = datetime.datetime.now()
+            record.date_completed = record.date_assigned if is_new or update_date_assigned else datetime.datetime.now()
             record.save()
 
         r = "%s%%s"
@@ -1104,7 +1161,7 @@ class ChangeStatus(RedirectView):
         else:
             r = r % reverse('view', kwargs={'pk': q_id, 'ta_id': q.teaching_activity_year.id})
         r = r % self.query_string()
-        print "Going back with query_string %s" % self.query_string() 
+
         return r
 
 
