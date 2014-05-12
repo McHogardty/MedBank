@@ -158,6 +158,7 @@ LOGGING = {
 TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
     'questions.context_processors.add_student',
+    'questions.context_processors.add_query_string',
 )
 
 MESSAGE_TAGS = {

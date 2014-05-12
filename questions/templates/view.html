@@ -2,8 +2,8 @@
 
 {% block actions %}
     <h3>Page actions</h3>
-    <a class="action" href="{% url 'view' ta_id=question.teaching_activity_year.id pk=question.id %}{% if not show or approval_mode %}?{% endif %}{% if not show %}show{% endif %}{% if not show and approval_mode or not show and flagged_mode %}&{% endif %}{% if approval_mode %}approve{% endif %}{% if approval_mode and flagged_mode %}&{% endif %}{% if flagged_mode%}flagged{% endif %}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
-    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity_year.id pk=question.id %}{% include 'querystring.html' %}">Edit question</a>
+    <a class="action" href="{% url 'view' ta_id=question.teaching_activity_year.id pk=question.id %}{{ approval_query_string_show_inverted }}">{% if show %}Hide{% else %}Show{% endif %} answer</a>{% if perms.questions.can_approve or question.pending and question.creator == user.student %}
+    <a class="action" href="{% url 'edit' ta_id=question.teaching_activity_year.id pk=question.id %}{{ approval_query_string }}">Edit question</a>
     {% endif %}
     {% if perms.questions.can_approve %}
         <a class="action" href="{% url 'question-approval-history' ta_id=question.teaching_activity_year.id pk=question.id %}">View approval history</a>
@@ -14,25 +14,35 @@
     {% if perms.questions.can_approve %}
         <h3>Admin</h3>
         {% if not question.approved %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='approve' %}{% include 'querystring.html' %}">Approve question</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='approve' %}{{ approval_query_string }}">Approve question</a>
         {% endif %}
         {% if not question.pending %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='pending' %}{% include 'querystring.html' %}">Set to pending</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='pending' %}{{ approval_query_string }}">Set to pending</a>
         {% endif %}
         {% if not question.deleted %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='delete' %}{% include 'querystring.html' %}">Delete question</a>        
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='delete' %}{{ approval_query_string }}">Delete question</a>        
         {% endif %}
         {% if approval_mode %}
-            <a class="action" href="{% url 'admin-approve' code=question.teaching_activity_year.current_block.code year=question.teaching_activity_year.current_block.year q_id=question.id %}{% include 'querystring.html' %}">Skip question</a>
+            <a class="action" href="{% url 'admin-approve' code=question.teaching_activity_year.current_block.code year=question.teaching_activity_year.current_block.year q_id=question.id %}{{ approval_query_string }}">Skip question</a>
         {% endif %}
         {% if not question.flagged %}
-            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='flag' %}{% include 'querystring.html' %}">Flag for review</a>
+            <a class="action" href="{% url 'question-status' ta_id=question.teaching_activity_year.id q_id=question.id action='flag' %}{{ approval_query_string }}">Flag for review</a>
         {% endif %}
-        <a class="action" href="{% url 'question-attributes' ta_id=question.teaching_activity_year.id q_id=question.id %}{% include 'querystring.html' %}">Edit attributes</a>
+        <a class="action" href="{% url 'question-attributes' ta_id=question.teaching_activity_year.id q_id=question.id %}{{ approval_query_string }}">Edit attributes</a>
     {% endif %}
 {% endblock actions %}
 
 {% block maincontent %}
+    {% if approval_mode and not records_completed == None %}
+    <div class="col-xs-12">
+        <h2>Progress so far: {{ records_remaining }} record{{ records_remaining|pluralize }} remaining</h2>
+        <div class="progress">
+            <div class="progress-bar" role="progressbar" aria-valuenow="{{ records_completed }}" aria-valuemin="0" aria-valuemax="{{ total_assigned_approvals }}" style="width: {% widthratio records_completed total_assigned_approvals 100 %}%;">
+                <span class="sr-only"></span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     <h1>{{ question.teaching_activity_year.current_block.code }}.{{ question.teaching_activity_year.week|stringformat:"02d" }}: {{ question.teaching_activity_year.name }}</h1>
     <p class="lead">Block: {{ question.teaching_activity_year.current_block }}</p>
     {% if perms.questions.can_approve %}

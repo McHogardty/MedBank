@@ -34,7 +34,7 @@ def humanize_list(value):
 
 @register.assignment_tag
 def questions_left(user, activity):
-    return activity.questions_left_for(user)
+    return activity.questions_left_for(user.student)
 
 @register.assignment_tag
 def questions_list_by_year(user, activity):
