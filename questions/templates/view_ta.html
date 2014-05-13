@@ -10,11 +10,11 @@
 {% block actions %}
     {% questions_left user=user activity=object as remaining %}
     {% questions_list_by_year user=user activity=object as question_list %}
-    {% if not object.enough_writers and user.student not in object.question_writers.all and object.current_block.can_sign_up or user.student in object.question_writers.all and object.current_block.can_write_questions or user.student in object.question_writers.all and not has_written_questions %}
+    {% if not object.enough_writers and user.student not in object.question_writers.all and object.current_block.can_sign_up or user.student in object.question_writers.all and object.current_block.can_write_questions or user.is_superuser or user.student in object.question_writers.all and not has_written_questions %}
         <h3>Page actions</h3>    
     {% endif %}{% if not object.enough_writers and user.student not in object.question_writers.all and object.current_block.can_sign_up %}
         <a class="action" href="{% url 'questions.views.signup' ta_id=object.id %}">Assign to me</a>        
-    {% endif %}{% if user.student in object.question_writers.all and object.current_block.can_write_questions %}
+    {% endif %}{% if user.student in object.question_writers.all and object.current_block.can_write_questions or user.is_superuser %}
         <a class="action" href="{% url 'new' ta_id=object.id %}">Write questions</a>
     {% endif %}{% if user.student in object.question_writers.all and not has_written_questions %}
         <a class="action" href="{% url 'activity-unassign' pk=object.id %}">Unassign from me</a>
