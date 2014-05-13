@@ -7,6 +7,7 @@ from django.utils.safestring import mark_safe
 from django.forms.util import flatatt
 from django.utils.html import format_html
 from django.utils.encoding import force_text
+from django.utils import datetime_safe, formats
 
 # Required for _html_output. Should go away in the future.
 from django.utils import six
@@ -315,6 +316,9 @@ class NewBootstrapModelForm(NewBootstrapFormMixin, BootstrapModelForm):
 
 class StaticControl(forms.Widget):
     def _format_value(self, value):
+        if hasattr(value, 'strftime'):
+            value = datetime_safe.new_date(value)
+            return value.strftime(formats.get_format('DATE_INPUT_FORMATS')[0])
         return value
 
     def render(self, name, value, attrs=None):
