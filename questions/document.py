@@ -1,4 +1,5 @@
 from django.core.urlresolvers import reverse
+from django.db.models import F, Max
 
 import models
 
@@ -8,6 +9,9 @@ import docx
 import cStringIO as StringIO
 import zipfile
 import math
+
+current_path = os.path.dirname(os.path.realpath(__file__ ))
+
 
 def build_answer_table(data, n=3):
     ret = []
@@ -87,13 +91,15 @@ def generate_document(tb, answer, request):
 
     body.append(docx.heading("%s - Questions" % (tb), 1))
     # qq = list(models.Question.objects.filter(teaching_activity_year__block_year=tb, status=models.ApprovalRecord.APPROVED_STATUS))
-    approval_records = models.ApprovalRecord.objects.filter(status=models.ApprovalRecord.APPROVED_STATUS, question__teaching_activity_year__block_year=tb)
+    approval_records = models.ApprovalRecord.objects.annotate(max=Max('question__approval_records__date_completed')) \
+                            .filter(max=F('date_completed')) \
+                            .filter(status=models.ApprovalRecord.APPROVED_STATUS, question__teaching_activity_year__block_year=tb)
     qq = [record.question for record in approval_records]
     qq = sorted(qq, key=lambda x: x.body.strip()[:-1][::-1] if x.body.strip()[-1] in "?:." else x.body.strip()[::-1])
-    style_file = os.path.join(docx.template_dir, 'word/stylesBase.xml')
+    style_file = os.path.join(current_path, 'stylesBase.xml')
     style_tree = etree.parse(style_file)
     style_outfile = open(os.path.join(docx.template_dir, 'word/styles.xml'), 'w')
-    numbering_file = os.path.join(docx.template_dir, 'word/numberingBase.xml')
+    numbering_file = os.path.join(current_path, 'numberingBase.xml')
     numbering_tree = etree.parse(numbering_file)
     numbering_outfile = open(os.path.join(docx.template_dir, 'word/numbering.xml'), 'w')
 
