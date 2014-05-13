@@ -114,6 +114,9 @@ class AllActivitiesView(ListView):
 
     def dispatch(self, request, *args, **kwargs):
         self.teaching_block = None
+        self.get_teaching_block()
+        if not self.teaching_block:
+            raise Http404
         r = super(AllActivitiesView, self).dispatch(request, *args, **kwargs)
         b = self.teaching_block
         s = self.request.user.student
@@ -127,7 +130,10 @@ class AllActivitiesView(ListView):
     def get_teaching_block(self):
         if self.teaching_block:
             return self.teaching_block
-        tb = models.TeachingBlockYear.objects.select_related().get(block__code=self.kwargs['code'], year=self.kwargs['year'])
+        try:
+            tb = models.TeachingBlockYear.objects.select_related().get(block__code=self.kwargs['code'], year=self.kwargs['year'])
+        except models.TeachingBlockYear.DoesNotExist:
+            return
         self.teaching_block = tb
         return tb
 
@@ -158,7 +164,7 @@ class AllActivitiesView(ListView):
 
     def get_context_data(self, **kwargs):
         c = super(AllActivitiesView, self).get_context_data(**kwargs)
-        c['teaching_block'] = self.get_teaching_block()
+        c['teaching_block'] = self.teaching_block
         if self.teaching_block.released:
             c['override_base'] = "newbase_with_actions.html"
         return c
@@ -212,7 +218,7 @@ class QueryStringMixin(object):
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class ApprovalHome(TemplateView):
-    template_name = "approval/home.html"
+    template_name = "approval/old-home.html"
 
     def get_context_data(self, **kwargs):
         c = super(ApprovalHome, self).get_context_data(**kwargs)
@@ -383,7 +389,7 @@ class NewQuestion(CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         self.ta = check_ta_perm_for_question(self.kwargs['ta_id'], self.request.user)
-        if not self.ta.current_block().can_write_questions:
+        if not self.ta.current_block().can_write_questions and not self.request.user.is_superuser:
             messages.warning(request, "You are not currently able to write questions for this teaching activity.")
             return redirect('ta', pk=self.ta.id)
         return super(NewQuestion, self).dispatch(request, *args, **kwargs)
