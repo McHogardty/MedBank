@@ -128,9 +128,9 @@ def generate_document(tb, answer, request):
         if answer:
             body.append(docx.paragraph("Answer: %s" % q.answer))
             body.append(docx.paragraph(q.explanation))
-            body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity.current_block().code, q.teaching_activity.week, q.teaching_activity.position, q.teaching_activity.name)))
+            body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity_year.current_block().code, q.teaching_activity_year.week, q.teaching_activity_year.position, q.teaching_activity_year.name)))
             p = docx.paragraph("To view this question online, click ")
-            url = request.build_absolute_uri(reverse('view', kwargs={'pk': q.pk, 'ta_id': q.teaching_activity.id}))
+            url = request.build_absolute_uri(reverse('view', kwargs={'pk': q.pk, 'ta_id': q.teaching_activity_year.id}))
             p.append(hyperlink('here', url, hyperlink_count))
             hyperlinks.append((hyperlink_count, ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', url, 'External']))
             hyperlink_count += 1
