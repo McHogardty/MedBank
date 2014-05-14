@@ -8,7 +8,7 @@ from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     DashboardView, BlockAdminView, QuizQuestionView, NewQuizAttempt, QuizQuestionSubmit,
     QuizIndividualSummary, QuizSpecificationView, QuizSpecificationAdd, QuizChooseView, NewQuizSpecificationView,
     UploadView, UploadErrorView, UploadConfirmationView, UploadSubmissionView, ApprovalHome, FlagQuestion,
-    QuestionAttributes, AssignApproval, ViewQuestionApprovalHistory)
+    QuestionAttributes, AssignApproval, ViewQuestionApprovalHistory, QuestionGuide)
 
 from django.views.generic import TemplateView
 
@@ -21,6 +21,7 @@ from queue import base
 urlpatterns = patterns(
     'questions.views',
     url(r'^$', DashboardView.as_view(), name='dashboard'),
+    url(r'^guide/$', QuestionGuide.as_view(), name='question-guide'),
     url(r'^block/$', AllBlocksView.as_view(), name='block-list'),
     url(r'^block/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/$', AllActivitiesView.as_view(), name='activity-list'),
     url(r'^block/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/release/$', ReleaseBlockView.as_view(), name='release'),

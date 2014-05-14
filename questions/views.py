@@ -382,6 +382,11 @@ def check_ta_perm_for_question(ta_id, u):
 
 
 @class_view_decorator(login_required)
+class QuestionGuide(TemplateView):
+    template_name = "question/guide.html"
+
+
+@class_view_decorator(login_required)
 class NewQuestion(CreateView):
     model = models.Question
     form_class = forms.NewQuestionForm
