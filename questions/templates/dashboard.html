@@ -7,7 +7,7 @@
 		<div class="col-sm-12">
 			<div class="dashboard">
 				{% if main_feature_text %}<h2>{{ main_feature_text }}</h2>{% endif %}
-				{% if secondary_feature_text %}<p>{{ secondary_feature_text }}</p>{% endif %}
+				{% if secondary_feature_text %}<p class="lead">{{ secondary_feature_text }}</p>{% endif %}
 			</div>
 		</div>
 	</div>
@@ -38,6 +38,15 @@
 					<p class="lead">No quiz scores available</p>
 					<a class="action" href="{% url "quiz-spec" slug=example_quiz_slug %}">Try an example quiz</a>
 					{% endif %}
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-sm-12">
+			<div class="dashboard">
+				<h2>We've written a guide for you on how to write good questions.</h2>
+				<p class="lead">It would be great if you could give it a read.</p>
+				<a class="action" href="{% url 'question-guide' %}">View the guide</a>
 			</div>
 		</div>
 	</div>
