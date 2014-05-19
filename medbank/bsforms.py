@@ -42,13 +42,8 @@ class BootstrapForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super(BootstrapForm, self).__init__(*args, **kwargs)
         self.generate_fieldsets()
-        self.required = False
-        if self.fieldsets:
-            if any(fs.required for fs in self.fieldsets):
-                self.required = True
-        else:
-            if any(fs.required for fs in self):
-                self.required = True
+        self.required = any(fs.required for fs in self.fieldsets)
+        self.needs_multipart = any(isinstance(field, forms.FileField) for field in self.fields.values())
 
     def generate_fieldsets(self):
         meta = getattr(self, 'Meta', None)
@@ -71,13 +66,8 @@ class BootstrapModelForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(BootstrapModelForm, self).__init__(*args, **kwargs)
         self.generate_fieldsets()
-        self.required = False
-        if self.fieldsets:
-            if any(fs.required for fs in self.fieldsets):
-                self.required = True
-        else:
-            if any(fs.required for fs in self):
-                self.required = True
+        self.required = any(fs.required for fs in self.fieldsets)
+        self.needs_multipart = any(isinstance(field, forms.FileField) for field in self.fields.values())
 
         for f in self:
             if isinstance(f.field, forms.models.ModelChoiceField) and not \
