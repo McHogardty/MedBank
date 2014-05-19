@@ -2,6 +2,7 @@
 
 {% block content %}
 	<h1>Dashboard</h1>
+	{% if main_feature_text or secondary_feature_text %}
 	<div class="row">
 		<div class="col-sm-12">
 			<div class="dashboard">
@@ -10,6 +11,7 @@
 			</div>
 		</div>
 	</div>
+	{% endif %}
 	<div class="row">
 		<div class="col-sm-4">
 			<div class="dashboard">

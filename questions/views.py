@@ -98,27 +98,35 @@ class DashboardView(TemplateView):
         main_feature_text = ""
         secondary_feature_text = ""
 
-        if override.main_text() or override.secondary_text():
-            setting_to_use = override
-        elif self.request.user.student.current_assigned_activities().exists():
-            if self.request.user.student.questions_due_soon_count():
-                setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_SOON]
-            elif self.request.user.student.future_block_count():
-                setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_LATER]
+        try:
+            if override.main_text() or override.secondary_text():
+                setting_to_use = override
+            elif self.request.user.student.current_assigned_activities().exists():
+                if self.request.user.student.questions_due_soon_count():
+                    setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_SOON]
+                elif self.request.user.student.future_block_count():
+                    setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_LATER]
+                else:
+                    setting_to_use = message_settings[models.StudentDashboardSetting.ALL_QUESTIONS_SUBMITTED]
             else:
-                setting_to_use = message_settings[models.StudentDashboardSetting.ALL_QUESTIONS_SUBMITTED]
-        else:
-            if block_count:
-                setting_to_use = message_settings[models.StudentDashboardSetting.NO_CURRENT_ACTIVITIES_AND_BLOCKS_OPEN]
-            else:
-                setting_to_use = message_settings[models.StudentDashboardSetting.NO_CURRENT_ACTIVITIES_OR_BLOCKS_OPEN]
+                if block_count:
+                    setting_to_use = message_settings[models.StudentDashboardSetting.NO_CURRENT_ACTIVITIES_AND_BLOCKS_OPEN]
+                else:
+                    setting_to_use = message_settings[models.StudentDashboardSetting.NO_CURRENT_ACTIVITIES_OR_BLOCKS_OPEN]
+        except KeyError:
+            pass
 
-        main_feature_text = setting_to_use.main_text() or ""
-        secondary_feature_text = setting_to_use.secondary_text() or ""
+        if setting_to_use:
+            main_feature_text = setting_to_use.main_text() or ""
+            secondary_feature_text = setting_to_use.secondary_text() or ""
 
         if not main_feature_text and not secondary_feature_text:
-            main_feature_text = message_settings[models.StudentDashboardSetting.DEFAULT_MESSAGE].main_text()
-            secondary_feature_text = message_settings[models.StudentDashboardSetting.DEFAULT_MESSAGE].secondary_text()
+            try:
+                main_feature_text = message_settings[models.StudentDashboardSetting.DEFAULT_MESSAGE].main_text()
+                secondary_feature_text = message_settings[models.StudentDashboardSetting.DEFAULT_MESSAGE].secondary_text()
+            except KeyError:
+                main_feature_text = ""
+                secondary_feature_text = ""
 
         c.update({'main_feature_text': main_feature_text, "secondary_feature_text": secondary_feature_text})
 

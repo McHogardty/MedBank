@@ -11,15 +11,16 @@
 	<p>{{ object.description|default:"This setting does not have a description." }}</p>
 	{% if object.value %}
 	<p>This setting has the following value:</p>
-
-	<div class="row">
-		<div class="col-sm-12">
-			<div class="dashboard">
-				<h2>{{ object.main_text }}</h2>
-				<p class="lead">{{ object.secondary_text }}</p>
+	{% if object.main_text or object.secondary_text %}
+		<div class="row">
+			<div class="col-sm-12">
+				<div class="dashboard">
+					<h2>{{ object.main_text }}</h2>
+					<p class="lead">{{ object.secondary_text }}</p>
+				</div>
 			</div>
 		</div>
-	</div>
+	{% endif %}
 	{% else %}
 	<p>This setting does not have a set value.</p>
 	{% endif %}
