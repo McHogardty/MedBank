@@ -207,7 +207,7 @@
                         </div>
                     </div>
                     <p class="lead">
-                        {% if attempt.get_confidence_rating_display_second_person.lower %}You said that {{ attempt.get_confidence_rating_display_second_person.lower }}. {% endif %}Most people answering this question said that {{ attempt.get_average_confidence_rating_display.lower }}.
+                        {% if attempt.get_confidence_rating_display_second_person.lower %}You said that {{ attempt.get_confidence_rating_display_second_person.lower }}. {% endif %}{% if attempt.get_confidence_rating_display_second_person %}Most people answering this question said that {{ attempt.get_average_confidence_rating_display.lower }}.{% endif %}
                     </p>
                     <p class="lead">This question was answered correctly {{ attempt.question.percent_success_rate|floatformat }}% of the time.</p>
                     <div class="buttons btn-group">
@@ -244,15 +244,6 @@
     <script type="text/javascript" src="{{ STATIC_URL }}questions/quiz.js"></script>
     <script type="text/javascript">
         $(document).ready(function () {
-            // csrf.protect();
-            // quiz = new Questions.IndividualQuiz({
-            //     number_of_questions: {{ number_of_questions }},
-            //     individual_question_url: "{% url 'quiz-question' %}",
-            //     question_number_selector: "current-question-number",
-            //     quiz_attempt_url: "{% url 'quiz-generate-attempt' %}",
-            //     question_attempt_url: "{% url 'quiz-question-submit' %}",
-            //     specification: "{{ specification.slug }}",
-            // });
             report = new Questions.IndividualQuizReport({
                 home_url: "{% url 'dashboard' %}",
             });

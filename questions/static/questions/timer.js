@@ -1,23 +1,29 @@
 var Questions = (function (questions_module, $) {
-    questions_module.Timer = function (callback) {
+    questions_module.Timer = function (options) {
         this.start_time = 0;
         this.elapsed = 0;
         this.is_paused = false;
         var self = this;
         this.timer_id = 0;
 
-        $(".timer button").unbind("click");
-        $(".timer button").click(function (e) {
-            $b = $(this);
-            self.complete_pause();
-            if (callback) { callback(); }
-            if (self.is_paused) {
-                $b.html("Resume");
-            } else {
-                $b.html("Pause");
-            }
-            e.preventDefault();
-        });
+        options = $.extend({
+            is_global: true,
+            callback: null,
+        }, options);
+
+        if (options.is_global) {
+            $(".timer button").click(function (e) {
+                $b = $(this);
+                self.complete_pause();
+                if (options.callback) { options.callback(); }
+                if (self.is_paused) {
+                    $b.html("Resume");
+                } else {
+                    $b.html("Pause");
+                }
+                e.preventDefault();
+            });
+        }
 
         this.running = function () { return self.timer_id !== 0; };
         this.paused = function () { return self.is_paused; };

@@ -1,10 +1,24 @@
 {% extends "base-no-nav-early-javascript.html" %}
 {% load range from custom_filters %}
 
+{% block viewport %}{% endblock viewport %}
+
 {% block head %}
 <style type="text/css">
-    html, body {
+    html {
+        overflow:scroll;
+        height:100%;
+        width:100%;
+    }
+
+    body {
+        position:relative;
         overflow:hidden;
+        min-height: 600px;
+        min-width: 950px;
+        height:100%;
+        width:100%;
+        padding-bottom:0;
     }
 
     form .btn {
@@ -48,10 +62,10 @@
     }
 
     .nav-down {
-        position:fixed;
-        bottom:30px;
-        left:0px;
+        position:absolute;
+        bottom:0;
         width:100%;
+        height:60px;
         text-align:center;
         vertical-align:middle;
         z-index:1000;
@@ -131,8 +145,8 @@
         -o-transform: translateY(-50%);
         -ms-transform: translateY(-50%);
     }
-
-*/    .explanation .buttons {
+*/
+    .explanation .buttons {
         position:absolute;
         bottom:30px;
         width:100%;
@@ -142,7 +156,7 @@
     }
 
     .timer {
-        position:fixed;
+        position:absolute;
         top:30px;
         right:30px;
         vertical-align:middle;
@@ -158,33 +172,61 @@
         top:3px;
         width:80px;
     }
+
+    .container.main {
+        height:100%;
+        width:100%!important;
+    }
+
+    .row.section {
+        height:100%;
+        padding-bottom:70px;
+    }
+
+    .lead {
+        font-size:21px;
+    }
     </style>
 {% endblock head %}
 
 {% block before %}
-    <div class="timer">
-        <h1 class="pull-left">00:00</h1> <button class="btn btn-default pull-right">Pause</button>
-    </div>
+    {% if not summary_mode %}
+        <div class="timer">
+            <h1 class="pull-left">00:00</h1> <button class="btn btn-default pull-right">Pause</button>
+        </div>        
+    {% endif %}
     <div class="nav-down">
         <button class="btn btn-default btn-previous" type="button">Previous question</button>
-        <h3 class="question-indicator">Question <span class="current-question-number">1</span> of <span class="total-question-number">-</span></h3>
+        <h3 class="question-indicator">Question <span class="current-question-number">1</span> of <span class="total-question-number">{% if summary_mode %}{{ questions|length }}{% else %}-{% endif %}</span></h3>
         <button class="btn btn-default btn-next" type="button">Next question</button>
-        <button class="btn btn-default btn-finish" type="button">Finish</button>
+        {% if not summary_mode %}<button class="btn btn-default btn-finish" type="button">Finish</button>{% endif %}
+        {% if summary_mode %}<button class="btn btn-default btn-home" type="button">Back to dashboard</button>{% endif %}
     </div>
 {% endblock before %}
 
 {% block content %}
     <div class="row section">
-        <div class="col-sm-12 text-center centre-of-parent">
+        <div class="col-sm-12{% if not summary_mode %} text-center{% endif %} centre-of-parent">
+        {% if summary_mode %}
+            <h1>{{ object.quiz_specification.name }}</h1>
+            {% if not object.complete %}<p style="display:inline-block;" class="lead text-danger question-unanswered no-margin">This quiz was not completed.</p>{% endif %}
+            <p class="lead">You scored a total of {{ object.score }} out of {{ object.quiz_specification.number_of_questions }}.</p>
+            <p class="lead">This quiz has been attempted {{ object.quiz_specification.attempts.count }} time{{ object.quiz_specification.attempts.count|pluralize }}. The highest score for this quiz so far is {{ object.quiz_specification.highest_score }}, whilst the lowest score so far is {{ object.quiz_specification.lowest_score }}. The average score so far is {{ object.quiz_specification.average_score|floatformat }}.</p>
+            <div class="text-center">
+                <button type="button" class="btn btn-primary btn-start">View details</button>
+            </div>
+        {% else %}
             <h1>Start quiz</h1>
             <p class="lead">Click the button below to begin</p>
             <button type="button" class="btn btn-primary btn-start">Start</button>
+        {% endif %}
         </div>
     </div>
-    {% for n in number_of_questions|range %}
-    {% with n|add:"1" as n %}
+    {% for attempt in questions %}
+    {% with forloop.counter as n %}
     <div class="row section">
         <div class="col-xs-12" style="height:100%">
+        {% if not summary_mode %}
             <div class="loading-screen text-center">
                 <div class="centre-of-parent">
                     <div class="loading-message">
@@ -202,12 +244,34 @@
                     </div>
                 </div>
             </div>
-            <div class="question-screen blur">
+        {% endif %}
+            <div class="question-screen{% if not summary_mode %} blur{% endif %}">
                 <h1 style="display:inline-block;">Question {{ n }}</h1>
                 <p style="display:inline-block;" class="lead text-danger question-unanswered no-margin">You did not answer this question.</p>
                 <form data-question="{{ n }}" data-question-id="" class="form-horizontal">
-                    <div class="lead question-body"></div>
-                    <div class="question-options"></div>
+                    <div class="lead question-body">{% if summary_mode %}{{ attempt.question.body }}{% endif %}</div>
+                    <div class="question-options">
+                    {% if summary_mode %}
+                    {% if attempt.incorrect_answer %}
+                        <div class="form-group">
+                            <div class="col-xs-offset-1">
+                                <button type="button" class="btn btn-danger btn-option btn-no-hover">{{ attempt.incorrect_answer.option }}</button><span>(Your answer) {{ attempt.incorrect_answer.value }}</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                        <div class="form-group">
+                            <div class="col-xs-offset-1">
+                                <button type="button" class="btn btn-success btn-option btn-no-hover">{{ attempt.correct_answer.option }}</button><span>{% ifequal attempt.answer attempt.correct_answer.option %}(Your answer) {% endifequal %}{{ attempt.correct_answer.value }}</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                    </div>
+                {% if summary_mode %}
+                    <p class="lead">
+                        {% if attempt.get_confidence_rating_display_second_person.lower %}You said that {{ attempt.get_confidence_rating_display_second_person.lower }}. {% endif %}{% if attempt.get_confidence_rating_display_second_person %}Most people answering this question said that {{ attempt.get_average_confidence_rating_display.lower }}.{% endif %}
+                    </p>
+                    <p class="lead">This question was answered correctly {{ attempt.question.percent_success_rate|floatformat }}% of the time.</p>
+                {% else %}
                     <br>
                     <div class="lead">
                     How confident are you in your answer?
@@ -221,16 +285,17 @@
                         {% endif %}
                         {% endfor %}
                     </div>
+                {% endif %}
+                    <div class="buttons btn-group">
+                        <button class="btn btn-default btn-explanation" type="button">View explanation</button>
+                        <button class="btn btn-default btn-view" type="button"{% if summary_mode %} onclick="window.open('{% url 'view' ta_id=attempt.question.teaching_activity_year.id pk=attempt.question.id %}', '_blank');"{% endif %}>View question page</button>
+                    </div>
                 </form>
-                <div class="buttons">
-                    <button class="btn btn-default btn-explanation" type="button">View explanation</button>
-                    <button class="btn btn-default btn-view" type="button">View question page</button>
-                </div>
             </div>
             <div class="explanation" data-question="{{ n }}">
                 <div class="content centre-of-parent">
                     <div class="container nosection">
-                        <p class="lead explanation-body"></p>
+                        <p class="lead explanation-body">{% if summary_mode %}{{ attempt.question.explanation }}{% endif %}</p>
                     </div>
                 </div>
                 <div class="buttons">
@@ -255,15 +320,21 @@
     <script type="text/javascript" src="{{ STATIC_URL }}questions/quiz.js"></script>
     <script type="text/javascript">
         $(document).ready(function () {
+            {% if summary_mode %}
+            report = new Questions.IndividualQuizReport({
+                home_url: "{% url 'dashboard' %}"
+            });
+            {% else %}
             csrf.protect();
             quiz = new Questions.IndividualQuiz({
-                number_of_questions: {{ number_of_questions }},
+                number_of_questions: {{ questions|length }},
                 individual_question_url: "{% url 'quiz-question' %}",
                 question_number_selector: "current-question-number",
                 quiz_attempt_url: "{% url 'quiz-generate-attempt' %}",
                 question_attempt_url: "{% url 'quiz-question-submit' %}",
                 specification: "{{ specification.slug }}",
             });
+            {% endif %}
         });
     </script>
 {% endblock javascript %}

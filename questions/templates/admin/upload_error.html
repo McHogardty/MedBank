@@ -1,0 +1,81 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Upload teaching activities</h1>
+{% if errors or already_exist %}
+    <div class="span9">
+        <p>Some rows in the uploaded file were not valid. Please double check the file and upload again.</p>
+        <div class="text-center">
+	        <a class="btn btn-primary" href="{% url 'questions.views.new_ta_upload' %}">Try again</a>
+        </div>
+    </div>
+	{% if errors %}
+    <div class="span9 spacer">
+        <p>The following entries in the file had errors.</p>
+        <table class="table">
+            <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+        {% for e in errors %}
+            <tr><td>{{ e.reference_id }}</td><td>{{ e.name }}</td><td>{{ e.week }}</td><td>{{ e.position }}</td></tr>
+        {% endfor %}
+        </table>
+    </div>            
+    {% endif %}
+    {% if already_exist %}
+    <div class="span9 spacer">
+        <p>The following entries in the file had positions which were already in the database for this block.</p>
+        <table class="table">
+            <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+        {% for e in already_exist %}
+            <tr><td>{{ e.id }}</td><td>{{ e.name }}</td><td>{{ e.week }}</td><td>{{ e.position }}</td></tr>
+        {% endfor %}
+        </table>
+    </div>     
+    {% endif %}
+{% else %}
+    {% if duplicates %}
+    <div class="span9">
+        <p>The following teaching activity duplicates were found. Please double check the file and upload again.</p>
+        <div class="text-center">
+	        <a class="btn btn-primary" href="{% url 'questions.views.new_ta_upload' %}">Try again</a>
+        </div>
+        {% for d in dup_by_name %}
+        {% if forloop.first %}
+        <h4>Duplicates by name</h4>
+        <p>The following teaching activities have the same name.</p>
+        {% endif %}
+        <table class="table">
+            <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+        {% for dd in d %}
+            <tr><td>{{ dd.reference_id }}</td><td>{{ dd.name }}</td><td>{{ dd.week }}</td><td>{{ dd.position }}</td></tr>
+            {% endfor %}
+        </table>
+        {% endfor %}
+
+        {% for d in dup_by_position %}
+        {% if forloop.first %}
+        <h4>Duplicates by position</h4>
+        <p>The following teaching activities have the same position.</p>
+        {% endif %}
+        <table class="table">
+            <tr><th>ID</th><th>Name</th><th>Week</th><th>Position</th></tr>
+        {% for dd in d %}
+            <tr><td>{{ dd.reference_id }}</td><td>{{ dd.name }}</td><td>{{ dd.week }}</td><td>{{ dd.position }}</td></tr>
+        {% endfor %}
+        </table>
+        {% empty %}
+        <p>There are no duplicates by position</p>
+        {% endfor %}
+    {% else %}
+	    {% if block_errors %}
+        <h3>Errors</h3>
+        <p>The following problems were found with the teaching blocks:</p>
+        <ul>
+        {% for b in block_errors %}
+            <li>{{ b }}</li>                    
+        {% endfor %}
+        </ul>
+        <p>You might need to add the block first through the admin page. Otherwise, try double-checking the file and trying again.</p>
+        {% endif %}
+    {% endif %}
+ {% endif %}
+{% endblock content %}
