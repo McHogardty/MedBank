@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 
 import bsforms
 
+from .models import Setting
 from questions import models
 
 
@@ -79,4 +80,9 @@ class FeedbackForm(bsforms.NewBootstrapForm):
 
 class StageSelectionForm(bsforms.NewBootstrapForm):
     stage = forms.ModelChoiceField(queryset=models.Stage.objects.all(), empty_label=None, widget=forms.Select(attrs={'class':'input-lg'}))
+
+
+class SettingEditForm(bsforms.NewBootstrapModelForm):
+    class Meta:
+        model = Setting
 

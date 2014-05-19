@@ -5,6 +5,7 @@ from django.utils.encoding import force_text
 from django.db import models
 
 from medbank import bsforms
+from medbank.forms import SettingEditForm
 from .models import Question, TeachingActivity, TeachingBlock, TeachingBlockYear, Student, Comment, TeachingActivityYear, QuizSpecification, Reason
 
 import string
@@ -327,3 +328,16 @@ class QuestionAttributesForm(bsforms.NewBootstrapModelForm):
         model = Question
         exclude = ('body', 'options', 'answer', 'explanation', 'date_created', 'creator', 'approver', 'teaching_activity_year', 'status', 'suitable_for_faculty')
 
+
+class SettingEditForm(SettingEditForm):
+    main_text = forms.CharField(required=False)
+    secondary_text = forms.CharField(required=False)
+    image = forms.ImageField(required=False)
+
+    def __init__(self, *args, **kwargs):
+        setting_instance = kwargs["instance"]
+        kwargs['initial'].update({"main_text": setting_instance.main_text(), "secondary_text": setting_instance.secondary_text()})
+        super(SettingEditForm, self).__init__(*args, **kwargs)
+
+    class Meta(SettingEditForm.Meta):
+        exclude = ['value',]

@@ -8,6 +8,8 @@ from django.utils.html import format_html
 from django.utils.datastructures import SortedDict
 from django.core.urlresolvers import reverse
 
+from medbank.models import Setting
+
 import json
 import datetime
 import string
@@ -1033,4 +1035,56 @@ class Comment(models.Model):
 
     def replies(self):
         return Comment.objects.filter(reply_to=self)
+
+
+class DashboardSettingMixin(object):
+    def get_value_dict(self):
+        if self.value and "{" in self.value:
+            return json.loads(self.value)
+        else:
+            return None
+
+    def build_value_attr(self, key):
+        key = "_".join(key.split())
+        return "_%s" % key
+
+    def get_value_from_dict(self, key):
+        if hasattr(self, self.build_value_attr(key)):
+            return getattr(self, self.build_value_attr(key))
+
+        value = self.get_value_dict()
+        if isinstance(value, dict):
+            setattr(self, self.build_value_attr(key), value[key])
+            return value[key]
+
+        return None
+
+    def main_text(self):
+        return self.get_value_from_dict("main_text")
+
+    def secondary_text(self):
+        return self.get_value_from_dict("secondary_text")
+
+class StudentDashboardSetting(Setting, DashboardSettingMixin):
+    HAS_QUESTIONS_DUE_SOON = "has_questions_due_soon"
+    HAS_QUESTIONS_DUE_LATER = "has_questions_due_later"
+    ALL_QUESTIONS_SUBMITTED = "all_questions_submitted"
+    NO_CURRENT_ACTIVITIES_OR_BLOCKS_OPEN = "no_current_activities_or_blocks_open"
+    NO_CURRENT_ACTIVITIES_AND_BLOCKS_OPEN = "no_current_activities_and_blocks_open"
+    DEFAULT_MESSAGE = "default_message"
+    OVERRIDE_MESSAGE = "override_message"
+
+    ALL_SETTINGS = [
+        HAS_QUESTIONS_DUE_SOON, HAS_QUESTIONS_DUE_LATER, ALL_QUESTIONS_SUBMITTED,
+        NO_CURRENT_ACTIVITIES_OR_BLOCKS_OPEN, NO_CURRENT_ACTIVITIES_AND_BLOCKS_OPEN,
+        DEFAULT_MESSAGE, OVERRIDE_MESSAGE
+    ]
+
+    class Meta:
+        proxy = True
+
+
+class ApprovalDashboardSetting(Setting, DashboardSettingMixin):
+    class Meta:
+        proxy = True
 

@@ -89,6 +89,39 @@ class DashboardView(TemplateView):
         allowed_blocks = models.TeachingBlockYear.objects.filter(block__stage=self.request.user.student.get_current_stage())
         block_count = allowed_blocks.filter(start__lte=datetime.datetime.now(), end__gte=datetime.datetime.now()).count()
         c.update({'block_count': block_count})
+
+        message_settings = list(models.StudentDashboardSetting.objects.filter(name__in=models.StudentDashboardSetting.ALL_SETTINGS))
+        message_settings = dict((setting.name, setting) for setting in message_settings)
+
+        override = message_settings[models.StudentDashboardSetting.OVERRIDE_MESSAGE]
+        setting_to_use = None
+        main_feature_text = ""
+        secondary_feature_text = ""
+
+        if override.main_text() or override.secondary_text():
+            setting_to_use = override
+        elif self.request.user.student.current_assigned_activities().exists():
+            if self.request.user.student.questions_due_soon_count():
+                setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_SOON]
+            elif self.request.user.student.future_block_count():
+                setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_LATER]
+            else:
+                setting_to_use = message_settings[models.StudentDashboardSetting.ALL_QUESTIONS_SUBMITTED]
+        else:
+            if block_count:
+                setting_to_use = message_settings[models.StudentDashboardSetting.NO_CURRENT_ACTIVITIES_AND_BLOCKS_OPEN]
+            else:
+                setting_to_use = message_settings[models.StudentDashboardSetting.NO_CURRENT_ACTIVITIES_OR_BLOCKS_OPEN]
+
+        main_feature_text = setting_to_use.main_text() or ""
+        secondary_feature_text = setting_to_use.secondary_text() or ""
+
+        if not main_feature_text and not secondary_feature_text:
+            main_feature_text = message_settings[models.StudentDashboardSetting.DEFAULT_MESSAGE].main_text()
+            secondary_feature_text = message_settings[models.StudentDashboardSetting.DEFAULT_MESSAGE].secondary_text()
+
+        c.update({'main_feature_text': main_feature_text, "secondary_feature_text": secondary_feature_text})
+
         return c
 
 
@@ -185,7 +218,60 @@ class AdminView(TemplateView):
         c.update({'blocks': tb, 'questions_pending': questions_pending, 'questions_flagged': questions_flagged,})
         c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
         c.update({'quiz_specifications': models.QuizSpecification.objects.order_by('stage')})
+        c.update({'student_dashboard_settings': models.StudentDashboardSetting.objects.all()})
         return c
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class SettingView(DetailView):
+    template_name = "admin/setting.html"
+    model = models.StudentDashboardSetting
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class EditSettingView(UpdateView):
+    template_name = "generic/form.html"
+    model = models.StudentDashboardSetting
+    form_class = forms.SettingEditForm
+
+    def get_context_data(self, **kwargs):
+        c = super(EditSettingView, self).get_context_data(**kwargs)
+        c['object_name'] = "Student Dashboard Setting"
+        print c['form'].__dict__
+        return c
+
+    def form_valid(self, form):
+        c = form.cleaned_data
+        value_dict = {}
+        value_dict["main_text"] = c["main_text"]
+        value_dict["secondary_text"] = c["secondary_text"]
+
+        self.object.value = json.dumps(value_dict)
+        self.object.save()
+        return super(EditSettingView, self).form_valid(form)
+
+    def get_success_url(self):
+        return reverse('admin-settings-view', kwargs={'pk': self.object.pk})
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class CreateMissingSettingsView(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self):
+        message_settings = models.StudentDashboardSetting.objects.filter(name__in=models.StudentDashboardSetting.ALL_SETTINGS).values_list('name', flat=True)
+        message_settings = list(message_settings)
+        if len(message_settings) != len(models.StudentDashboardSetting.ALL_SETTINGS):
+            for setting in models.StudentDashboardSetting.ALL_SETTINGS:
+                if setting not in message_settings:
+                    new_setting = models.StudentDashboardSetting()
+                    new_setting.name = setting
+                    new_setting.last_modified_by = self.request.user.student
+                    new_setting.save()
+
+                    message_settings.append(new_setting)
+
+        return reverse('admin')
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -593,6 +679,7 @@ def signup(request, ta_id):
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class AssignApproval(RedirectView):
+    permanent = False
     def get_redirect_url(self, ta_id):
         try:
             activity = models.TeachingActivityYear.objects.get(id=ta_id)
@@ -779,6 +866,7 @@ class QuizView(ListView):
 
 @class_view_decorator(login_required)
 class QuizGenerationView(RedirectView):
+    permanent = False
     def generate_questions(self):
         g = self.request.GET
         blocks = []
@@ -972,6 +1060,8 @@ class Quiz(ListView):
 
 @class_view_decorator(login_required)
 class QuizSubmit(RedirectView):
+    permanent = False
+
     def get_redirect_url(self):
         if not self.request.method == 'POST':
             return reverse('quiz-choose')
@@ -1258,6 +1348,7 @@ class QuestionAttributes(QueryStringMixin, FormView):
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class ReleaseBlockView(RedirectView):
+    permanent = False
     def get_redirect_url(self, code, year):
         try:
             block =  models.TeachingBlockYear.objects.get(year=year, block__code=code)

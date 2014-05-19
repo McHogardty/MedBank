@@ -13,6 +13,7 @@
         <a class="action" href="{% url 'admin-approve-choose' %}?flagged">View flagged questions</a>        
     {% endif %}
     <a class="action" href="{% url 'quiz-spec-new' %}">Add quiz specification</a>
+    <a class="action" href="{% url 'admin-settings-create' %}">Create missing settings</a>
 {% endblock actions %}
 
 {% block maincontent %}
@@ -79,35 +80,12 @@
     {% endif %}
     {% endfor %}
 
-{% comment %}
-    <h3>Step 5: Generate a questions document and email it to students</h3>
-    {% for b in blocks %}
-    {% if forloop.first %}
-        <div class="spacer">
-            <table class="table">
-                <tr>
-                    <th>Stage</th>
-                    <th>Block</th>
-                    <th>Questions only</th>
-                    <th>Questions and answers</th>
-                    <th>Release to students</th>
-                    <th>Email</th>
-                </tr>
-    {% endif %}
-    {% if b.is_active %}
-        <tr>
-            <td>{{ b.stage }}</td>
-            <td>{{ b.name }}</td>
-            <td><a href="{% url 'questions.views.download' code=b.number year=b.year mode='question' %}">Download</a></td>
-            <td><a href="{% url 'questions.views.download' code=b.number year=b.year mode='answer' %}">Download</a></td>
-            <td><a href="{% url 'release' code=b.number year=b.year %}">Release</a></td>
-            <td>{% if b.released %}<a href="{% url 'email' code=b.number year=b.year %}?document">Email</a>{% endif %}</td>
-        </tr>
-    {% endif %}
-    {% if forloop.last %}
-            </table>
-        </div>
-    {% endif %}
+    <h3>Student dashboard settings</h3>
+    <p>Click on a setting name to view it or change it.</p>
+    {% for setting in student_dashboard_settings %}
+        <h4><a href="{% url 'admin-settings-view' pk=setting.pk %}">{{ setting.verbose_name }}</a></h4>
+        <p>{{ setting.description|default:"" }}</p>
+    {% empty %}
+        <p>There are no settings in the database yet.</p>
     {% endfor %}
-{% endcomment %}
 {% endblock maincontent %}

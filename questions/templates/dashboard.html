@@ -5,23 +5,8 @@
 	<div class="row">
 		<div class="col-sm-12">
 			<div class="dashboard">
-				{% if student.current_assigned_activities.count %}
-					<h2>You have {{ student.questions_due_soon_count|default:"no" }} questions due in the next week</h2>
-					{% if student.questions_due_soon_count %}
-						<p class="lead">Don't forget!</p>
-					{% elif student.future_block_count %}
-						<p class="lead">Keep writing them though, it's worth it.</p>
-					{% else %}
-						<p class="lead">There still might be activities that need questions written. Why not take a look?</p>
-					{% endif %}
-				{% else %}
-					<h2>You haven't signed up for any activities yet.</h2>
-					{% if block_count %}
-						<p class="lead">Why not take a look? It's easier to write questions than you think!</p>
-					{% else %}
-						<p class="lead">Don't worry, a block will be open soon. In the meantime, you can relax!</p>
-					{% endif %}
-				{% endif %}
+				{% if main_feature_text %}<h2>{{ main_feature_text }}</h2>{% endif %}
+				{% if secondary_feature_text %}<p>{{ secondary_feature_text }}</p>{% endif %}
 			</div>
 		</div>
 	</div>
