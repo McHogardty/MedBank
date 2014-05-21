@@ -3,7 +3,11 @@ from django.db import models
 
 class SettingsManager(models.Manager):
     def get_query_set(self):
-        return super(SettingsManager, self).get_query_set().filter(class_name=self.model.__name__)
+    	qs = super(SettingsManager, self).get_query_set()
+    	if self.model.__name__ == "Setting":
+    		return qs
+
+        return qs.filter(class_name=self.model.__name__)
 
 
 class Setting(models.Model):
