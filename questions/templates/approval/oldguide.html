@@ -5,6 +5,28 @@
 	<div class="row">
 		<div class="col-sm-12">
 			<h1>Question Approval</h1>
+			<h2>How do I select the questions I want to approve?</h2>
+			<p>Click on the "Approve" tab in the navigation bar at the top of the page to get to the Approval Dashboard.. Then choose a block from the list and choose the teaching activity that you want to approve.</p>
+			<h2>How do I actually approve the questions?</h2>
+			<p>Click on the "Approve" table in the navigation bar at the top of the page to go to the Approval Dashboard. Scroll down and press the button "Approve questions".</p>
+			<h2>Which questions do I approve and which do I edit and which do I flag?</h2>
+			<p><strong>Edit</strong> the question if there is a spelling error that is easy to rectify.</p>
+			<p><strong>Flag</strong> a question if
+				<ol>
+					<li>It has more than one correct answer</li>
+					<li>All the answers are incorrect</li>
+					<li>The explanation is unclear</li>
+				</ol>
+			</p>
+			<p><strong>Approve</strong> a question if there is no need to edit or flag it.</p>
+			<p><strong>If a question is really good</strong> then it is probably suitable for a model quiz, or to be sent to the Faculty. If this is the case, click "Edit Attributes", check the box and click "Save".</p>
+			<h2>I don't want to do this! It will take me ages!</h2>
+			<p>No, approving should not take ages. Don't spend more than 5 minutes on one question. If you are unsure, flag the question. You don't need to rewrite the question. The question will be sent back to the person who wrote it, and he/she will rewrite it.</p>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-sm-12">
+			<h1>Question Approval</h1>
 			<p>Here you'll find information about how to approve questions, as well as what you should be doing when you approve a question.</p>
 
 			<h2>How do I approve questions?</h2>
@@ -13,12 +35,12 @@
 				<li>Familiarise yourself with the guidelines for approving questions. These will gradually become more complete as Michael gets his act together.</li>
 				<li>Assign yourself to a group of questions.
 					<ol>
-						<li>Click "Pick questions to approve" at the bottom of the page.</li>
+						<li>Click "Assign questions to me" from the approval dashboard.</li>
 						<li>Choose a block from the list.</li>
 						<li>A page will appear with a list of teaching activities from which you can choose. Assign yourself to approve some activities of your choice. You can see which activities are already assigned for approval.</li>
 					</ol>
 				</li>
-				<li>Once you have activities assigned for approval, click on the second button at the bottom of this page to start approving questions.</li>
+				<li>Once you have activities assigned for approval, click "Approve questions" on the dashboard to start approving questions.</li>
 				<li>Read through the question, the options, the answer and the explanation. Decide if the question meets the guidelines listed below.
 					<ul>
 						<li><strong>Only delete a question if it is a duplicate of another question</strong></li>
@@ -70,14 +92,6 @@
 			<strong>Abbreviations should also be consistent with the commonly used abbreviation in the literature</strong>.
 			</p>
 			<p><strong>Please remove any symbols trying to denote superscript or subscript notation</strong>. Superscript and subscript are going to be added features in the future. If there is an underscore (<code>_</code>) or a caret (<code>^</code>) used to denote subscript or superscript respectively, please delete it by editing the question. Then, click "Edit Attributes" and check the box about requiring subscript or superscript. For example, 5-HT_1 is not appropriate (representing 5-HT<sub>1</sub>), please change it to 5-HT1.</p>
-		</div>
-		<br><br>
-		<div class="col-sm-6 text-center">
-			<a href="{% url 'admin-approve-choose' %}?pending" class="btn btn-lg btn-default">Pick questions to approve</a>
-		</div>
-		<br>
-		<div class="col-sm-6 text-center">
-			<a href="{% url 'admin-approve-assigned-start' %}?assigned" class="btn btn-lg {% if has_assigned_approvals %}btn-primary{% else %}btn-default{% endif %}" {% if not has_assigned_approvals %}disabled="disabled"{% endif %}>Start approving questions</a>
 		</div>
 	</div>
 {% endblock content %}

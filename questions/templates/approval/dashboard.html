@@ -1,0 +1,47 @@
+{% extends "newbase.html" %}
+
+
+{% block content %}
+	<h1>Approval Dashboard</h1>
+	{% if main_feature_text or secondary_feature_text %}
+	<div class="row">
+		<div class="col-sm-12">
+			<div class="dashboard">
+				{% if main_feature_text %}<h2>{{ main_feature_text }}</h2>{% endif %}
+				{% if secondary_feature_text %}<p class="lead">{{ secondary_feature_text }}</p>{% endif %}
+			</div>
+		</div>
+	</div>		
+	{% endif %}
+	<div class="row">
+		<div class="col-sm-6">
+			<div class="dashboard">
+				<h1>{{ block_count }}</h1>
+				<p class="lead">blocks with pending questions.</p>
+				<a class="action" href="{% url 'admin-approve-choose' %}">Assign questions to me</a>
+			</div>
+		</div>
+		<div class="col-sm-6">
+			<div class="dashboard">
+				<h1>{{ questions_to_approve }}</h1>
+				<p class="lead">questions left to approve.</p>
+				{% if questions_to_approve %}
+				<a class="action" href="{% url 'admin-approve-assigned-start' %}?assigned">Approve questions</a>
+				{% else %}
+				<p class="lead action">Choose activities to the left</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	{% if main_guide_text or secondary_guide_text %}
+	<div class="row">
+		<div class="col-sm-12">
+			<div class="dashboard">
+				{% if main_guide_text %}<h2>{{ main_guide_text }}</h2>{% endif %}
+				{% if secondary_guide_text %}<p class="lead">{{ secondary_guide_text }}</p>{% endif %}
+				<a class="action" href="{% url 'approve-guide' %}">Read the guide</a>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+{% endblock content %}

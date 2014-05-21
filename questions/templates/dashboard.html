@@ -41,13 +41,15 @@
 			</div>
 		</div>
 	</div>
+	{% if main_guide_text or secondary_guide_text %}
 	<div class="row">
 		<div class="col-sm-12">
 			<div class="dashboard">
-				<h2>We've written a guide for you on how to write good questions.</h2>
-				<p class="lead">It would be great if you could give it a read.</p>
+				{% if main_guide_text %}<h2>{{ main_guide_text }}</h2>{% endif %}
+				{% if secondary_guide_text %}<p class="lead">{{ secondary_guide_text }}</p>{% endif %}
 				<a class="action" href="{% url 'question-guide' %}">View the guide</a>
 			</div>
 		</div>
-	</div>
+	</div>		
+	{% endif %}
 {% endblock content %}

@@ -1074,10 +1074,12 @@ class StudentDashboardSetting(Setting, DashboardSettingMixin):
     DEFAULT_MESSAGE = "default_message"
     OVERRIDE_MESSAGE = "override_message"
 
+    GUIDE_MESSAGE = "guide_message"
+
     ALL_SETTINGS = [
         HAS_QUESTIONS_DUE_SOON, HAS_QUESTIONS_DUE_LATER, ALL_QUESTIONS_SUBMITTED,
         NO_CURRENT_ACTIVITIES_OR_BLOCKS_OPEN, NO_CURRENT_ACTIVITIES_AND_BLOCKS_OPEN,
-        DEFAULT_MESSAGE, OVERRIDE_MESSAGE
+        DEFAULT_MESSAGE, OVERRIDE_MESSAGE, GUIDE_MESSAGE
     ]
 
     class Meta:
@@ -1085,6 +1087,20 @@ class StudentDashboardSetting(Setting, DashboardSettingMixin):
 
 
 class ApprovalDashboardSetting(Setting, DashboardSettingMixin):
+    DEFAULT_MESSAGE = "default_message"
+    OVERRIDE_MESSAGE = "override_message"
+    ASSIGNED_QUESTIONS_APPROVED_NO_QUESTIONS_LEFT = "assigned_questions_approved_no_questions_left"
+    ASSIGNED_QUESTIONS_APPROVED_AND_QUESTIONS_LEFT = "assigned_questions_approved_and_questions_left"
+    ASSIGNED_QUESTIONS_NEED_APPROVAL = "assigned_questions_need_approval"
+
+    GUIDE_MESSAGE = "guide_message"
+
+    ALL_SETTINGS = [
+        DEFAULT_MESSAGE, OVERRIDE_MESSAGE,
+        ASSIGNED_QUESTIONS_APPROVED_AND_QUESTIONS_LEFT, ASSIGNED_QUESTIONS_APPROVED_NO_QUESTIONS_LEFT,
+        ASSIGNED_QUESTIONS_NEED_APPROVAL, GUIDE_MESSAGE
+    ]
+
     class Meta:
         proxy = True
 

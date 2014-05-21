@@ -88,4 +88,14 @@
     {% empty %}
         <p>There are no settings in the database yet.</p>
     {% endfor %}
+
+    <h3>Approval dashboard settings</h3>
+    <p>Click on a setting name to view it or change it.</p>
+    {% for setting in approval_dashboard_settings %}
+        <h4><a href="{% url 'admin-settings-view' pk=setting.pk %}">{{ setting.verbose_name }}</a></h4>
+        <p>{{ setting.description|default:"" }}</p>
+    {% empty %}
+        <p>There are no settings in the database yet.</p>
+    {% endfor %}
+    
 {% endblock maincontent %}

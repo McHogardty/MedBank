@@ -93,13 +93,13 @@ class DashboardView(TemplateView):
         message_settings = list(models.StudentDashboardSetting.objects.filter(name__in=models.StudentDashboardSetting.ALL_SETTINGS))
         message_settings = dict((setting.name, setting) for setting in message_settings)
 
-        override = message_settings[models.StudentDashboardSetting.OVERRIDE_MESSAGE]
+        override = message_settings.get(models.StudentDashboardSetting.OVERRIDE_MESSAGE, None)
         setting_to_use = None
         main_feature_text = ""
         secondary_feature_text = ""
 
         try:
-            if override.main_text() or override.secondary_text():
+            if override and (override.main_text() or override.secondary_text()):
                 setting_to_use = override
             elif self.request.user.student.current_assigned_activities().exists():
                 if self.request.user.student.questions_due_soon_count():
@@ -128,8 +128,75 @@ class DashboardView(TemplateView):
                 main_feature_text = ""
                 secondary_feature_text = ""
 
-        c.update({'main_feature_text': main_feature_text, "secondary_feature_text": secondary_feature_text})
+        guide_message = message_settings.get(models.StudentDashboardSetting.GUIDE_MESSAGE, None)
+        main_guide_text = guide_message.main_text() if guide_message else ""
+        secondary_guide_text = guide_message.secondary_text() if guide_message else ""
 
+        c.update({'main_feature_text': main_feature_text, "secondary_feature_text": secondary_feature_text})
+        c.update({'main_guide_text': main_guide_text or "", "secondary_guide_text": secondary_guide_text or ""})
+
+        return c
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class ApprovalDashboardView(TemplateView):
+    template_name = "approval/dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        c = super(ApprovalDashboardView, self).get_context_data(**kwargs)
+        c["questions_to_approve"] = models.ApprovalRecord.objects.filter(approver=self.request.user.student, date_completed__isnull=True).count()
+        message_settings = list(models.ApprovalDashboardSetting.objects.filter(name__in=models.ApprovalDashboardSetting.ALL_SETTINGS))
+        message_settings = dict((setting.name, setting) for setting in message_settings)
+
+        s = [stage.number for stage in self.request.user.student.get_all_stages()]
+        block_years = models.TeachingBlockYear.objects.filter(block__stage__number__in=s) \
+            .filter(db.models.Q(release_date__year=datetime.datetime.now().year) | db.models.Q(start__year=datetime.datetime.now().year)) \
+            .order_by('block__code').distinct()
+
+        records=models.ApprovalRecord.objects \
+            .annotate(max=db.models.Max('question__approval_records__date_completed')) \
+            .filter(max=db.models.F('date_completed')) \
+            .filter(status=models.ApprovalRecord.PENDING_STATUS)
+        block_years = block_years.filter(db.models.Q(activities__questions__approval_records__in=records) | db.models.Q(activities__questions__approval_records__isnull=True))
+        block_count = block_years.count()
+
+        override = message_settings[models.ApprovalDashboardSetting.OVERRIDE_MESSAGE]
+        setting_to_use = None
+        main_feature_text = ""
+        secondary_feature_text = ""
+
+        try:
+            if override.main_text() or override.secondary_text():
+                setting_to_use = override
+            elif c["questions_to_approve"]:
+                setting_to_use = message_settings[models.ApprovalDashboardSetting.ASSIGNED_QUESTIONS_NEED_APPROVAL]
+            else:
+                if block_count:
+                    setting_to_use = message_settings[models.ApprovalDashboardSetting.ASSIGNED_QUESTIONS_APPROVED_AND_QUESTIONS_LEFT]
+                else:
+                    setting_to_use = message_settings[models.ApprovalDashboardSetting.ASSIGNED_QUESTIONS_APPROVED_NO_QUESTIONS_LEFT]
+        except KeyError:
+            pass
+
+        if setting_to_use:
+            main_feature_text = setting_to_use.main_text() or ""
+            secondary_feature_text = setting_to_use.secondary_text() or ""
+
+        if not main_feature_text and not secondary_feature_text:
+            try:
+                main_feature_text = message_settings[models.ApprovalDashboardSetting.DEFAULT_MESSAGE].main_text()
+                secondary_feature_text = message_settings[models.ApprovalDashboardSetting.DEFAULT_MESSAGE].secondary_text()
+            except KeyError:
+                main_feature_text = ""
+                secondary_feature_text = ""
+
+        guide_message = message_settings.get(models.StudentDashboardSetting.GUIDE_MESSAGE, None)
+        main_guide_text = guide_message.main_text() if guide_message else ""
+        secondary_guide_text = guide_message.secondary_text() if guide_message else ""
+
+        c.update({'main_feature_text': main_feature_text, "secondary_feature_text": secondary_feature_text})
+        c.update({'main_guide_text': main_guide_text or "", "secondary_guide_text": secondary_guide_text or ""})
+        c.update({'block_count': block_count})
         return c
 
 
@@ -227,25 +294,36 @@ class AdminView(TemplateView):
         c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
         c.update({'quiz_specifications': models.QuizSpecification.objects.order_by('stage')})
         c.update({'student_dashboard_settings': models.StudentDashboardSetting.objects.all()})
+        c.update({'approval_dashboard_settings': models.ApprovalDashboardSetting.objects.all()})
         return c
 
-
+from medbank.models import Setting
 @class_view_decorator(permission_required('questions.can_approve'))
 class SettingView(DetailView):
     template_name = "admin/setting.html"
-    model = models.StudentDashboardSetting
+    queryset = Setting.objects.filter(class_name__in=[models.StudentDashboardSetting.__name__, models.ApprovalDashboardSetting.__name__])
+
+    def get_object(self, *args, **kwargs):
+        object = super(SettingView, self).get_object(*args, **kwargs)
+        object.__class__ = getattr(models, object.class_name)
+        return object
+
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class EditSettingView(UpdateView):
     template_name = "generic/form.html"
-    model = models.StudentDashboardSetting
+    queryset = Setting.objects.filter(class_name__in=[models.StudentDashboardSetting.__name__, models.ApprovalDashboardSetting.__name__])
     form_class = forms.SettingEditForm
+
+    def get_object(self, *args, **kwargs):
+        object = super(EditSettingView, self).get_object(*args, **kwargs)
+        object.__class__ = getattr(models, object.class_name)
+        return object
 
     def get_context_data(self, **kwargs):
         c = super(EditSettingView, self).get_context_data(**kwargs)
         c['object_name'] = "Student Dashboard Setting"
-        print c['form'].__dict__
         return c
 
     def form_valid(self, form):
@@ -267,17 +345,20 @@ class CreateMissingSettingsView(RedirectView):
     permanent = False
 
     def get_redirect_url(self):
-        message_settings = models.StudentDashboardSetting.objects.filter(name__in=models.StudentDashboardSetting.ALL_SETTINGS).values_list('name', flat=True)
-        message_settings = list(message_settings)
-        if len(message_settings) != len(models.StudentDashboardSetting.ALL_SETTINGS):
-            for setting in models.StudentDashboardSetting.ALL_SETTINGS:
-                if setting not in message_settings:
-                    new_setting = models.StudentDashboardSetting()
-                    new_setting.name = setting
-                    new_setting.last_modified_by = self.request.user.student
-                    new_setting.save()
+        settings_classes = [models.StudentDashboardSetting, models.ApprovalDashboardSetting]
+        
+        for cls in settings_classes:
+            message_settings = cls.objects.filter(name__in=cls.ALL_SETTINGS).values_list('name', flat=True)
+            message_settings = list(message_settings)
+            if len(message_settings) != len(cls.ALL_SETTINGS):
+                for setting in cls.ALL_SETTINGS:
+                    if setting not in message_settings:
+                        new_setting = cls()
+                        new_setting.name = setting
+                        new_setting.last_modified_by = self.request.user.student
+                        new_setting.save()
 
-                    message_settings.append(new_setting)
+                        message_settings.append(new_setting)
 
         return reverse('admin')
 
@@ -295,7 +376,6 @@ class BlockAdminView(DetailView):
 
 class QueryStringMixin(object):
     def query_string(self):
-        print "Checking query string"
         allowed = ['show', 'approve', 'flagged', 'assigned']
         allowed_with_parameters = ['total', 'progress']
         g = self.request.GET.keys()
@@ -699,23 +779,18 @@ class AssignApproval(RedirectView):
             messages.error(self.request, 'The teaching activity %s already has an assigned approver.' % activity)
         else:
             for question in activity.questions.all():
-                print "Question %s" % question.__dict__
                 try:
                     # Make them the approver on the latest record if it is incomplete.
                     latest_record = question.latest_approval_record()
-                    print "There is an approval record"
                 except models.ApprovalRecord.DoesNotExist:
                     # No records at all, make one.
-                    print "There are no approval records."
                     latest_record = models.ApprovalRecord()
 
                 if latest_record.date_completed:
-                    print "The record is complete."
                     if latest_record.status == models.ApprovalRecord.PENDING_STATUS:
                         # Latest record was to make the question pending. So we need a new record.
                         latest_record = models.ApprovalRecord()
                     else:
-                        print "The record is not complete."
                         # Question is not pending, so it doesn't need a new record.
                         continue
 

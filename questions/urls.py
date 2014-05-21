@@ -9,7 +9,7 @@ from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     QuizIndividualSummary, QuizSpecificationView, QuizSpecificationAdd, QuizChooseView, NewQuizSpecificationView,
     UploadView, UploadErrorView, UploadConfirmationView, UploadSubmissionView, ApprovalHome, FlagQuestion,
     QuestionAttributes, AssignApproval, ViewQuestionApprovalHistory, QuestionGuide, CreateMissingSettingsView,
-    SettingView, EditSettingView)
+    SettingView, EditSettingView, ApprovalDashboardView)
 
 from django.views.generic import TemplateView
 
@@ -36,7 +36,8 @@ urlpatterns = patterns(
     url(r'^admin/settings/create/$', CreateMissingSettingsView.as_view(), name='admin-settings-create'),
     url(r'^admin/settings/(?P<pk>\d+)/view/$', SettingView.as_view(), name='admin-settings-view'),
     url(r'^admin/settings/(?P<pk>\d+)/edit/$', EditSettingView.as_view(), name='admin-settings-edit'),
-    url(r'^approve/$', ApprovalHome.as_view(), name="approve-home"),
+    url(r'^approve/$', ApprovalDashboardView.as_view(), name="approve-home"),
+    url(r'^approve/guide/$', TemplateView.as_view(template_name="approval/guide.html"), name="approve-guide"),
     url(r'^quiz/add/$', NewQuizSpecificationView.as_view(), name='quiz-spec-new'),
     url(r'^download/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/(?P<mode>[a-z]+)/$', 'download'),
     #url(r'^send/(?P<pk>\d{1,2})/$', 'send'),
