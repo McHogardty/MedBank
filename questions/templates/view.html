@@ -35,7 +35,7 @@
 {% block maincontent %}
     {% if approval_mode and not records_completed == None %}
     <div class="col-xs-12">
-        <h2>Progress so far: {{ records_remaining }} record{{ records_remaining|pluralize }} remaining out of {{ total_assigned_approvals }}</h2>
+        <h2>Progress so far: {{ records_remaining }} question{{ records_remaining|pluralize }} remaining out of {{ total_assigned_approvals }}</h2>
         <div class="progress">
             <div class="progress-bar" role="progressbar" aria-valuenow="{{ records_completed }}" aria-valuemin="0" aria-valuemax="{{ total_assigned_approvals }}" style="width: {% widthratio records_completed total_assigned_approvals 100 %}%;">
                 <span class="sr-only"></span>
