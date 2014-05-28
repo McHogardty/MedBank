@@ -510,13 +510,31 @@ class Question(models.Model):
                 if option == decoded_options["answer"]:
                     self.answer_letter = letter
 
-        self.approval_status = -1
-        if not self.approval_records.count():
-            self.approval_status = ApprovalRecord.PENDING_STATUS
-        elif self.approval_records.filter(date_completed__isnull=True).count():
-            self.approval_status = ApprovalRecord.PENDING_STATUS
-        else:
-            self.approval_status = self.approval_records.latest('date_completed').status
+        # self.approval_status = -1
+        # if not self.approval_records.count():
+        #     self.approval_status = ApprovalRecord.PENDING_STATUS
+        # elif self.approval_records.filter(date_completed__isnull=True).count():
+        #     self.approval_status = ApprovalRecord.PENDING_STATUS
+        # else:
+        #     self.approval_status = self.approval_records.latest('date_completed').status
+
+    def approval_status(self):
+        if hasattr(self, "_approval_status"):
+            return getattr(self, "_approval_status")
+
+        approval_status = -1
+
+        try:
+            approval_status = self.approval_records.latest('date_completed').status
+        except:        
+            if not self.approval_records.count():
+                approval_status = ApprovalRecord.PENDING_STATUS
+            elif self.approval_records.filter(date_completed__isnull=True).count():
+                approval_status = ApprovalRecord.PENDING_STATUS
+
+        self._approval_status = approval_status
+        return approval_status
+    approval_status = property(approval_status)
 
 
     @classmethod
@@ -763,36 +781,67 @@ class QuizSpecification(models.Model):
     def number_of_questions(self):
         return self.get_questions().count()
 
-    def average_score(self):
-        attempts = self.attempts.all()
+    def get_correct_question_attempts(self):
+        # Get all of the QuestionAttempts for this specification which are correct.
 
-        if not attempts.count(): return 0
+        if hasattr(self, "_question_attempts"):
+            return getattr(self, "_question_attempts")
+
+        question_attempts = QuestionAttempt.objects.filter(quiz_attempt__quiz_specification=self) \
+                            .filter(question__answer=models.F("answer")) \
+                            .select_related('quiz_attempt')
+
+        setattr(self, "_question_attempts", question_attempts)
+        return question_attempts
+
+
+    def average_score(self):
+        # attempts = self.attempts.all()
+
+        # Get all of the QuestionAttempts for this specification which are correct.
+        question_attempts = self.get_correct_question_attempts()
 
         total_score = 0
-        for attempt in attempts:
-            total_score += attempt.score()
+        attempts = []
+        for question_attempt in question_attempts:
+            total_score += 1
+            if question_attempt.quiz_attempt not in attempts:
+                attempts.append(question_attempt.quiz_attempt)
 
+        if not attempts: return 0
         return float(total_score)/len(attempts)
 
     def highest_score(self):
-        attempts = self.attempts.all()
+        question_attempts = self.get_correct_question_attempts()
+
+        # Group them by QuizAttempt
+        quiz_attempts = {}
+        for question_attempt in question_attempts:
+            l = quiz_attempts.setdefault(question_attempt.quiz_attempt, [])
+            l.append(question_attempt)
 
         highest = 0
-        for attempt in attempts:
-            score = attempt.score()
-            if score > highest: highest = score
+        if quiz_attempts:
+            highest = max(len(question_attempts) for quiz_attempt, question_attempts in quiz_attempts.items())
 
         return highest
 
     def lowest_score(self):
-        attempts = self.attempts.all()
+        # Check whether people have gotten every question wrong. These will be mist in self.get_correct_question_attempts()
+        complete_fails = self.attempts.exclude(questions__question__answer=models.F("questions__answer")).distinct()
+        if complete_fails.exists(): return 0
 
-        if not attempts.count(): return 0
+        question_attempts = self.get_correct_question_attempts()
 
-        lowest = self.number_of_questions()
-        for attempt in attempts:
-            score = attempt.score()
-            if score < lowest: lowest = score
+        # Group them by QuizAttempt
+        quiz_attempts = {}
+        for question_attempt in question_attempts:
+            l = quiz_attempts.setdefault(question_attempt.quiz_attempt, [])
+            l.append(question_attempt)
+
+        lowest = 0
+        if quiz_attempts:
+            lowest = min(len(question_attempts) for quiz_attempt, question_attempts in quiz_attempts.items())
 
         return lowest
 
@@ -848,7 +897,7 @@ class QuizQuestionSpecification(models.Model):
 
         questions_to_return |= Question.objects.filter(condition)
 
-        return questions_to_return
+        return questions_to_return.select_related("teaching_activity_year")
 
 
 class QuizAttempt(models.Model):

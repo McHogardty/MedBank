@@ -160,13 +160,13 @@ class ApprovalDashboardView(TemplateView):
         block_years = block_years.filter(db.models.Q(activities__questions__approval_records__in=records) | db.models.Q(activities__questions__approval_records__isnull=True))
         block_count = block_years.count()
 
-        override = message_settings[models.ApprovalDashboardSetting.OVERRIDE_MESSAGE]
+        override = message_settings.get(models.ApprovalDashboardSetting.OVERRIDE_MESSAGE, None)
         setting_to_use = None
         main_feature_text = ""
         secondary_feature_text = ""
 
         try:
-            if override.main_text() or override.secondary_text():
+            if override and (override.main_text() or override.secondary_text()):
                 setting_to_use = override
             elif c["questions_to_approve"]:
                 setting_to_use = message_settings[models.ApprovalDashboardSetting.ASSIGNED_QUESTIONS_NEED_APPROVAL]
@@ -516,7 +516,8 @@ class StartApprovalView(QueryStringMixin, RedirectView):
             q = q.filter(db.models.Q(approval_records__in=records) | db.models.Q(pk=q_id))
 
             if 'flagged' not in self.request.GET:
-                q |= models.Question.objects.filter(db.models.Q(approval_records__isnull=True) | db.models.Q(date_completed__isnull=True))
+                q |= models.Question.objects.filter(db.models.Q(approval_records__isnull=True) | db.models.Q(approval_records__date_completed__isnull=True)) \
+                                            .filter(teaching_activity_year__block_year=b)
 
             try:
                 if previous_q:
@@ -1234,6 +1235,13 @@ class QuizIndividualSummary(DetailView):
     model = models.QuizAttempt
     template_name = "quiz_individual.html"
 
+    def get_queryset(self):
+        queryset = super(QuizIndividualSummary, self).get_queryset()
+
+        queryset = queryset.select_related("quiz_specification").prefetch_related("quiz_specification__questions", "quiz_specification__attempts")
+
+        return queryset
+
     def get_context_data(self, **kwargs):
         c = super(QuizIndividualSummary, self).get_context_data(**kwargs)
         c['summary_mode'] = True
@@ -1313,19 +1321,20 @@ class ChangeStatus(QueryStringMixin, RedirectView):
         if action == "flag":
             return "%s%s" % (reverse('question-flag', kwargs={'ta_id': q.teaching_activity_year.id, 'q_id': q_id}), self.query_string())
 
-        is_new = True
+        is_new = False
         if not getattr(q, actions_to_props[action]):
             try:
                 # Look for existing approval record as someone may have been assigned.
                 record = q.latest_approval_record()
-                is_new = False
             except models.ApprovalRecord.DoesNotExist:
                 # No approval records, so question was not assigned to anyone.
                 record = models.ApprovalRecord()
+                is_new = True
 
             if record.date_completed:
                 # Question was assigned and completed, so we don't want to overwrite the old record.
                 record = models.ApprovalRecord()
+                is_new = True
 
             update_date_assigned = not is_new and record.approver != self.request.user.student
             record.status = getattr(models.ApprovalRecord, '%s_STATUS' % actions_to_props[action].upper())

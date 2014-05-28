@@ -23,6 +23,7 @@
         <dt>Debug mode</dt><dd>{% if debug_mode %}<strong class="text-danger">ON</strong> (Users will be able to see the details of errors if they occur. No emails are sent to the webmaster.){% else %}<strong class="text-success">OFF</strong> (Users will not be able to see the details of errors when they occur. The webmaster will receive emails containing the details of the errors.){% endif %}</dd>
         <dt>Maintenance mode</dt><dd>{% if maintenance_mode %}<strong class="text-danger">ON</strong> (All users except admins will be displayed a site-maintenance page){% else %}<strong class="text-success">OFF</strong> (Users are able to use the site as normal){% endif %}</dd>
     </dl>
+    <strong>If debug mode is set to ON, please let Michael know fairly quickly and urge him to change it.</strong>
     {% for b in blocks %}
         {% if forloop.first %}
             <h3>Currently active blocks</h3>
@@ -83,7 +84,7 @@
     <h3>Student dashboard settings</h3>
     <p>Click on a setting name to view it or change it.</p>
     {% for setting in student_dashboard_settings %}
-        <h4><a href="{% url 'admin-settings-view' pk=setting.pk %}">{{ setting.verbose_name }}</a></h4>
+        <h4><a href="{% url 'admin-settings-view' pk=setting.pk %}">{{ setting.verbose_name }}</a> <span class="{% if setting.main_text or setting.secondary_text %}text-success{% else %}loading{% endif %}">{% if setting.main_text or setting.secondary_text %}Set{% else %}Empty{% endif %}</h4>
         <p>{{ setting.description|default:"" }}</p>
     {% empty %}
         <p>There are no settings in the database yet.</p>
@@ -92,7 +93,7 @@
     <h3>Approval dashboard settings</h3>
     <p>Click on a setting name to view it or change it.</p>
     {% for setting in approval_dashboard_settings %}
-        <h4><a href="{% url 'admin-settings-view' pk=setting.pk %}">{{ setting.verbose_name }}</a></h4>
+        <h4><a href="{% url 'admin-settings-view' pk=setting.pk %}">{{ setting.verbose_name }}</a>  <span class="{% if setting.main_text or setting.secondary_text %}text-success{% else %}loading{% endif %}">{% if setting.main_text or setting.secondary_text %}Set{% else %}Empty{% endif %}</h4>
         <p>{{ setting.description|default:"" }}</p>
     {% empty %}
         <p>There are no settings in the database yet.</p>
