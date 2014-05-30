@@ -17,19 +17,27 @@
 
 {% block content %}
 	<h1>{{ object.name }} ({{ object.stage }})</h1>
-	<h2>Questions</h2>
+	<p>{{ object.description }}</p>
+	<h2>Questions <small><a href="{% url "quiz-spec-question-add" slug=object.slug %}">Add Questions</a></small></h2>
+
+	{% for question in object.get_questions_in_order %}
+	{% if forloop.first %}
 	<table class="table">
 		<tr>
 			<th class="stage">Stage</th>
 			<th class="block">Block</th>
 			<th>Question</th>
-		</tr>
-		{% for question in object.get_questions_in_order %}
+		</tr>			
+	{% endif %}
 		<tr>
 			<td class="stage">{{ question.teaching_activity_year.block_year.stage }}</td>
-			<td class="block">{{ question.teaching_activity_year.block_year }}</td>
+			<td class="block">Block {{ question.teaching_activity_year.block_year.code }}</td>
 			<td class="question"><a href="{% url 'view' pk=question.id ta_id=question.teaching_activity_year.id%}">{{ question.body }}</a></td>
 		</tr>
-		{% endfor %}
+	{% if forloop.last %}
 	</table>
+	{% endif %}
+	{% empty %}
+	<p>This quiz specification does not contain any questions yet.</p>
+	{% endfor %}
 {% endblock content %}

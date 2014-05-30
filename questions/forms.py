@@ -341,3 +341,12 @@ class SettingEditForm(SettingEditForm):
 
     class Meta(SettingEditForm.Meta):
         exclude = ['value',]
+
+
+class QuestionForm(bsforms.NewBootstrapForm):
+    question_id = forms.ModelChoiceField(widget=forms.TextInput(), label="Question ID", queryset=Question.objects.all())
+    questions_selected = forms.ModelMultipleChoiceField(widget=forms.MultipleHiddenInput(), queryset=Question.objects.all(), required=False)
+
+
+class ConfirmQuestionSelectionForm(bsforms.NewBootstrapForm):
+    question_id = forms.ModelMultipleChoiceField(queryset=Question.objects.all())

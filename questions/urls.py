@@ -9,7 +9,8 @@ from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     QuizIndividualSummary, QuizSpecificationView, QuizSpecificationAdd, QuizChooseView, NewQuizSpecificationView,
     UploadView, UploadErrorView, UploadConfirmationView, UploadSubmissionView, ApprovalHome, FlagQuestion,
     QuestionAttributes, AssignApproval, ViewQuestionApprovalHistory, QuestionGuide, CreateMissingSettingsView,
-    SettingView, EditSettingView, ApprovalDashboardView)
+    SettingView, EditSettingView, ApprovalDashboardView, UpdateQuizSpecificationView, AddQuizSpecificationQuestions,
+    ConfirmQuizSpecificationQuestion)
 
 from django.views.generic import TemplateView
 
@@ -39,6 +40,9 @@ urlpatterns = patterns(
     url(r'^approve/$', ApprovalDashboardView.as_view(), name="approve-home"),
     url(r'^approve/guide/$', TemplateView.as_view(template_name="approval/guide.html"), name="approve-guide"),
     url(r'^quiz/add/$', NewQuizSpecificationView.as_view(), name='quiz-spec-new'),
+    url(r'^quiz/(?P<slug>[a-z]+)/edit/$', UpdateQuizSpecificationView.as_view(), name='quiz-spec-edit'),
+    url(r'^quiz/(?P<slug>[a-z]+)/question/add/$', AddQuizSpecificationQuestions.as_view(), name='quiz-spec-question-add'),
+    url(r'^quiz/(?P<slug>[a-z]+)/question/confirm/$', ConfirmQuizSpecificationQuestion.as_view(), name='quiz-spec-question-confirm'),
     url(r'^download/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/(?P<mode>[a-z]+)/$', 'download'),
     #url(r'^send/(?P<pk>\d{1,2})/$', 'send'),
     url(r'^quiz/$', Quiz.as_view(), name='quiz'),

@@ -925,7 +925,7 @@ class QuizChooseView(ListView):
     model = models.QuizSpecification
 
     def get_queryset(self):
-        return super(QuizChooseView, self).get_queryset().exclude(stage__number__gt=self.request.user.student.get_current_stage().number)
+        return super(QuizChooseView, self).get_queryset().exclude(stage__number__gt=self.request.user.student.get_current_stage().number).exclude(questions__isnull=True)
 
 
 @class_view_decorator(login_required)
@@ -1256,6 +1256,71 @@ class NewQuizSpecificationView(CreateView):
     template_name = "admin/new.html"
     success_url = reverse_lazy('admin')
 
+
+class UpdateQuizSpecificationView(UpdateView):
+    model = models.QuizSpecification
+    form_class = forms.NewQuizSpecificationForm
+    template_name = "admin/new.html"
+    success_url = reverse_lazy('admin')
+
+class AddQuizSpecificationQuestions(FormView):
+    template_name = "admin/add_specification_questions.html"
+    form_class = forms.QuestionForm
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.specification = models.QuizSpecification.objects.get(slug=kwargs['slug'])
+        except models.QuizSpecification.DoesNotExist:
+            messages.error("That quiz specification does not exist.")
+            return redirect("admin")
+
+        self.questions = []
+
+        return super(AddQuizSpecificationQuestions, self).dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super(AddQuizSpecificationQuestions, self).get_context_data(**kwargs)
+        context['specification'] = self.specification
+        context['questions'] = self.questions
+        return context
+
+    def get_initial(self):
+        if self.questions:
+            return {'questions_selected': self.questions}
+
+    def form_valid(self, form):
+        self.questions += form.cleaned_data['questions_selected']
+        if form.cleaned_data['question_id'] not in self.questions:
+            self.questions.append(form.cleaned_data['question_id'])
+
+        # Way to get around self.get_form adding in the data from the post request.
+        self.request.method = "GET"
+        return self.render_to_response(self.get_context_data(form=self.get_form(self.get_form_class())))
+
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class ConfirmQuizSpecificationQuestion(RedirectView):
+    def get_redirect_url(self, slug):
+        try:
+            specification = models.QuizSpecification.objects.get(slug=slug)
+        except models.QuizSpecification.DoesNotExist:
+            messages.error(self.request, "That quiz specification does not exist.")
+
+        if self.request.method != "POST":
+            messages.error(self.request, "Sorry, an unexpected error occurred. Please try again.")
+        else:
+            form = forms.ConfirmQuestionSelectionForm(self.request.POST)
+
+            if form.is_valid():
+                questions = form.cleaned_data["question_id"]
+                question_specification = models.QuizQuestionSpecification.form_list_of_questions(questions)
+                question_specification.quiz_specification = specification
+                question_specification.save()
+                messages.success(self.request, "Questions added successfully!")
+            else:
+                messages.error(self.request, "Sorry, an unexpected error occured. Please try again.")
+
+        return reverse('quiz-spec-view', kwargs={'slug': specification.slug})
 
 @class_view_decorator(permission_required('questions.can_approve'))
 class QuizSpecificationView(DetailView):

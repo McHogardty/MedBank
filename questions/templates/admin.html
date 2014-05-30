@@ -68,13 +68,13 @@
         <tr>
             <th>Name</th>
             <th>Stage</th>
-            <th>Details</th>
+            <th>Actions</th>
         </tr>
     {% endif %}
     <tr>
         <td>{{ qs.name }}</td>
         <td>{{ qs.stage }}</td>
-        <td><a href="{% url 'quiz-spec-view' slug=qs.slug %}">View</a></td>
+        <td><span class="actions"><a class="action" href="{% url 'quiz-spec-view' slug=qs.slug %}">View</a><a class="action" href="{% url 'quiz-spec-edit' slug=qs.slug %}">Edit</a></span></td>
     </tr>
     {% if forloop.last %}
     </table>

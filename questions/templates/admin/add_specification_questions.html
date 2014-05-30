@@ -1,0 +1,48 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Add a question to a quiz specification</h1>
+	<p>Use this page to add questions to the quiz "{{ specification.name }}" ({{ specification.stage}}).</p>
+	<p>Type in a question ID below and click add. You will be able to add multiple questions before saving the specification.</p>
+	<form class="form-horizontal" method="post" role="form">
+        {% csrf_token %}
+        {{ form.as_bootstrap }}
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-6">
+                <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+        </div>
+	</form>
+	{% if questions %}
+	<h2>Questions to add</h2>
+	{% for question in questions %}
+		{% if forloop.first %}
+			<table class="table">
+				<tr>
+					<th>Stage</th>
+					<th>Block</th>
+					<th>Question</th>
+				</tr>
+		{% endif %}
+			<tr>
+				<td class="stage">{{ question.teaching_activity_year.block_year.stage }}</td>
+				<td class="block">Block {{ question.teaching_activity_year.block_year.code }}</td>
+				<td>{{ question.body }}</td>
+			</tr>
+		{% if forloop.last %}
+			</table>
+		{% endif %}
+	{% endfor %}
+	<form class="form-horizontal" method="post" role="form" action="{% url "quiz-spec-question-confirm" slug=specification.slug %}">
+		{% csrf_token %}
+		{% for question in questions %}
+			<input type="hidden" name="question_id" value="{{question.id}}" />
+		{% endfor %}
+        <div class="form-group">
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </div>
+	</form>
+	{% endif %}
+{% endblock content %}

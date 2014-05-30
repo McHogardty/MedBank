@@ -848,10 +848,12 @@ class QuizSpecification(models.Model):
 class QuizQuestionSpecification(models.Model):
     SPECIFIC_QUESTION = 0
     RANDOM_FROM_BLOCK = 1
+    QUESTION_LIST = 2
 
     SPECIFICATION_TYPE_CHOICES = (
         (SPECIFIC_QUESTION, "A specific question"),
-        (RANDOM_FROM_BLOCK, "A random choice of questions from a block")
+        (RANDOM_FROM_BLOCK, "A random choice of questions from a block"),
+        (QUESTION_LIST, "A list of questions"),
     )
 
     specification_type = models.IntegerField(choices=SPECIFICATION_TYPE_CHOICES)
@@ -864,10 +866,12 @@ class QuizQuestionSpecification(models.Model):
     def get_display(self):
         if self.specification_type == self.SPECIFIC_QUESTION:
             return "%s (%s)" % (self.get_specification_type_display(), self.get_parameters_dict()["question"])
+        elif self.specification_type == self.QUESTION_LIST:
+            return "%s (%s)" % (self.get_specification_type_display(), ", ".join(str(x) for x in self.get_parameters_dict()["question_list"]))
 
     @classmethod
     def from_parameters(cls, **kwargs):
-        allowed_kwargs = ['question',]
+        allowed_kwargs = ['question', 'question_list']
         parameters = {}
         instance = cls()
 
@@ -885,6 +889,12 @@ class QuizQuestionSpecification(models.Model):
         instance.specification_type = cls.SPECIFIC_QUESTION
         return instance
 
+    @classmethod
+    def form_list_of_questions(cls, question_list):
+        instance = cls.from_parameters(question_list=[question.id for question in question_list])
+        instance.specification_type = cls.QUESTION_LIST
+        return instance
+
     def get_parameters_dict(self):
         return json.loads(self.parameters)
 
@@ -894,6 +904,8 @@ class QuizQuestionSpecification(models.Model):
 
         if 'question' in parameters:
             condition = models.Q(id__in=[parameters["question"],])
+        elif 'question_list' in parameters:
+            condition = models.Q(id__in=parameters["question_list"])
 
         questions_to_return |= Question.objects.filter(condition)
 
