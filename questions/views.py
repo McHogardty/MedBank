@@ -11,6 +11,7 @@ from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
 from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django import db
 
 import forms
@@ -371,8 +372,18 @@ class BlockAdminView(DetailView):
     def get_object(self, queryset=None):
         queryset = queryset or self.get_queryset()
 
-        return queryset.get(year=self.kwargs["year"], block__code=self.kwargs["code"])
+        return queryset.select_related("block").get(year=self.kwargs["year"], block__code=self.kwargs["code"])
 
+
+@class_view_decorator(permission_required('questions.can_approve'))
+class ApprovalStatisticsView(DetailView):
+    model = models.TeachingBlockYear
+    template_name = "admin/approval_statistics.html"
+
+    def get_object(self, queryset=None):
+        queryset = queryset or self.get_queryset()
+
+        return queryset.select_related("block").get(year=self.kwargs["year"], block__code=self.kwargs["code"])
 
 class QueryStringMixin(object):
     def query_string(self):
@@ -919,13 +930,37 @@ class ViewQuestionApprovalHistory(DetailView):
         return r
 
 
+def get_allowed_blocks(user):
+    allowed_blocks = models.TeachingBlockYear.objects.filter(release_date__year=datetime.datetime.now().year) \
+                                                    .order_by('block__stage__number', 'block__code')
+    if user.is_superuser:
+        return allowed_blocks
+
+    if user.has_perm("questions.can_approve"):
+        allowed_blocks = allowed_blocks.filter(block__stage__number__lt=user.student.get_current_stage().number)
+    else:
+        allowed_blocks = allowed_blocks.filter(activities__questions__in=user.student.questions_created.all())
+
+    return allowed_blocks
+
 @class_view_decorator(login_required)
+# @class_view_decorator(ensure_csrf_cookie)
 class QuizChooseView(ListView):
     template_name = "quiz/choose.html"
     model = models.QuizSpecification
 
     def get_queryset(self):
         return super(QuizChooseView, self).get_queryset().exclude(stage__number__gt=self.request.user.student.get_current_stage().number).exclude(questions__isnull=True)
+
+    def get_context_data(self, **kwargs):
+        c = super(QuizChooseView, self).get_context_data(**kwargs)
+
+        allowed_blocks = get_allowed_blocks(self.request.user)
+        if allowed_blocks.exists():
+            c['form'] = forms.CustomQuizSpecificationForm(blocks=allowed_blocks)
+
+        c['type_form'] = forms.PresetQuizSpecificationForm()
+        return c
 
 
 @class_view_decorator(login_required)
@@ -971,10 +1006,10 @@ class QuizGenerationView(RedirectView):
                 return []
             for bb in bk:
                 records = models.ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=bk) \
-                            .annotate(max=models.Max('question__approval_records__date_completed')) \
-                            .filter(max=models.F('date_completed')) \
+                            .annotate(max=db.models.Max('question__approval_records__date_completed')) \
+                            .filter(max=db.models.F('date_completed')) \
                             .select_related('question') \
-                            .filter(status=ApprovalRecord.APPROVED_STATUS)
+                            .filter(status=models.ApprovalRecord.APPROVED_STATUS)
                 # q += models.Question.objects.filter(teaching_activity_year__block_year=bk, status=models.ApprovalRecord.APPROVED_STATUS)
                 q += [record.question for record in records]
             random.seed()
@@ -993,8 +1028,16 @@ class QuizGenerationView(RedirectView):
         return number
 
     def get_redirect_url(self, slug=None):
+        print "Getting redirect url"
+        if self.request.method == "POST":
+            return self.deal_with_post()
+
         questions = None
-        self.request.session['mode'] = mode = self.request.GET.get('mode', 'individual')
+        try:
+            self.request.session['mode'] = mode = self.request.GET['mode']
+        except KeyError:
+            messages.error(self.request, "An unexpected error occurred. Please try again.")
+            return reverse('quiz-choose')
 
         if slug:
             try:
@@ -1022,45 +1065,98 @@ class QuizGenerationView(RedirectView):
         self.request.session['questions'] = questions
         return reverse('quiz')
 
+    def deal_with_post(self):
+        preset_quiz = 'quiz_specification' in self.request.POST
+        if preset_quiz:
+            form = forms.PresetQuizSpecificationForm(self.request.POST)
+        else:
+            allowed_blocks = get_allowed_blocks(self.request.user)
+            if not allowed_blocks.exists():
+                messages.error(self.request, "Something wasn't right there... Please try again.")
+                return reverse('quiz-choose')
+
+            form = forms.CustomQuizSpecificationForm(self.request.POST, blocks=allowed_blocks)
+
+        if not form.is_valid():
+            messages.error(self.request, "An unexpected error has occurred. Please try again.")
+            return reverse('quiz-choose')
+
+        questions = []
+        self.request.session['mode'] = mode = form.cleaned_data['quiz_type']
+        if preset_quiz:
+            self.request.session['quizspecification'] = quiz_specification = form.cleaned_data['quiz_specification']
+        else:
+            for block in allowed_blocks:
+                q = []
+                number_needed = form.cleaned_data[block.name_for_form_fields()]
+                if not number_needed: continue
+                records = models.ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=block) \
+                                .annotate(max=db.models.Max('question__approval_records__date_completed')) \
+                                .filter(max=db.models.F('date_completed')) \
+                                .select_related('question') \
+                                .filter(status=models.ApprovalRecord.APPROVED_STATUS)
+                q += [record.question for record in records]
+                random.seed()
+                if number_needed > len(q):
+                    number_needed = len(q)
+                q = random.sample(q, number_needed)
+                questions += q
+
+            random.seed()
+            random.shuffle(questions)
+            attempt = models.QuizAttempt.create_from_list_and_student(questions, self.request.user.student)
+
+            self.request.session['attempt'] = attempt
+
+        return reverse('quiz')
+
 
 @class_view_decorator(login_required)
 class QuizQuestionView(View):
     http_method_names = ['get', ]
 
     def get(self, request, *args, **kwargs):
-        if settings.DEBUG: time.sleep(1)
         GET = request.GET
-        spec = None
         attempt = None
-        if 'specification' in GET:
-            try:
-                spec = models.QuizSpecification.objects.get(slug=GET.get('specification'))
-            except models.QuizSpecification.DoesNotExist:
-                return HttpResponseServerError(json.dumps({'error': 'Quiz specification does not exist.'}), mimetype="application/json")
+        specification = None
+
         if 'quiz_attempt' in GET:
             try:
                 attempt = models.QuizAttempt.objects.get(slug=GET.get('quiz_attempt'))
             except models.QuizAttempt.DoesNotExist:
+                return HttpResponseServerError(json.dumps({'error': 'Quiz attempt does not exist.'}), mimetype="application/json")
+        if 'specification' in GET:
+            try:
+                specification = models.QuizSpecification.objects.get(slug=GET.get('specification'))
+            except models.QuizSpecification.DoesNotExist:
                 return HttpResponseServerError(json.dumps({'error': 'Quiz specification does not exist.'}), mimetype="application/json")
 
         done = GET.getlist('done')
-        possible_questions = models.Question.objects.all()
-        if spec:
-            possible_questions = spec.get_questions()
+        possible_questions = models.Question.objects.none()
+        preset_quiz = attempt and attempt.quiz_specification is not None
 
-        for question in done:
-            possible_questions = possible_questions.exclude(id=question)
+        if preset_quiz:
+            possible_questions = attempt.quiz_specification.get_questions().exclude(id__in=done)
+        elif specification:
+            possible_questions = specification.get_questions().exclude(id__in=done)
+        else:
+            possible_questions = attempt.questions.order_by("position").exclude(question__id__in=done)
 
-        if attempt:
+        if preset_quiz:
             to_exclude = attempt.questions.all()
-            possible_questions = possible_questions.exclude(id__in=to_exclude)
+            possible_questions = possible_questions.exclude(id__in=to_exclude).order_by("?")
 
         try:
-            question = possible_questions.order_by("?")[0]
+            question = possible_questions[0]
         except IndexError:
             return HttpResponse(json.dumps({'status': 'done'}), mimetype="application/json")
+
+        if not preset_quiz and not specification:
+            question = question.question
+
         question = question.json_repr()
         question['status'] = "question"
+        print "Returning %s" % json.dumps(question)
         return HttpResponse(json.dumps(question), mimetype="application/json")
 
 
@@ -1093,7 +1189,10 @@ class QuizQuestionSubmit(View):
         # if settings.DEBUG: print "Got post %s" % POST
         attempt = models.QuizAttempt.objects.get(slug=POST["quiz_attempt"])
         question = models.Question.objects.get(id=POST["id"])
-        question_attempt = models.QuestionAttempt()
+        try:
+            question_attempt = models.QuizAttempt.objects.get(question=question)
+        except models.QuestionAttempt.DoesNotExist:
+            question_attempt = models.QuestionAttempt()
         question_attempt.quiz_attempt = attempt
         question_attempt.question = question
         question_attempt.position = POST["position"]
@@ -1102,43 +1201,52 @@ class QuizQuestionSubmit(View):
         question_attempt.confidence_rating = POST.get("confidence") or models.QuestionAttempt.DEFAULT_CONFIDENCE;
         question_attempt.save()
 
-        return HttpResponse(json.dumps(question.json_repr()), mimetype="application/json")
+        return HttpResponse(json.dumps(question.json_repr(include_answer=True)), mimetype="application/json")
 
 
 @class_view_decorator(login_required)
-class Quiz(ListView):
-    model = models.Question
-    template_name = "quiz.html"
-
+class Quiz(TemplateView):
     def dispatch(self, request, *args, **kwargs):
+        if 'quizspecification' in request.session:
+            self.quiz_specification = request.session.pop('quizspecification')
+        if 'attempt' in request.session:
+            self.attempt = request.session.pop('attempt')
+
+        if hasattr(self, 'attempt'):
+            self.number_of_questions = self.attempt.questions.count()
+        elif hasattr(self, "quiz_specification"):
+            self.number_of_questions = self.quiz_specification.number_of_questions()
+        else:
+            return redirect('quiz-choose')
+
         try:
-            self.questions = request.session.pop('questions', models.Question.objects.none())
-            self.mode = request.session.pop('mode')
-            if self.mode == 'individual':
-                self.number_of_questions = request.session.pop('number_of_questions')
+            self.mode = request.session.pop('mode')                
         except KeyError:
             return redirect('quiz-choose')
 
-        if 'quizspecification' in request.session:
-            self.quiz_specification = request.session.pop('quizspecification')
+        # elif self.mode == 'classic':
+        #     if hasattr(self, 'attempt'):
+        #         self.questions = [question_attempt.question for question_attempt in self.attempt.questions.all()]
+        #     elif hasattr(self, "quiz_specification"):
+                # self.questions = self.quiz_specification.get_questions().order_by("?")
+
+
         return super(Quiz, self).dispatch(request, *args, **kwargs)
 
-    def get_queryset(self):
-        return self.questions
-
     def get_template_names(self):
-        modes_to_templates = {'individual': 'quiz_individual.html', 'block': 'quiz.html'}
+        modes_to_templates = {'individual': 'quiz_individual.html', 'block': 'quiz.html', 'classic': 'quiz_individual.html'}
 
         return modes_to_templates.get(self.mode, 'quiz.html')
 
     def get_context_data(self, **kwargs):
         context = super(Quiz, self).get_context_data(**kwargs)
         context['confidence_range'] = models.QuestionAttempt.CONFIDENCE_CHOICES
+        context['questions'] = range(self.number_of_questions)
+        context['classic_mode'] = self.mode == "classic"
+        if hasattr(self, "attempt"):
+               context['attempt'] = self.attempt
         if hasattr(self, "quiz_specification"):
             context['specification'] = self.quiz_specification
-        if hasattr(self, "number_of_questions"):
-            print "Setting number of questions as "
-            context['questions'] = range(self.number_of_questions)
         return context
 
 
@@ -1156,6 +1264,15 @@ class QuizSubmit(RedirectView):
                 specification = models.QuizSpecification.objects.get(id=specification)
             except models.QuizSpecification.DoesNotExist:
                 specification = None
+        if 'attempt' in p:
+            try:
+                attempt = models.QuizAttempt.objects.get(slug=p.get('attempt'))
+            except models.QuizAttempt.DoesNotExist:
+                attempt = None
+
+        if not attempt and not specification:
+            messages.error(self.request, "An unexpected error has occurred. Please try again.")
+            return reverse('quiz-choose')
 
         questions = []
         qq = models.Question.objects.filter(id__in=p.getlist('question', []))
@@ -1177,21 +1294,40 @@ class QuizSubmit(RedirectView):
         questions.sort(key=lambda x: x.position)
         self.request.session['questions'] = questions
         
-        quiz_attempt = models.QuizAttempt()
-        quiz_attempt.student = self.request.user.student
-        quiz_attempt.quiz_specification = specification
-        quiz_attempt.save()
+        new_attempt = not attempt
+        if new_attempt:
+            attempt = models.QuizAttempt()
 
-        for q in questions:
-            question_attempt = models.QuestionAttempt()
-            question_attempt.quiz_attempt = quiz_attempt
-            question_attempt.question = q
-            question_attempt.position = q.position
-            question_attempt.answer = q.choice
-            question_attempt.time_taken = q.time_taken
-            question_attempt.confidence_rating = q.confidence_rating
-            question_attempt.save() 
-        return reverse('quiz-report')
+        attempt.student = self.request.user.student
+        if specification:
+            attempt.quiz_specification = specification
+        attempt.save()
+
+        if new_attempt:
+            for q in questions:
+                question_attempt = models.QuestionAttempt()
+                question_attempt.quiz_attempt = attempt
+                question_attempt.question = q
+                question_attempt.position = q.position
+                question_attempt.answer = q.choice
+                question_attempt.time_taken = q.time_taken
+                question_attempt.confidence_rating = q.confidence_rating
+                question_attempt.save()
+        else:
+            question_by_ID = {}
+            for q in questions:
+                question_by_ID[q.id] = q
+
+            for question_attempt in attempt.questions.all():
+                question = question_by_ID[question_attempt.question.id]
+
+                question_attempt.answer = question.choice
+                question_attempt.time_taken = q.time_taken
+                question_attempt.confidence_rating = q.confidence_rating
+                question_attempt.position = q.position
+                question_attempt.save()
+
+        return reverse('quiz-attempt-report', kwargs={'slug': attempt.slug})
 
 
 @class_view_decorator(login_required)

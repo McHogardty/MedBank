@@ -1,3 +1,13 @@
+function sort_strings(strA, strB) {
+    if (strA > strB) {
+        return 1;
+    } else if (strA < strB) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
 var Questions = (function (questions_module, $) {
 
     questions_module.globals =  questions_module.globals || {};
@@ -34,7 +44,7 @@ var Questions = (function (questions_module, $) {
         list_screen_selector: ".questions",
         list_selector: ".questions .question-list",
         timer_selector: ".timer",
-        button_selector: ".btn",
+        start_screen_selector: ".start-screen",
         start_button_selector: ".btn-start",
         close_button_selector: ".btn-close",
         explanation_button_selector: ".btn-explanation",
@@ -52,6 +62,8 @@ var Questions = (function (questions_module, $) {
         summary_form_time_name: "time-taken",
         summary_form_answer_name: "answer",
         summary_form_confidence_name: "confidence-rating",
+        initial_quiz_attempt: "",
+        form_field_prefix: "question",
     });
 
     questions_module.QuestionTimer = function () {
@@ -97,7 +109,6 @@ var Questions = (function (questions_module, $) {
         });
 
         $question_list = $(questions_module.globals.list_selector);
-
         this.get_list_element = function (question_number) { return $question_list.find('[' + questions_module.globals.question_attribute +'="' + question_number + '"]'); };
 
         this.check = function (question_number, checked) {
@@ -170,7 +181,7 @@ var Questions = (function (questions_module, $) {
 
         this.update_display = function () {
             self.update_question_number();
-            $(questions_module.globals.previous_button_selector).prop("disabled", self.scroller.first() || (questions_module.globals.report_results && self.scroller.current() === 2));
+            $(questions_module.globals.previous_button_selector).prop("disabled", self.scroller.current() === 2);
             $(questions_module.globals.next_button_selector).prop("disabled", this.mode === question_mode && self.scroller.last());
             if (questions_module.globals.report_results) {
                 $(questions_module.globals.next_button_selector).html(self.scroller.first() ? "View questions" : "Next question");
@@ -180,7 +191,17 @@ var Questions = (function (questions_module, $) {
 
         this.after_scroll = function () {
             if (options.after_scroll) options.after_scroll();
+            $(questions_module.globals.progress_button_selector).prop("disabled", false);
+            $(questions_module.globals.finish_button_selector).prop("disabled", false);
             self.update_display();
+        };
+
+        this.before_scroll = function () {
+            $(questions_module.globals.next_button_selector).prop("disabled", true);
+            $(questions_module.globals.previous_button_selector).prop("disabled", true);
+            $(questions_module.globals.progress_button_selector).prop("disabled", true);
+            $(questions_module.globals.finish_button_selector).prop("disabled", true);
+            if (options.before_scroll) options.before_scroll();
         };
 
         this.toggle_report_mode = function () {
@@ -195,7 +216,7 @@ var Questions = (function (questions_module, $) {
 
         this.scroller = new questions_module.PageScroller({
             after_scroll: this.after_scroll,
-            before_scroll: options.before_scroll
+            before_scroll: this.before_scroll
         });
 
         $(questions_module.globals.previous_button_selector).click(function (e) {
@@ -215,7 +236,7 @@ var Questions = (function (questions_module, $) {
         this.forward = function () { self.scroller.forward(); };
         this.back = function () { self.scroller.back(); };
         this.slide = function (slide_number) { self.scroller.slide(slide_number); };
-        this.last = function () { return self.scroller.last() }
+        this.last = function () { return self.scroller.last(); };
         this.update_display();
         $(questions_module.globals.next_button_selector).on('click', self.forward);
     };
@@ -226,36 +247,55 @@ var Questions = (function (questions_module, $) {
             question_time_calculator: null,
             question_options_choice: null,
             question_confidence_choice: null,
+            question_details_function: null,
         }, options);
 
         this.build_form_name = function (question_id, suffix) {
             if (question_id) {
-                return options.question_name + "-" + question_id + "-" + suffix;
+                return questions_module.globals.form_field_prefix + "-" + question_id + "-" + suffix;
             } else {
                 return suffix;
             }
         };
-        this.build_form_input = function (question_id, name, value) { return $('<input type="hidden"></input>').attr("name", self.build_form_name(question_id, name)).val(value); };
+        this.build_form_input = function (question_id, name, value) {
+            input = $('<input type="hidden"></input>').attr("name", self.build_form_name(question_id, name));
+            if (value !== null) {
+                input.val(value);
+            }
+            return input;
+        };
         this.get_form = function () { return $(questions_module.globals.summary_form_selector); };
 
         this.generate_form = function () {
             $summary_form = self.get_form();
-            $(questions_module.globals.question_selector).each(function () {
-                $question = $(this);
-                question_id = $question.attr(questions_module.globals.question_id_attribute);
-                question_number = parseInt($question.attr(questions_module.globals.question_attribute), 10);
-                $question_input = self.build_form_input(null, questions_module.globals.summary_form_question_name, question_id);
-                $position = self.build_form_input(question_id, questions_module.globals.summary_form_position_name, question_number);
-                $time_taken = self.build_form_input(question_id, questions_module.globals.summary_form_time_name, options.question_time_calculator(question_number));
-                $answer = self.build_form_input(question_id, questions_module.globals.summary_form_answer_name, options.question_options_choice(question_number));
-                $confidence = self.build_form_input(question_id, questions_module.globals.summary_form_confidence_name, options.question_confidence_choice(question_number));
+            for(var i = 1; i <= questions_module.globals.number_of_questions; i++) {
+                question = options.question_details_function(i);
+                $question_input = self.build_form_input(null, questions_module.globals.summary_form_question_name, question.id);
+                $position = self.build_form_input(question.id, questions_module.globals.summary_form_position_name, i);
+                $time_taken = self.build_form_input(question.id, questions_module.globals.summary_form_time_name, question.time_taken());
+                $answer = self.build_form_input(question.id, questions_module.globals.summary_form_answer_name, question.option_choice());
+                $confidence = self.build_form_input(question.id, questions_module.globals.summary_form_confidence_name, question.confidence_choice());
 
                 $summary_form.append($question_input);
                 $summary_form.append($position);
                 $summary_form.append($time_taken);
                 $summary_form.append($answer);
                 $summary_form.append($confidence);
-            });
+            }
+            // $(questions_module.globals.question_selector).each(function () {
+            //     $question = $(this);
+            //     question_id = $question.attr(questions_module.globals.question_id_attribute);
+            //     question_number = parseInt($question.attr(questions_module.globals.question_attribute), 10);
+            //     $time_taken = self.build_form_input(question_id, questions_module.globals.summary_form_time_name, options.question_time_calculator(question_number));
+            //     $answer = self.build_form_input(question_id, questions_module.globals.summary_form_answer_name, options.question_options_choice(question_number));
+            //     $confidence = self.build_form_input(question_id, questions_module.globals.summary_form_confidence_name, question.confidence_choice());
+
+            //     $summary_form.append($question_input);
+            //     $summary_form.append($position);
+            //     $summary_form.append($time_taken);
+            //     $summary_form.append($answer);
+            //     $summary_form.append($confidence);
+            // });
         };
 
         this.submit = function () { self.get_form().submit(); };
@@ -281,6 +321,7 @@ var Questions = (function (questions_module, $) {
 
         var question = $(options.selector);
         var question_number = question.attr(questions_module.globals.question_attribute);
+        var explanation_selector = '.explanation[' + questions_module.globals.question_attribute + '="' + question_number + '"]';
         loading_selector = questions_module.globals.active_screen_selector + " " + questions_module.globals.loading_screen_selector;
         loading_screen = new questions_module.SplashScreen({
             to_show: [loading_selector, ],
@@ -300,7 +341,6 @@ var Questions = (function (questions_module, $) {
                 click_callback: options.option_button_callback,
             });
         } else {
-            explanation_selector = '.explanation[' + questions_module.globals.question_attribute + '="' + question_number + '"]';
             explanation = new questions_module.SplashScreen({
                 to_show: [explanation_selector,],
                 to_hide: questions_module.globals.main_screen_elements,
@@ -315,8 +355,12 @@ var Questions = (function (questions_module, $) {
             });
         }
 
-        this.get_element = function () { return $(options.selector); };
-        this.get_parent_element = function () { return self.get_element().parents(questions_module.globals.question_screen_selector); };
+        this.get_element = function () {
+            return $(options.selector);
+        };
+        this.get_parent_element = function () {
+            return self.get_element().parents(questions_module.globals.question_screen_selector);
+        };
         this.get_parent_element().find(questions_module.globals.question_unanswered_text).fadeOut(0);
 
         this.setup = function (info) {
@@ -326,24 +370,25 @@ var Questions = (function (questions_module, $) {
             $element.find(questions_module.globals.question_body_selector).html(info.body);
             this.id = info.id;
 
-            explanation_selector = '.explanation[' + questions_module.globals.question_attribute + '="' + question_number + '"]';
-            $(explanation_selector).find(".explanation-body").html(info.explanation);
-            $(explanation_selector).find(".btn-close").click(function () { explanation.hide(); });
             explanation = new questions_module.SplashScreen({
                 to_show: [explanation_selector,],
                 to_hide: [questions_module.globals.question_screen_selector + '[' + questions_module.globals.question_attribute + '="' +  question_number + '"]',],
                 to_fade_out: [questions_module.globals.nav_selector,],
             });
             $element.find(questions_module.globals.explanation_button_selector).click(function () { explanation.show(); });
-            $element.find(questions_module.globals.view_button_selector).click(function () { window.open(info.url, "_blank"); });
-            self.answer = info.answer;
-            question_options.setup(info.options, info.answer);
+            question_options.setup(info.options); //, info.answer);
             $element.find(questions_module.globals.question_buttons_selector).toggle();
             loading_screen.hide();
             setTimeout(function () {
                 timer.start();
                 options.pause_timer();
             }, 600);
+        };
+
+        this.classic_setup = function (info) {
+            this.id = info.id;
+            self.get_parent_element().find(questions_module.globals.question_body_selector).html(info.body);
+            question_options.setup(info.options);
         };
 
         this.error_setup = function () {
@@ -368,7 +413,7 @@ var Questions = (function (questions_module, $) {
 
         this.option_choice = function () { return question_options.choice(); };
         this.confidence_choice = function () { return confidence.choice(); };
-        this.complete = function () { return question_options.chosen() && confidence.chosen(); };
+        this.complete = function () { return question_options.chosen(); };
 
         this.start = function (number) { timer.start(); };
         this.complete_pause = function (number) { timer.complete_pause(); };
@@ -378,7 +423,28 @@ var Questions = (function (questions_module, $) {
         this.time_taken = function (number) { return timer.time_taken(); };
 
         this.display_answer = function (info) {
-            self.get_parent_element().find(questions_module.globals.question_buttons_selector).fadeIn(600);
+            if (typeof info.explanation == "string" || info.explanation instanceof String) {
+                $(explanation_selector).find(".explanation-body").html(info.explanation);
+            } else {
+                $explanation_list = $("<ol></ol>").addClass("alpha");
+                explanation_options = Object.keys(info.explanation);
+                explanation_options.sort(sort_strings);
+                $.each(explanation_options, function (index, option) {
+                    if (info.explanation[option] !== "") {
+                        $list_option = $("<li>" + info.explanation[option] + "</li>");
+                    } else {
+                        $list_option = $("<li><span class='loading'>Explanation was not provided.</span></li>");
+                    }
+                    $explanation_list.append($list_option);
+                });
+                $(explanation_selector).find(".explanation-body").append($explanation_list);
+            }
+            $(explanation_selector).find(".btn-close").click(function () { explanation.hide(); });
+            $element = self.get_parent_element();
+            $element.find(questions_module.globals.view_button_selector).click(function () { window.open(info.url, "_blank"); });
+            self.answer = info.answer;
+
+            $element.find(questions_module.globals.question_buttons_selector).fadeIn(600);
             question_options.mark(info.answer);
             confidence.disable();
             if (!question_options.chosen()) { self.get_parent_element().find(questions_module.globals.question_unanswered_text).fadeIn(600); }
@@ -435,7 +501,9 @@ var Questions = (function (questions_module, $) {
         this.get_next_question_element = function (question_element) { return self.get_question_element(self.get_question_number(question_element)).eq(1); };
         this.get_active_question_number = function () { return self.get_question_number(self.get_active_question_element()); };
         this.get_question = function (index) { return questions[index - 1]; };
-        this.get_active_question = function () { return self.get_question(self.get_active_question_number()); };
+        this.get_active_question = function () {
+            if (isNaN(self.get_active_question_number())) return null;
+            return self.get_question(self.get_active_question_number()); };
         this.is_question = function (element) { return element.is("[" + questions_module.globals.question_attribute + "]"); };
         this.get_answered_questions = function () {
             to_return = [];
@@ -450,7 +518,10 @@ var Questions = (function (questions_module, $) {
 
         this.get_next_question = function (index) {
             query = {};
-            if (questions_module.globals.specification) query["specification"] = questions_module.globals.specification;
+            if (questions_module.globals.specification) {
+                query["specification"] = questions_module.globals.specification;
+            }
+            query["quiz_attempt"] = options.quiz_attempt_generator();
             if (self.get_answered_questions()) {
                 query["done"] = [];
                 $.each(self.get_answered_questions(), function (i, question) { query["done"].push(question.id); });
@@ -459,22 +530,6 @@ var Questions = (function (questions_module, $) {
             .done(function (data) { self.finish_setup(index, data, false); });
             //.fail(function () { self.error_setup(index, {}, true); });
         };
-
-        // this.setup_next_question = function () {
-        //     $current = self.get_active_question_element();
-        //     if (!self.is_question($current)) {
-        //         $next = self.get_question_elements().first();
-        //     } else {
-        //         $next = self.get_next_question_element($current);
-        //     }
-        //     if ($next.length === 0) { return; }
-        //     index = parseInt(self.get_question_number($next), 10);
-        //     questions[index - 1] = new questions_module.Question({
-        //         selector: self.generate_question_selector(index),
-        //         quiz_attempt_generator: options.quiz_attempt_generator,
-        //     });
-        //     self.get_next_question(index);
-        // };
 
         this.setup_current_question = function () {
             $current = self.get_active_question_element();
@@ -490,17 +545,38 @@ var Questions = (function (questions_module, $) {
             self.get_next_question(index);
         };
 
-        if (questions_module.globals.individual_question_url === "") {
-            $(questions_module.globals.question_selector).each(function (i, element) {
-                $element = $(element);
-                index = parseInt(self.get_question_number($element), 10);
+        this.setup_all_questions = function () {
+            var done = [];
+            $(questions_module.globals.question_selector).each(function () {
+                $question = $(this);
+                index = parseInt(self.get_question_number($question));
                 questions[index - 1] = new questions_module.Question({
                     selector: self.generate_question_selector(index),
-                    confidence_button_callback: options.confidence_button_callback,
+                    pause_timer: options.pause_timer,
                     option_button_callback: options.option_button_callback,
                 });
+                query = {};
+                if (questions_module.globals.specification) {
+                    query["specification"] = questions_module.globals.specification;
+                }
+                if (questions_module.globals.attempt) {
+                    query["quiz_attempt"] = questions_module.globals.attempt;
+                }
+                if (done.length) {
+                    query["done"] = done;
+                }
+                $.ajax({
+                    type: 'GET',
+                    url: questions_module.globals.individual_question_url,
+                    async: false,
+                    data: query,
+                    success: function (data) {
+                        done.push(data.id);
+                        questions[index - 1].classic_setup(data);
+                    }
+                });
             });
-        }
+        };
 
         this.question = function (index) { return questions[index - 1]; };
         this.option_choice = function(question_number) { return self.question(question_number).option_choice(); };
@@ -512,24 +588,28 @@ var Questions = (function (questions_module, $) {
         };
         this.number_remaining = function () { return questions.length - self.number_complete(); };
 
-        this.start = function (number) { self.get_active_question().start(); };
-        this.complete_pause = function (number) { self.get_active_question().complete_pause(); };
-        this.paused = function (number) { return self.get_active_question().paused(); };
-        this.stop = function (number) { self.get_active_question().stop(); };
-        this.lap = function (number) { self.get_active_question().lap(); };
+        this.start = function (number) { if (self.get_active_question() !== null)  self.get_active_question().start(); };
+        this.complete_pause = function (number) { if (self.get_active_question() !== null)  self.get_active_question().complete_pause(); };
+        this.paused = function (number) { if (self.get_active_question() !== null)  return self.get_active_question().paused(); };
+        this.stop = function (number) { if (self.get_active_question() !== null) self.get_active_question().stop(); };
+        this.lap = function (number) {  if (self.get_active_question() !== null) self.get_active_question().lap(); };
         this.time_taken = function (number) { return self.question(number).time_taken(); };
-        this.mark_current_question = function () { return self.get_active_question().mark(); };
-        this.error = function () { self.get_active_question().error(); };
+        this.mark_current_question = function () { if (self.get_active_question() !== null)  return self.get_active_question().mark(); };
+        this.error = function () { if (self.get_active_question() !== null)  self.get_active_question().error(); };
     };
 
-    questions_module.Quiz = function (options) {
+    questions_module.ClassicQuiz = function (options) {
+        $.ajaxSettings.traditional = true;
         $.extend(questions_module.globals, options);
+        $(questions_module.globals.timer_selector).fadeOut(0);
 
         quiz = this;
         var question_manager = null;
+        var summary_form = null;
         var self = this;
         var question_list = null;
         questions_module.globals.main_screen_elements = [questions_module.globals.container_selector, ".timer", questions_module.globals.nav_selector];
+
 
         this.generate_question_selector = function (question_number) {
             selector = questions_module.globals.question_element + "[" + questions_module.globals.question_attribute;
@@ -565,28 +645,24 @@ var Questions = (function (questions_module, $) {
             return ready;
         };
 
-        question_manager = new questions_module.QuestionManager({
-            question_selector_generator: this.generate_question_selector,
-            confidence_button_callback: self.decide_to_finish,
-            option_button_callback: this.option_button_callback,
-        });
-
-        var summary_form = new questions_module.SummaryFormManager({
-            question_time_calculator: question_manager.time_taken,
-            question_options_choice: question_manager.option_choice,
-            question_confidence_choice: question_manager.confidence_choice,
+        loading_selector = questions_module.globals.active_screen_selector + " " + questions_module.globals.loading_screen_selector;
+        var loading_screen = new questions_module.SplashScreen({
+            to_show: [loading_selector, ],
+            to_hide: [questions_module.globals.start_screen_selector, ]
         });
 
         var timer = null;
 
         $(".btn-finish").click(function (e) {
             timer.complete_pause();
+            question_manager.stop();
             splash.show();
             e.preventDefault();
         });
         $(".btn-return").click(function (e) {
             splash.hide();
             timer.complete_pause();
+            question_manager.start();
             e.preventDefault();
         });
         $(".btn-submit").click(function (e) {
@@ -623,7 +699,8 @@ var Questions = (function (questions_module, $) {
         this.forward = function () { self.scroller.forward(); };
         this.before_scroll = function () {
             if (questions_module.globals.report_results) return;
-            question_manager.stop(); };
+            question_manager.stop();
+        };
         this.after_scroll = function () {
             question_list.make_question_active(question_manager.get_active_question_number());
             if (questions_module.globals.report_results) return;
@@ -631,7 +708,7 @@ var Questions = (function (questions_module, $) {
             if (timer.paused()) timer.complete_pause();
         };
 
-        scroller = new questions_module.QuizScroller(this.before_scroll, this.after_scroll);
+        scroller = new questions_module.QuizScroller({ before_scroll: this.before_scroll, after_scroll: this.after_scroll});
         timer = new questions_module.Timer({ callback: this.pause_callback});
 
         question_list = new questions_module.QuestionList({
@@ -645,7 +722,33 @@ var Questions = (function (questions_module, $) {
             summary_form.submit();
         };
 
+        question_manager = new questions_module.QuestionManager({
+            question_selector_generator: this.generate_question_selector,
+            confidence_button_callback: self.decide_to_finish,
+            option_button_callback: this.option_button_callback,
+        });
+
+        summary_form = new questions_module.SummaryFormManager({
+            question_time_calculator: question_manager.time_taken,
+            question_options_choice: question_manager.option_choice,
+            question_confidence_choice: question_manager.confidence_choice,
+            question_details_function: question_manager.get_question,
+        });
+
+        question_manager.setup_all_questions();
+
         question_list.make_question_active($(questions_module.globals.question_selector).attr(questions_module.globals.question_attribute));
+        $(questions_module.globals.start_button_selector).click(function (e) {
+            scroller.forward();
+            scroller.show();
+            $(questions_module.globals.timer_selector).fadeIn(600);
+            setTimeout(function () {
+                timer.start();
+            }, 600);
+        });
+
+
+        loading_screen.hide();
     };
 
     questions_module.IndividualQuiz = function (options) {
@@ -654,6 +757,10 @@ var Questions = (function (questions_module, $) {
         var question_manager = null;
         var attempt = null;
         var timer = null;
+
+        if (questions_module.globals.initial_quiz_attempt !== "") {
+            attempt = questions_module.globals.initial_quiz_attempt;
+        }
 
         $(questions_module.globals.timer_selector).fadeOut(0);
         this.generate_question_selector = function (question_number) {
@@ -673,22 +780,22 @@ var Questions = (function (questions_module, $) {
         };
 
         this.generate_quiz_attempt = function () {
-            //alert("Attempt is " + attempt);
             if (!attempt) {
+                data = {};
+                if (options.specification) {
+                    data['specification'] = options.specification;
+                }
                 $.ajax({
                     type: 'POST',
                     url: questions_module.globals.quiz_attempt_url,
                     async: false,
-                    data: {
-                        'specification': options.specification,
-                    },
+                    data: data,
                     success: function (data) {
                         attempt = data.attempt;
                         questions_module.globals.report_url = data.report_url;
                     }
                 });
             }
-            //alert("Returning attempt " + attempt);
             return attempt;
         };
 

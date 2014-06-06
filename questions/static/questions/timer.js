@@ -57,7 +57,7 @@ var Questions = (function (questions_module, $) {
         };
 
         this.stop_timing = function () {
-            window.clearInterval(timer_id);
+            window.clearInterval(self.timer_id);
             self.timer_id = 0;
         };
 

@@ -1,6 +1,106 @@
 {% extends "newbase.html" %}
 
+{% block head %}
+	<style type="text/css">
+    .quiz-info {
+        position:fixed;
+        top:0;
+        left:0;
+        width:100%;
+        height:100%;
+        z-index:1031;
+        display:none;
+        overflow:scroll;
+    }
+
+    .quiz-info .content {
+        display:block;
+        vertical-align: middle;
+        width:100%;
+        height:100%;
+        padding-bottom:70px;
+        overflow-y:scroll;
+    }
+
+    .quiz-info .buttons {
+        position:absolute;
+        bottom:0;
+        width:100%;
+        left:0;
+        text-align:center;
+        padding:20px 0;
+        background-color:rgba(255,255,255,0.8);
+    }
+
+    .centre-of-parent {
+        display: block;
+        vertical-align:middle;
+        position:relative;
+        top:50%;
+        transform: translateY(-50%);
+        -webkit-transform: translateY(-50%);
+        -moz-transform: translateY(-50%);
+        -o-transform: translateY(-50%);
+        -ms-transform: translateY(-50%);
+    }
+	</style>
+{% endblock head %}
+
+{% block before %}
+    {% if form %}
+        <div class="quiz-info" data-quiz="choose">
+            <div class="content">
+                <div class="container centre-of-parent">
+                    <h1>Set up custom quiz</h1>
+                    <p>Please choose from the blocks below. Next to each block, type the number of questions you would like to be quizzed on.</p>
+                    <p>If you don't want to be tested on a block, don't put a number in it.</p>
+                    <p class="text-danger error-text">Placeholder text.</p>
+                    <form class="form-horizontal" role="form" method="post" action="{% url 'quiz-prepare' %}">
+                        {% csrf_token %}
+                        {{ form.as_bootstrap }}
+                        <p>How do you want the quiz to run?</p>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-success" data-value="individual">Show answers to me after each question</button>
+                            <button type="button" class="btn btn-default" data-value="classic">Show answers to me at the end</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="buttons">
+                <button class="btn btn-primary btn-submit-choose" type="button">Start</button>
+                <button class="btn btn-default btn-close" type="button">Close</button>
+            </div>
+        </div>        
+    {% endif %}
+    {% for spec in object_list %}
+            <div class="quiz-info" data-quiz="{{ spec.slug }}">
+                <div class="content">
+                    <div class="container centre-of-parent">
+                        <h1>Set up preset quiz</h1>
+                        <p>You have chosen to complete the quiz "{{ spec.name }}".</p>
+                        <form class="form-horizontal" role="form" method="post" action="{% url 'quiz-prepare' %}">
+                            {% csrf_token %}
+                            {{ type_form.as_bootstrap }}
+                            <p>How do you want the quiz to run?</p>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-success" data-value="individual">Show me answers after each question</button>
+                                <button type="button" class="btn btn-default" data-value="classic">Show me answers at the end</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="buttons">
+                    <button class="btn btn-primary btn-submit-choose" type="button">Start</button>
+                    <button class="btn btn-default btn-close" type="button">Close</button>
+                </div>
+            </div>
+    {% endfor %}
+{% endblock before %}
+
 {% block content %}
+	<h1>{% if form %}<a data-quiz="choose">{% endif %}Create your own quiz{% if form %}</a>{% endif %}</h1>
+	<p>If you don't want to choose a preset quiz, you're able to create one yourself.</p>
+    {% if not form %}<p><strong>Unfortunately none of the blocks you have written questions for are released yet, so you aren't able to create a custom quiz.</strong>{% endif %}
 	<h1>Choose a preset quiz</h1>
 
 	{% if object_list.count %}
@@ -9,7 +109,7 @@
 	{% for stage in by_stage %}
 		<h2>{{ stage.grouper }}</h2>
 		{% for spec in stage.list %}
-			<h3>{{ spec.name }} <small><a href="{% url 'quiz-spec' slug=spec.slug %}">Choose</a></small></h3>
+			<h3><a data-quiz="{{ spec.slug }}"{% comment %} href="{% url 'quiz-spec' slug=spec.slug %}"{% endcomment %}>{{ spec.name }}</a></h3>
 			{% if spec.description %}
 				<p>{{ spec.description }}</p>
 			{% endif %}
@@ -19,3 +119,120 @@
 	<p>No preset quizzes have been added to MedBank yet. Please check back later.</p>
 	{% endif %}
 {% endblock content %}
+
+{% block javascript %}
+    <script src="{{ STATIC_URL }}medbank/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/globals.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/screen.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/widget.js"></script>
+    <script type="text/javascript">
+
+        function set_quiz_type_field (type, button_group) {
+            button_group.parents(".quiz-info").find('[name="quiz_type"]').val(type);
+        }
+
+    	$(document).ready(function () {
+            $(".quiz-info").each(function () {
+                $(this).find('input[name="quiz_specification"]').val($(this).attr("data-quiz"));
+            })
+            set_quiz_type_field("individual", $("form"));
+	    	container_selector = ".container.main";
+	    	navbar_selector = ".navbar";
+            alert_selector = ".alert";
+            $(".error-text").css('visibility', 'hidden');
+	    	var quizzes = [];
+            var button_widgets = {};
+
+	    	$('a[data-quiz]').each(function () {
+	    		quizzes.push($(this).attr("data-quiz"));
+	    	})
+
+	        var splash_screen = new Questions.SplashScreenManager({
+	            screen_class: ".quiz-info", 
+	            specifying_attribute: "data-quiz",
+	            attributes: quizzes,
+	            to_hide: [container_selector, navbar_selector, alert_selector],
+	        });
+
+            $.each(quizzes, function (i, quiz) {
+                button_widgets[quiz] = new Questions.ButtonGroupWidget({
+                    widget: $('[data-quiz="' + quiz + '"] .btn-group'),
+                    value_attr: "data-value",
+                    click_callback: set_quiz_type_field,
+                });
+            });
+            // var button_group = new Questions.ButtonGroupWidget({
+            //     widget: $(".btn-group"),
+            //     value_attr: "data-value",
+            //     click_callback: set_quiz_type_field,
+            // });
+
+	        $("a[data-quiz]").click(function () {
+	        	splash_screen.show($(this).attr("data-quiz"));
+                return false;
+	        })
+
+	        $(".btn-close").click(function () {
+	        	splash_screen.hide($(this).parents(".quiz-info").attr("data-quiz"));
+                $(".error-text").css("visibility", "hidden");
+                $(".has-error").removeClass("has-error");
+                return false;
+	        })
+
+            $(".btn-submit-choose").click(function () {
+                $form = $(this).parents(".quiz-info").find("form");
+                $form.submit();
+                return false;
+            })
+
+            $('.quiz-info[data-quiz="choose"] form').submit(function () {
+                $form = $(this);
+                post_data = {};
+                var error_text = "";
+
+                var inputs_without_entries = $.grep($form.find("input"), function (i) {
+                    return ($(i).attr("type") == "hidden") || ($(i).val() == "");
+                });
+
+                var no_numbers_entered = inputs_without_entries.length == $form.find("input").length;
+                if (no_numbers_entered) {
+                    $(".error-text").html("Please fill in one of the boxes below.")
+                                    .css("visibility", "visible");
+                    $form.find("input").parents(".form-group").addClass("has-error");
+                    return false;
+                }
+
+                $form.find('input').each(function() {
+                    $input = $(this);
+                    if ($input.attr("type") == "hidden" || $input.val() == "") return true;
+                    $label = $('label[for="' + $input.attr('id') + '"]');
+                    nice_name = $label.html().replace(/:$/, '');
+                    if(isNaN(parseInt($input.val()))) {
+                        error_text = 'Please enter a number in the box for "' + nice_name + '".';
+                    }
+
+                    if(parseInt($input.val()) <= 0) {
+                        error_text = 'Please enter a number in the box for "' + nice_name + '" which is greater than zero.';
+                    }
+
+                    if (error_text !== "") {
+                        $input.parents(".form-group").addClass("has-error");
+                        $form.find('input:not("#' + $input.attr('id') + '")').parents(".form-group").removeClass("has-error");
+                        return false;
+                    };
+
+                })
+
+                if (error_text != "") {
+                    $(".error-text").html(error_text);
+                    $(".error-text").css("visibility", "visible");
+                    return false;
+                }
+                $(".error-text").css("visibility", "hidden");
+                $(".has-error").removeClass("has-error");
+
+                return true;
+            })
+    	})
+    </script>
+{% endblock javascript %}

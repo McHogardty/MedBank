@@ -42,6 +42,7 @@
             <div class="dashboard">
                 <h1>{{ block.questions_approved_count }}</h1>
                 <p class="lead">question{{ block.questions_approved_count|pluralize }} approved</p>
+                <a class="action" href="{% url 'block-approval-statistics' code=block.code year=block.year %}">View statistics</a>
             </div>
         </div>
         <div class="col-sm-4">

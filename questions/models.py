@@ -219,6 +219,9 @@ class TeachingBlockYear(models.Model):
         return self.block.code
     code = property(code)
 
+    def name_for_form_fields(self):
+        return self.name.replace(" ", "_").replace(",", "").lower()
+
     def assigned_activities_count(self):
         return self.activities.exclude(question_writers=None).count()
 
@@ -308,6 +311,15 @@ class TeachingBlockYear(models.Model):
 
     def question_count_for_student(self, s):
         return Question.objects.filter(teaching_activity_year__block_year=self, creator=s).count()
+
+    def get_latest_approved_records(self):
+        approval_records = ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
+            .annotate(max=models.Max('question__approval_records__date_completed')) \
+            .filter(max=models.F('date_completed')) \
+            .select_related('question') \
+            .filter(status=ApprovalRecord.APPROVED_STATUS)
+
+        return approval_records.order_by("approver__user__username").select_related("approver", "approver__user")
 
 
 class TeachingActivity(models.Model):
@@ -491,7 +503,9 @@ class Question(models.Model):
     def __init__(self, *args, **kwargs):
         super(Question, self).__init__(*args, **kwargs)
         # Adds properties to the model to check the status, e.g. self.approved, self.flagged
-        for k in self.__class__.__dict__.keys():
+        attribute_list = self.__class__.__dict__.keys()
+        attribute_list.remove("approval_status")
+        for k in attribute_list:
             if not "_STATUS" in k or hasattr(self, k.split("_")[0].lower()):
                 continue
 
@@ -569,19 +583,18 @@ class Question(models.Model):
 
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
-    def json_repr(self):
+    def json_repr(self, include_answer = False):
         options = self.options_dict()
         label = options.keys()
         label.sort()
         options['labels'] = label
-        return {
-            'id': self.id,
-            'body': self.body,
-            'options': options,
-            'answer': self.answer,
-            'explanation': self.explanation,
-            'url': reverse('view', kwargs={'pk': self.id, 'ta_id': self.teaching_activity_year.id})
-        }
+        json_repr = {'id': self.id, 'body': self.body, 'options': options}
+        if include_answer:
+            json_repr['answer'] = self.answer
+            json_repr['explanation'] = self.explanation_dict() or self.explanation
+            json_repr['url'] = reverse('view', kwargs={'pk': self.id, 'ta_id': self.teaching_activity_year.id})
+
+        return json_repr
 
     def options_dict(self):
         if self.sorted_options:
@@ -921,6 +934,21 @@ class QuizAttempt(models.Model):
     def __unicode__(self):
         return u"Quiz attempt for %s" % self.student
 
+    @classmethod
+    def create_from_list_and_student(cls, question_list, student):
+        instance = cls()
+        instance.student = student
+        instance.save()
+
+        for n, question in enumerate(question_list):
+            attempt = QuestionAttempt()
+            attempt.quiz_attempt = instance
+            attempt.question = question
+            attempt.position = n
+            attempt.save()
+
+        return instance
+
     def get_questions(self):
         q = []
 
@@ -948,19 +976,25 @@ class QuizAttempt(models.Model):
         return self.questions.filter(answer=models.F("question__answer")).count()
 
     def complete(self):
-        return self.questions.count() == self.quiz_specification.number_of_questions()
+        if self.quiz_specification:
+            return self.questions.count() == self.quiz_specification.number_of_questions()
+        else:
+            return self.questions.exclude(answer__isnull=True).exists()
     complete = property(complete)
 
     def complete_questions_in_order(self):
-        attempts = list(self.questions.all())
-        attempt_questions = list(a.question.id for a in attempts)
-        all_questions = list(self.quiz_specification.get_questions())
-        for question in all_questions:
-            if question.id not in attempt_questions:
-                question_attempt = QuestionAttempt()
-                question_attempt.quiz_attempt = self
-                question_attempt.question = question
-                attempts.append(question_attempt)
+        if self.quiz_specification:
+            attempts = list(self.questions.all())
+            all_questions = list(self.quiz_specification.get_questions())
+            attempt_questions = list(a.question.id for a in self.questions.all())
+            for question in all_questions:
+                if question.id not in attempt_questions:
+                    question_attempt = QuestionAttempt()
+                    question_attempt.quiz_attempt = self
+                    question_attempt.question = question
+                    attempts.append(question_attempt)
+        else:
+            attempts = self.questions.order_by("position")
         return attempts
 
     def percent_score(self):
@@ -1017,7 +1051,7 @@ class QuestionAttempt(models.Model):
     question = models.ForeignKey(Question, related_name="attempts")
     position = models.PositiveIntegerField()
     answer = models.CharField(max_length=1, blank=True, null=True)
-    time_taken = models.PositiveIntegerField()
+    time_taken = models.PositiveIntegerField(blank=True, null=True)
     confidence_rating = models.IntegerField(choices=CONFIDENCE_CHOICES, blank=True, null=True)
 
     def incorrect_answer(self):

@@ -28,7 +28,7 @@ var Questions = (function (questions_module, $) {
                 self.check($(this));
             });
             self.check($clicked);
-            if (options.click_callback) options.click_callback();
+            if (options.click_callback) options.click_callback(self.current_choice, options.widget);
             e.preventDefault();
         };
 

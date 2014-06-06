@@ -1,0 +1,16 @@
+<div class="questions splash-screen">
+    <div class="content">
+        <div class="container centre-of-parent">
+            <div class="columns">
+                <ol class="question-list">
+                    {% for attempt in questions %}
+                        <li class="btn{% if not report %} btn-default{% else %}{% if attempt.score %} btn-success{% elif not attempt.answer %}{% else %} btn-danger{% endif %}{% endif %}" data-question="{{ forloop.counter }}">{{ forloop.counter }}</li>   
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+    </div>
+    <div class="buttons">
+        <button class="btn btn-default btn-close" type="button">Close</button>
+    </div>
+</div>

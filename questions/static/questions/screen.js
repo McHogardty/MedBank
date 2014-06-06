@@ -59,6 +59,7 @@ var Questions = (function (questions_module, $) {
         this.show = function (attr) { screens[attr].show(); };
         this.hide = function (attr) { screens[attr].hide(); };
 
+
         $.each(options.attributes, function (i, attr) { screens[attr] = new questions_module.SplashScreen({
             to_show: [self.generate_selector(attr),],
             to_hide: options.to_hide,

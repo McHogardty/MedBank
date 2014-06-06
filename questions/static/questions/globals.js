@@ -7,6 +7,7 @@ var Questions = (function (questions_module, $) {
         active_class: "active",
         transition_setup_class: "pre-blur",
         transition_class: "blur",
+        button_selector: ".btn",
     });
 
     return questions_module;

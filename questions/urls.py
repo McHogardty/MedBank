@@ -10,7 +10,7 @@ from .views import (AllBlocksView, AllActivitiesView, ViewActivity,
     UploadView, UploadErrorView, UploadConfirmationView, UploadSubmissionView, ApprovalHome, FlagQuestion,
     QuestionAttributes, AssignApproval, ViewQuestionApprovalHistory, QuestionGuide, CreateMissingSettingsView,
     SettingView, EditSettingView, ApprovalDashboardView, UpdateQuizSpecificationView, AddQuizSpecificationQuestions,
-    ConfirmQuizSpecificationQuestion)
+    ConfirmQuizSpecificationQuestion, ApprovalStatisticsView)
 
 from django.views.generic import TemplateView
 
@@ -28,6 +28,7 @@ urlpatterns = patterns(
     url(r'^block/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/$', AllActivitiesView.as_view(), name='activity-list'),
     url(r'^block/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/release/$', ReleaseBlockView.as_view(), name='release'),
     url(r'^block/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/admin/$', BlockAdminView.as_view(), name='block-admin'),
+    url(r'^block/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/admin/approval/$', ApprovalStatisticsView.as_view(), name='block-approval-statistics'),
     url(r'^admin/$', AdminView.as_view(), name='admin'),
     url(r'^admin/email/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/$', EmailView.as_view(), name='email'),
     url(r'^admin/approve/$', AllBlocksView.as_view(template_name="approve.html"), name='admin-approve-choose'),

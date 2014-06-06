@@ -350,3 +350,37 @@ class QuestionForm(bsforms.NewBootstrapForm):
 
 class ConfirmQuestionSelectionForm(bsforms.NewBootstrapForm):
     question_id = forms.ModelMultipleChoiceField(queryset=Question.objects.all())
+
+class CustomQuizSpecificationForm(bsforms.NewBootstrapForm):
+    form_widget_width=2
+
+    QUIZ_TYPE_CHOICES = (
+        ("individual", "individual"),
+        ("classic", "classic"),
+    )
+
+    quiz_type = forms.ChoiceField(choices=QUIZ_TYPE_CHOICES, widget=forms.HiddenInput())
+
+    def __init__(self, *args, **kwargs):
+        blocks = kwargs.pop("blocks", None)
+        super(CustomQuizSpecificationForm, self).__init__(*args, **kwargs)
+        self.block_fields = []
+        for block in blocks:
+            self.fields[block.name_for_form_fields()] = forms.IntegerField(label=block.name, required=False, min_value=0)
+            self.block_fields.append(block.name_for_form_fields())
+
+    def clean(self):
+        c = self.cleaned_data
+
+        # If none of the blocks have any cleaned data, the form is not valid.
+        if all(not c[block] for block in self.block_fields if block in c):
+            raise forms.ValidationError("At least one of the blocks must be filled in.")
+
+        return c
+
+
+class PresetQuizSpecificationForm(bsforms.NewBootstrapForm):
+    QUIZ_TYPE_CHOICES = CustomQuizSpecificationForm.QUIZ_TYPE_CHOICES
+
+    quiz_type = forms.ChoiceField(choices=QUIZ_TYPE_CHOICES, widget=forms.HiddenInput())
+    quiz_specification = forms.ModelChoiceField(queryset=QuizSpecification.objects.all(), to_field_name="slug", widget=forms.HiddenInput())
