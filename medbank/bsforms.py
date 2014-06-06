@@ -124,6 +124,12 @@ class BootstrapInlineForm(BootstrapForm):
 
 
 class BoundField(forms.forms.BoundField):
+    def __init__(self, form, field, name, widget_size=6, label_size=2):
+        super(BoundField, self).__init__(form, field, name)
+
+        self.widget_size = widget_size
+        self.label_size = label_size
+
     def css_classes(self, extra_classes=None):
         if hasattr(extra_classes, 'split'):
             extra_classes = extra_classes.split()
@@ -149,14 +155,14 @@ class BoundField(forms.forms.BoundField):
         # else:
         #     attrs = {'class': 'control-label col-md-2'}
         c.append('control-label')
-        c.append('col-md-2')
+        c.append('col-md-%s' % self.label_size)
         attrs['class'] = " ".join(c)
         return super(BoundField, self).label_tag(contents, attrs)
 
     def size_classes(self):
-        classes = ['col-md-6']
+        classes = ['col-md-%s' % self.widget_size]
         if self.field.widget.__class__.__name__ in ["CheckboxInput",]:
-            classes.append('col-md-offset-2')
+            classes.append('col-md-offset-%s' % self.label_size)
         return " ".join(classes)
 
     def as_widget(self, widget=None, attrs=None, only_initial=False):
@@ -189,6 +195,11 @@ class NewErrorList(forms.util.ErrorList):
 
 class NewBootstrapFormMixin(object):
     error_css_class = "has-error"
+
+    # Maximum 12. The width of the form in bootstrap column units.
+    total_form_width = 8
+    # The width of the form widgets in bootstrap column units. Cannot exceed total_form_width
+    form_widget_width = 6
     def __init__(self, *args, **kwargs):
         super(NewBootstrapFormMixin, self).__init__(*args, **kwargs)
         self.error_class = NewErrorList
@@ -201,7 +212,12 @@ class NewBootstrapFormMixin(object):
             field = self.fields[name]
         except KeyError:
             raise KeyError('Key %r not found in Form' % name)
-        return BoundField(self, field, name)
+        if self.form_widget_width >= self.total_form_width:
+            raise ValueError("The form widget width should be less than the total form width.")
+        if self.total_form_width > 12:
+            raise ValueError("The form width cannot be larger than 12.")
+        field_size = self.total_form_width - self.form_widget_width
+        return BoundField(self, field, name, widget_size=self.form_widget_width, label_size=field_size)
 
     def _html_output(self, normal_row, error_row, row_ender, help_text_html, errors_on_separate_row):
         "Helper function for outputting HTML. Used by as_table(), as_ul(), as_p()."
