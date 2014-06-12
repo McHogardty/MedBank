@@ -1,0 +1,29 @@
+{% extends "newbase_with_actions.html" %}
+
+{% block actions %}
+        <h3>Page actions</h3>    
+        <a class="action" href="{% url 'block-admin' code=object.code year=object.year %}">Back to admin</a>        
+{% endblock actions %}
+
+{% block maincontent %}
+	<h1>Approval statistics</h1>
+	<p>This page will tell how many questions have been approved by each approver for {{ object }}</p>
+
+	{% regroup object.get_latest_approved_records by approver as approvers%}
+	{% for approver_group in approvers %}
+		{% if forloop.first %}
+			<table class="table">
+				<tr>
+					<th>Approver</th>
+					<th>Questions approved</th>
+				</tr>
+		{% endif %}
+				<tr>
+					<td>{{ approver_group.grouper }}</td>
+					<td>{{ approver_group.list|length }}</td>
+				</tr>
+		{% if forloop.last %}
+			</table>
+		{% endif %}
+	{% endfor %}
+{% endblock maincontent %}

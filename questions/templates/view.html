@@ -53,7 +53,7 @@
             <p><strong>This question has been marked as requiring special formatting.</strong></p>
         {% endif %}
     {% endif %}
-    <h2 class="thin spacer">Question <small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if question.flagged and not perms.questions.can_approve %}Pending{% else %}{{ question.latest_approval_record.get_status_display|default:"Pending" }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.latest_approver }}{% endif %}</small></h2>
+    <h2 class="thin spacer">Question {% if user.is_superuser %}#{{ question.id}} {% endif %}<small class="text-{% if question.pending or question.flagged and not perms.questions.can_approve %}warning{% elif question.approved %}success{% elif question.flagged %}info{% endif %}">{% if question.flagged and not perms.questions.can_approve %}Pending{% else %}{{ question.latest_approval_record.get_status_display|default:"Pending" }}{% endif %}{% if perms.questions.can_approve and not question.pending %} by {{ question.latest_approver }}{% endif %}</small></h2>
     {% if user.is_superuser %}<h4>Written by {{ question.creator }}</h4>{% endif %}
     <div style="font-weight:200;font-size:21px;">{{ question.body|linebreaks }}</div>
     <ol class="alpha">

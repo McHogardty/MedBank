@@ -214,6 +214,10 @@ var Questions = (function (questions_module, $) {
             this.update_display();
         };
 
+        this.disable_next_button = function () {
+            this.get_next_button().prop("disabled", true);
+        };
+
         this.scroller = new questions_module.PageScroller({
             after_scroll: this.after_scroll,
             before_scroll: this.before_scroll
@@ -317,6 +321,7 @@ var Questions = (function (questions_module, $) {
             option_button_callback: null,
             quiz_attempt_generator: null,
             pause_timer: null,
+            post_answer_check: null,
         }, options);
 
         var question = $(options.selector);
@@ -455,14 +460,33 @@ var Questions = (function (questions_module, $) {
             attempt = self.get_quiz_attempt();
             if (!attempt) return;
             $.post(questions_module.globals.question_attempt_url, {
+                 quiz_attempt: attempt,
+                 id: self.id,
+                 position: self.get_parent_element().attr(questions_module.globals.question_attribute),
+                 choice: self.option_choice(),
+                 confidence: self.confidence_choice(),
+                 time_taken: timer.time_taken(),
+            })
+            .done(function (data) {
+                self.display_answer(data);
+                if (options.post_answer_check) options.post_answer_check();
+            });
+
+            query = {
                 quiz_attempt: attempt,
                 id: self.id,
                 position: self.get_parent_element().attr(questions_module.globals.question_attribute),
                 choice: self.option_choice(),
                 confidence: self.confidence_choice(),
                 time_taken: timer.time_taken(),
-            })
-            .done(function (data) { self.display_answer(data); });
+            };
+            // $.ajax({
+            //     type: 'POST',
+            //     url: questions_module.globals.question_attempt_url,
+            //     async: false,
+            //     data: query,
+            //     success: function (data) { self.display_answer(data); }
+            // });
         };
 
         this.mark = function () {
@@ -482,6 +506,7 @@ var Questions = (function (questions_module, $) {
             option_button_callback: null,
             quiz_attempt_generator: null,
             pause_timer: null,
+            post_answer_check: null,
         }, options);
 
         var questions = [];
@@ -541,6 +566,7 @@ var Questions = (function (questions_module, $) {
                 quiz_attempt_generator: options.quiz_attempt_generator,
                 pause_timer: options.pause_timer,
                 option_button_callback: options.option_button_callback,
+                post_answer_check: options.post_answer_check,
             });
             self.get_next_question(index);
         };
@@ -549,11 +575,12 @@ var Questions = (function (questions_module, $) {
             var done = [];
             $(questions_module.globals.question_selector).each(function () {
                 $question = $(this);
-                index = parseInt(self.get_question_number($question));
+                index = parseInt(self.get_question_number($question), 10);
                 questions[index - 1] = new questions_module.Question({
                     selector: self.generate_question_selector(index),
                     pause_timer: options.pause_timer,
                     option_button_callback: options.option_button_callback,
+                    post_answer_check: options.post_answer_check,
                 });
                 query = {};
                 if (questions_module.globals.specification) {
@@ -807,12 +834,18 @@ var Questions = (function (questions_module, $) {
             }
         };
 
+        this.post_answer = function () {
+            scroller.toggle_report_mode();
+            if (scroller.last()) $(questions_module.globals.finish_button_selector).prop("disabled", false);
+        };
+
         question_manager = new questions_module.QuestionManager({
             question_selector_generator: this.generate_question_selector,
             confidence_button_callback: this.decide_to_finish,
             option_button_callback: this.option_button_callback,
             quiz_attempt_generator: this.generate_quiz_attempt,
             pause_timer: this.pause_timer,
+            post_answer_check: this.post_answer,
         });
 
         this.before_scroll = function () {};
@@ -823,10 +856,8 @@ var Questions = (function (questions_module, $) {
         };
 
         this.mark_answer = function () {
+            scroller.disable_next_button();
             question_manager.mark_current_question();
-            //timer.complete_pause();
-            scroller.toggle_report_mode();
-            if (scroller.last()) $(questions_module.globals.finish_button_selector).prop("disabled", false);
         };
 
         scroller = new questions_module.QuizScroller({

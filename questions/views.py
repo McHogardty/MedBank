@@ -944,7 +944,6 @@ def get_allowed_blocks(user):
     return allowed_blocks
 
 @class_view_decorator(login_required)
-# @class_view_decorator(ensure_csrf_cookie)
 class QuizChooseView(ListView):
     template_name = "quiz/choose.html"
     model = models.QuizSpecification
@@ -1082,9 +1081,9 @@ class QuizGenerationView(RedirectView):
             return reverse('quiz-choose')
 
         questions = []
-        self.request.session['mode'] = mode = form.cleaned_data['quiz_type']
+        self.request.session['mode'] = form.cleaned_data['quiz_type']
         if preset_quiz:
-            self.request.session['quizspecification'] = quiz_specification = form.cleaned_data['quiz_specification']
+            self.request.session['quizspecification'] = form.cleaned_data['quiz_specification']
         else:
             for block in allowed_blocks:
                 q = []
@@ -1095,7 +1094,7 @@ class QuizGenerationView(RedirectView):
                                 .filter(max=db.models.F('date_completed')) \
                                 .select_related('question') \
                                 .filter(status=models.ApprovalRecord.APPROVED_STATUS)
-                q += [record.question for record in records]
+                q += list(set(record.question for record in records))
                 random.seed()
                 if number_needed > len(q):
                     number_needed = len(q)
@@ -1156,7 +1155,7 @@ class QuizQuestionView(View):
 
         question = question.json_repr()
         question['status'] = "question"
-        print "Returning %s" % json.dumps(question)
+
         return HttpResponse(json.dumps(question), mimetype="application/json")
 
 
@@ -1177,7 +1176,6 @@ class NewQuizAttempt(View):
         attempt.student = request.user.student
         if spec: attempt.quiz_specification = spec
         attempt.save()
-        open("saved.attempt", "w").close()
 
         return HttpResponse(json.dumps({'status': 'attempt', 'attempt': attempt.slug, 'report_url': reverse('quiz-attempt-report', kwargs={'slug': attempt.slug}) }), mimetype='application/json')
 
@@ -1186,11 +1184,11 @@ class NewQuizAttempt(View):
 class QuizQuestionSubmit(View):
     def post(self, request, *args, **kwargs):
         POST = request.POST
-        # if settings.DEBUG: print "Got post %s" % POST
+
         attempt = models.QuizAttempt.objects.get(slug=POST["quiz_attempt"])
         question = models.Question.objects.get(id=POST["id"])
         try:
-            question_attempt = models.QuizAttempt.objects.get(question=question)
+            question_attempt = attempt.questions.get(question=question)
         except models.QuestionAttempt.DoesNotExist:
             question_attempt = models.QuestionAttempt()
         question_attempt.quiz_attempt = attempt
@@ -1261,7 +1259,7 @@ class QuizSubmit(RedirectView):
         specification = p.get('specification')
         if specification:
             try:
-                specification = models.QuizSpecification.objects.get(id=specification)
+                specification = models.QuizSpecification.objects.get(slug=specification)
             except models.QuizSpecification.DoesNotExist:
                 specification = None
         if 'attempt' in p:

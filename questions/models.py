@@ -940,6 +940,9 @@ class QuizAttempt(models.Model):
         instance.student = student
         instance.save()
 
+        if len(question_list) != len(set(question_list)):
+            raise ValueError("The list of questions provided has duplicate entries.")
+
         for n, question in enumerate(question_list):
             attempt = QuestionAttempt()
             attempt.quiz_attempt = instance
