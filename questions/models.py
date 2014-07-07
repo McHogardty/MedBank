@@ -400,6 +400,21 @@ class TeachingActivityYear(models.Model):
 
         return True
 
+    def questions_pending_count(self):
+        count = 0
+
+        count += self.questions.filter(approval_records__isnull=True).count()
+
+        count += ApprovalRecord.objects.filter(question__teaching_activity_year=self) \
+                .annotate(max=models.Max('question__approval_records__date_completed')) \
+                .filter(max=models.F('date_completed')) \
+                .select_related('question') \
+                .filter(status=ApprovalRecord.PENDING_STATUS) \
+                .filter(date_completed__isnull=False) \
+                .count()
+
+        return count
+
     def questions_left_for(self, student):
         # Max number of questions to write.
         m = settings.QUESTIONS_PER_USER
@@ -531,6 +546,9 @@ class Question(models.Model):
         #     self.approval_status = ApprovalRecord.PENDING_STATUS
         # else:
         #     self.approval_status = self.approval_records.latest('date_completed').status
+
+    def __str__(self):
+        return "%s" % (self.id,)
 
     def approval_status(self):
         if hasattr(self, "_approval_status"):
@@ -1002,7 +1020,8 @@ class QuizAttempt(models.Model):
 
     def percent_score(self):
         number_of_questions = self.quiz_specification.number_of_questions() if self.quiz_specification else self.questions.count()
-
+        if number_of_questions == 0:
+            return 0.0
         return self.score() / number_of_questions * 100
 
 

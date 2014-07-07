@@ -941,7 +941,7 @@ def get_allowed_blocks(user):
     else:
         allowed_blocks = allowed_blocks.filter(activities__questions__in=user.student.questions_created.all())
 
-    return allowed_blocks
+    return allowed_blocks.distinct()
 
 @class_view_decorator(login_required)
 class QuizChooseView(ListView):
