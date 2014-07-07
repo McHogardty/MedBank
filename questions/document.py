@@ -117,7 +117,8 @@ def generate_document(tb, answer, request):
         }))
         body.append(docx.pagebreak(type='page', orient='portrait'))
         body.append(docx.heading("Individual explanations for each question", 1))
-    for n, q in enumerate(qq):
+    n = 0
+    for q in qq:
         style_name = 'ListUpperLetter%d' % n
         numid = 14 + n
         abstract_numid = 12 + n
@@ -125,9 +126,18 @@ def generate_document(tb, answer, request):
         body.append(docx.paragraph("Question %d: %s" % (n+1, q.body)))
         [body.append(docx.paragraph(o, style=style_name)) for o in q.options_list()]
 
+        n += 1
+
         if answer:
             body.append(docx.paragraph("Answer: %s" % q.answer))
-            body.append(docx.paragraph(q.explanation))
+            explanation_dict = q.explanation_dict()
+            if explanation_dict:
+                for key, value in explanation_dict.items():
+                    style_name = 'ListUpperLetter%d' % n
+                    body.append(docx.paragraph(value, style=style_name))
+                    n += 1
+            else:
+                body.append(docx.paragraph(q.explanation))
             body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity_year.current_block().code, q.teaching_activity_year.week, q.teaching_activity_year.position, q.teaching_activity_year.name)))
             p = docx.paragraph("To view this question online, click ")
             url = request.build_absolute_uri(reverse('view', kwargs={'pk': q.pk, 'ta_id': q.teaching_activity_year.id}))
@@ -169,7 +179,8 @@ def generate_document(tb, answer, request):
         b = etree.SubElement(a, "%sabstractNumId" % xhtml_namespace)
         b.attrib["%sval" % xhtml_namespace] = str(abstract_numid)
 
-    for n in range(len(qq)):
+    n = 0
+    for x in range(len(qq)):
         style_name = 'ListUpperLetter%d' % n
         numid = 14 + n
         # Add a style element to the style.xml file
@@ -181,6 +192,22 @@ def generate_document(tb, answer, request):
         d = etree.SubElement(c, "%snumId" % xhtml_namespace)
         d.attrib['%sval' % xhtml_namespace] = str(numid)
         etree.SubElement(b, "%scontextualSpacing" % xhtml_namespace)
+        n += 1
+
+        if answer and x.explanation_dict():
+            style_name = 'ListUpperLetter%d' % n
+            numid = 14 + n
+            # Add a style element to the style.xml file
+            a = etree.SubElement(s, "%sstyle" % xhtml_namespace)
+            a.attrib['%sstyleId' % xhtml_namespace] = style_name
+            a.attrib['%stype' % xhtml_namespace] = "paragraph"
+            b = etree.SubElement(a, "%spPr" % xhtml_namespace)
+            c = etree.SubElement(b, "%snumPr" % xhtml_namespace)
+            d = etree.SubElement(c, "%snumId" % xhtml_namespace)
+            d.attrib['%sval' % xhtml_namespace] = str(numid)
+            etree.SubElement(b, "%scontextualSpacing" % xhtml_namespace)
+            n += 1
+
 
     if answer:
         a = etree.SubElement(s,"%sstyle" % xhtml_namespace)
