@@ -75,9 +75,9 @@
             {% if t %}
                 <div class="activity" style="position:relative;">
                     <div class="pull-right hidden-xs">
-                        <a href="{% url 'activity-approval-assign' ta_id=t.id %}">Assign to me</a>
+                        <span class="loading">{{ t.questions_pending_count }} question{{ t.questions_pending_count|pluralize }}</span> <a href="{% url 'activity-approval-assign' ta_id=t.id %}">Assign to me</a>
                     </div>
-                    <div class="activity-info"><span class="loading">{{ t.get_activity_type_display.0 }}</span> {{ t }}</div>
+                    <div class="activity-info"><span class="loading">{{ t.get_activity_type_display.0 }}</span> <a href="{% url 'ta' pk=t.id %}">{{ t }}</a></div>
                     <div class="clearfix"></div>
                     <span class="action-view hidden" data-url="{% url 'ta' pk=t.id %}"></span>
                 </div>                
@@ -118,31 +118,31 @@
             $(cls).on("click", handler)
         }
         {% if teaching_block.released %}
-            enquire.register("screen and (max-width: 767px)", {
-                match: function () {
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
-                },
-                unmatch: function () {
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
-                },
-                setup: function () {
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
-                }
-            })
+            // enquire.register("screen and (max-width: 767px)", {
+            //     match: function () {
+            //         clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+            //     },
+            //     unmatch: function () {
+            //         clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+            //     },
+            //     setup: function () {
+            //         clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+            //     }
+            // })
         {% else %}
-            enquire.register("screen and (max-width: 767px)", {
-                match: function () {
-                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", assign);
-                },
-                unmatch: function () {
-                    unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", assign);
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
-                },
-                setup: function () {
-                    clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
-                },
-            })
+            // enquire.register("screen and (max-width: 767px)", {
+            //     match: function () {
+            //         unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+            //         clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", assign);
+            //     },
+            //     unmatch: function () {
+            //         unclickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", assign);
+            //         clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+            //     },
+            //     setup: function () {
+            //         clickable("{% if teaching_block.by_activity %}.activity{% else %}.week-heading{% endif %}", view_activity);
+            //     },
+            // })
         {% endif %}
 
         function view_activity() {
