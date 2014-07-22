@@ -87,7 +87,7 @@ class BlockActivitiesView(DetailView):
 @class_view_decorator(user_is_superuser)
 class NewBlock(CreateView):
     model = models.TeachingBlockYear
-    template_name = "new_ta.html"
+    template_name = "block/new.html"
     form_class = forms.NewTeachingBlockYearForm
 
     def get_context_data(self, **kwargs):
@@ -120,7 +120,7 @@ class NewBlock(CreateView):
 @class_view_decorator(user_is_superuser)
 class EditBlock(UpdateView):
     model = models.TeachingBlockYear
-    template_name = "new_ta.html"
+    template_name = "block/new.html"
     form_class = forms.NewTeachingBlockYearForm
 
     def get_context_data(self, **kwargs):

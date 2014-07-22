@@ -231,9 +231,9 @@ class NewTeachingBlockYearForm(bsforms.NewBootstrapModelForm):
 #    ), help_text="The last day that students can assign themselves to activities in this block.")
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage__number', 'code'))
     year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bsforms.StaticControl())
-    start = forms.DateField(widget=forms.DateInput(attrs={"class": "date"}), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
-    end = forms.DateField(widget=forms.DateInput(attrs={"class": "date"}), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
-    close = forms.DateField(widget=forms.DateInput(attrs={"class": "date"}), help_text="The last day that students can write questions for activities in this block.", label="Close date")
+    start = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
+    end = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
+    close = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The last day that students can write questions for activities in this block.", label="Close date")
     release_date = forms.CharField(required=False, max_length=10, widget=bsforms.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
     sign_up_mode = forms.TypedChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES, coerce=int)
 
