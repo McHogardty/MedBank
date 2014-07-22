@@ -1,0 +1,50 @@
+{% extends "generic/newbase_with_actions.html" %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello-ie7.css"><![endif]-->
+{% endblock head %}
+
+{% block actions %}
+    <h3>Page actions</h3>
+    <a class="action" href="{% url 'block-list' %}">View all activities</a>        
+{% endblock actions %}
+
+{% block maincontent %}
+    <h1>Your teaching activities</h1>
+    <div class="row spacer">
+    {% for w, l in object_list %}
+    {% if forloop.first %}{% endif %}
+    <div class="week">
+        <div class="week-heading collapse-trigger" data-target="#week-activities-{{ w.id }}">
+            <h3>{{ w }}</h3>
+            <i class="icon-angle-down"></i>
+        </div>
+        <div class="week-activities collapse" id="week-activities-{{ w.id }}">
+            {% for t in l %}
+            {% if t %}
+                <div class="activity">
+                    <a href="{{ t.teaching_activity.get_absolute_url }}">{{ t }}</a>
+                </div>                
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% if forloop.last %}{% endif %}
+    {% empty %}<p>You haven't signed up to any activities yet. You can do this by clicking "Choose more activities" <span class="hidden-xs">to the right.</span><span><span class="visible-xs">below.</span></span></p>{% endfor %}
+    </div>
+{% endblock maincontent %}
+
+
+{% block javascript %}
+   <script type="text/javascript">
+        $(document).ready(function () {
+            $(".collapse-trigger").each(function () {
+                $(this).click(function () {
+                    $($(this).attr("data-target")).collapse("toggle")
+                })
+            })
+        })
+    </script>
+{% endblock javascript %}

@@ -1,19 +1,20 @@
-{% extends "newbase.html" %}
+{% extends "generic/newbase_with_actions.html" %}
 
-{% block content %}
+{% block actions %}
+	<h3>Page actions</h3>
+	<a class="action" href="{{ question.get_absolute_url }}">Back to question</a>
+{% endblock actions %}
+
+{% block maincontent %}
 	<h1>Question approval history</h1>
-	<h2>Current status: <span class="text-{% if question.approved %}success{% elif question.pending %}warning{% elif question.flagged %}info{% elif question.deleted %}danger{% endif %}">{{ question.latest_approval_record.get_status_display }}</span></h2>
-	<p>Approval was assigned to {{ question.latest_approval_record.approver }} on {{ question.latest_approval_record.date_assigned }}. It was completed on {{ question.latest_approval_record.date_completed }}.
-
-	{% for record in question.all_approval_records_except_latest %}
-		<h3>Previous status: <span class="text-{% if record.approved %}success{% elif record.pending %}warning{% elif record.flagged %}info{% elif record.deleted %}danger{% endif %}">{{ record.get_status_display }}</span></h3>
-		<p>Approval was assigned to {{ record.approver }} on {{ record.date_assigned }}. It was completed on {{ record.date_completed }}.
-		{% if record.reason %}<p>The following reason was provided:</p>
-		<blockquote>
-			<p>
-				{{ record.reason }}
-			</p>
-		</blockquote>
-		{% endif %}
+	<h2>Current status: {% include "question/display_status.html" %}</h2>
+	{% if question.date_assigned %}
+	{% include "question/display_approval_record.html" with record=question %}
+	{% else %}
+	<p>This question has not yet been assigned to anybody.</p>		
+	{% endif %}
+{% for record in question.get_approval_records_recent_first %}
+	<h3>Previous status: {% include "question/display_status_from_record.html" %}</h3>
+	{% include "question/display_approval_record.html" %}
 	{% endfor %}
-{% endblock content %}
+{% endblock maincontent %}

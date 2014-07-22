@@ -1,0 +1,9 @@
+{% if teaching_activity_year in student.all_assigned_activities %}
+    <span class="text-success">Assigned</span>
+{% elif teaching_activity_year.enough_writers %}
+    <span class="loading">Unavailable</span>
+{% elif teaching_activity_year.has_writers %}
+    <span class="loading">Assigned to {{ teaching_activity_year.question_writer_count }}</span>
+{% else %}
+	<span class="loading">Available</span>
+{% endif %}

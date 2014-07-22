@@ -16,7 +16,7 @@
 {% endblock head %}
 
 {% block content %}
-	<h1>{{ object.name }} ({{ object.stage }})</h1>
+	<h1>{{ object.stage }}: {{ object.name }} ({% include "admin/display_specification_status.html" %})</h1>
 	<p>{{ object.description }}</p>
 	<h2>Questions <small><a href="{% url "quiz-spec-question-add" slug=object.slug %}">Add Questions</a></small></h2>
 
@@ -32,7 +32,7 @@
 		<tr>
 			<td class="stage">{{ question.teaching_activity_year.block_year.stage }}</td>
 			<td class="block">Block {{ question.teaching_activity_year.block_year.code }}</td>
-			<td class="question"><a href="{% url 'view' pk=question.id ta_id=question.teaching_activity_year.id%}">{{ question.body }}</a></td>
+			<td class="question"><a href="{{ question.get_absolute_url }}">{{ question.body }}</a></td>
 		</tr>
 	{% if forloop.last %}
 	</table>

@@ -3,12 +3,13 @@ from django.contrib import admin
 from .models import (Question, TeachingActivity, TeachingActivityYear, TeachingBlock,
 	TeachingBlockYear, Student, Year, Stage, Comment,
 	QuizAttempt, QuestionAttempt, QuizSpecification, QuizQuestionSpecification,
-	StudentDashboardSetting)
+	StudentDashboardSetting, ApprovalRecord)
 
 class TeachingActivityYearAdmin(admin.ModelAdmin):
 	filter_horizontal = ['question_writers',]
 
 admin.site.register(Question)
+admin.site.register(ApprovalRecord)
 admin.site.register(TeachingActivity)
 admin.site.register(TeachingActivityYear, TeachingActivityYearAdmin)
 admin.site.register(TeachingBlock)

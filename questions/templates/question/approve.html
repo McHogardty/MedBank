@@ -1,0 +1,84 @@
+{% extends "newbase.html" %}
+{% load custom_filters %}
+{% block actions %}
+	<h3>Page Actions</h3>
+{% if multiple_question_approval_mode %}
+    <a class="action" href="{% url 'admin-approve' code=question.teaching_activity_year.current_block.code year=question.teaching_activity_year.current_block.year q_id=question.id %}{{ approval_query_string }}">Skip question</a>        
+{% endif %}
+{% endblock actions %}
+
+{% block head %}
+    <style type="text/css">
+    form p.lead {
+        margin-bottom: 0;
+    }
+
+    @media screen and (max-width:768px) {
+        .xs-centre {
+            text-align: center;
+        }
+    }
+    </style>
+{% endblock head %}
+
+{% block content %}
+{% if multiple_question_approval_mode %}
+    <div class="col-xs-12">
+        <h2>Progress so far: {{ assigned_approvals_remaining }} {{ assigned_approvals_remaining|plural:"question" }} remaining out of {{ assigned_approvals_total }}</h2>
+        <div class="progress">
+            <div class="progress-bar" role="progressbar" aria-valuenow="{{ assigned_approvals_completed }}" aria-valuemin="0" aria-valuemax="{{ assigned_approvals_total }}" style="width: {% widthratio assigned_approvals_completed assigned_approvals_total 100 %}%;">
+                <span class="sr-only"></span>
+            </div>
+        </div>
+    </div>
+{% endif %}
+    <h1>{{ question.teaching_activity_year.block_year.code }}.{{ question.teaching_activity_year.week|stringformat:"02d" }}: {{ question.teaching_activity_year.name }}</h1>
+    <p class="lead">Block: {{ question.teaching_activity_year.block_year }}</p>
+	{% include "question/display_question.html" with show_answer=True %}
+    <br />
+    <form method="post" class="form">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-sm-6">
+                <p class="lead{% if form.exemplary_question.errors %} text-danger{% endif %}">Is this question an exemplary question for this block?</p>
+                <br class="visible-xs"/>
+            </div>
+            <div class="col-sm-6 xs-centre">
+                {{ form.exemplary_question }}
+                {% if form.exemplary_question.errors %}
+                    <span class="help-text text-danger">{{ form.exemplary_question.errors }}</span>                    
+                {% endif %}
+            </div>
+        </div>
+        <br />
+        <div class="row">
+            <div class="col-sm-6">
+                <p class="lead{% if form.new_status.errors %} text-danger{% endif %}">What would you like to do with this question?</p>
+                <br class="visible-xs"/>
+            </div>
+            <div class="col-sm-6 xs-centre">
+                {{ form.new_status }}
+                {% if form.new_status.errors %}
+                    <span class="help-text text-danger">{{ form.new_status.errors }}</span>                    
+                {% endif %}
+
+            </div>
+        </div>
+        <br />
+        <div class="row">
+            <div class="col-sm-6 col-sm-offset-6 xs-centre">
+                <button type="submit" class="btn btn-primary">Submit</button>
+            {% if multiple_question_approval_mode %}
+                <a href="{{ question.get_next_approval_url }}" class="btn btn-default">Skip question</a>
+            {% else %}
+                <a href="{{ question.get_absolute_url }}" class="btn btn-default">Back to question page</a>
+            {% endif %}
+            </div>
+        </div>
+    </form>
+    {% include "question/display_question_reasons.html" %}
+{% endblock content %}
+
+{% block javascript %}
+{% include "question/display_question_javascript.html" %}
+{% endblock javascript %}

@@ -6,7 +6,7 @@
     <div class="span9">
         <p>Some rows in the uploaded file were not valid. Please double check the file and upload again.</p>
         <div class="text-center">
-	        <a class="btn btn-primary" href="{% url 'questions.views.new_ta_upload' %}">Try again</a>
+	        <a class="btn btn-primary" href="{% url 'activity-upload' %}">Try again</a>
         </div>
     </div>
 	{% if errors %}
@@ -36,7 +36,7 @@
     <div class="span9">
         <p>The following teaching activity duplicates were found. Please double check the file and upload again.</p>
         <div class="text-center">
-	        <a class="btn btn-primary" href="{% url 'questions.views.new_ta_upload' %}">Try again</a>
+	        <a class="btn btn-primary" href="{% url 'activity-upload' %}">Try again</a>
         </div>
         {% for d in dup_by_name %}
         {% if forloop.first %}

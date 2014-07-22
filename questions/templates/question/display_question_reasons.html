@@ -1,0 +1,9 @@
+{% if perms.questions.can_approve and question.associated_reasons %}
+    <h3>Question activity</h3>
+    <dl>
+        {% for reason in question.associated_reasons %}
+            <dt>{{ reason.get_reason_type_display }} by {{ reason.creator }} on {{ reason.date_created }}</dt>
+            <dd>{{ reason.body|linebreaksbr }}</dt>
+        {% endfor %}
+    </dl>
+{% endif %}

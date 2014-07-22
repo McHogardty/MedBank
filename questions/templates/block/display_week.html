@@ -1,0 +1,24 @@
+<div class="week">
+	<div class="week-heading collapse-trigger" data-week="{{ week.number }}">
+		<h3>Week {{ week.number }}</h3>
+		<i class="icon-angle-down"></i>
+	</div>
+	<div class="week-activities collapse" data-week="{{ week.number }}">
+		{% for teaching_activity_year in week.activities %}
+		{% with teaching_activity_year.teaching_activity as teaching_activity %}
+			<div class="activity">
+			{% block activity_detail %}
+				<div class="activity-info pull-left">
+					<span class="loading">{{ teaching_activity.get_activity_type_display.0 }}</span>
+					<a href="{{ teaching_activity.get_absolute_url }}">{{ teaching_activity.name }}</a>
+				</div>
+				<div class="pull-right">
+	                {% include "activity/display_activity_availability.html" %}
+				</div>
+				<div class="clearfix"></div>
+			{% endblock activity_detail %}
+			</div>
+		{% endwith %}
+		{% endfor %}
+	</div>
+</div>		

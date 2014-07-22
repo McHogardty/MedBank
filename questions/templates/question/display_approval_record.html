@@ -1,0 +1,19 @@
+<p>{% if record.was_assigned_before_being_completed %}Approval was assigned to{% else %}Changed manually by{% endif %} {{ record.approver }} on {{ record.date_assigned }}.
+{% if record.was_assigned_before_being_completed %}
+	{% if record.date_completed %}
+		It was completed on {{ record.date_completed }}.
+	{% else %}
+		It has not been completed yet.
+	{% endif %}
+{% endif %}
+</p>
+{% if record.reasons.all %}
+<p>The following reason was provided:</p>
+{% for reason in record.reasons.all %}
+<blockquote>
+	<p>
+		{{ reason.body }}
+	</p>
+</blockquote>
+{% endfor %}
+{% endif %}

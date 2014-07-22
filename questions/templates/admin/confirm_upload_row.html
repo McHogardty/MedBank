@@ -1,0 +1,7 @@
+<tr>
+    <td>{{ t.name }}{% if t.teaching_activity.id %} <span class="text-success">(Already exists)</span>{% endif %}<input type="hidden" value="{{ t.teaching_activity.reference_id }}" name="reference_id" /><input type="hidden" value="{{ t.name }}" name="name_{{ t.teaching_activity.reference_id}}" /><input type="hidden" value="{{ t.teaching_activity.id }}"></td>
+    <td>{{ b.name }}<input type="hidden" value="{{ b.code }}" name="block_{{ t.teaching_activity.reference_id }}" /></td>
+    <td>{{ t.week }}<input type="hidden" value="{{ t.week }}" name="week_{{ t.teaching_activity.reference_id }}" /></td>
+    <td>{{ t.position }}<input type="hidden" value="{{ t.position }}" name="position_{{ t.teaching_activity.reference_id }}" /></td>
+    <td>{{ t.get_activity_type_display }}<input type="hidden" value="{{ t.activity_type }}" name="activity_type_{{ t.teaching_activity.reference_id }}" /></td>
+</tr>

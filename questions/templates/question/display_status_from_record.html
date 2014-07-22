@@ -1,0 +1,24 @@
+<span class="{% if record.pending or record.flagged and not perms.questions.can_approve %}
+	text-warning
+	{% elif record.approved %}
+	text-success
+	{% elif record.flagged %}
+	text-info
+{% endif %}">
+
+{% if record.flagged and not perms.questions.can_approve %}
+	Pending
+{% else %}
+	{{ record.get_status_display }}
+{% endif %}
+
+{% if show_approver and perms.questions.can_approve %}
+{% if record.date_completed %}
+	by {{ record.approver }}
+{% else %}
+{% if record.approver %}
+	(assigned to {{ record.approver }})	
+{% endif %}
+{% endif %}
+{% endif %}
+</span>

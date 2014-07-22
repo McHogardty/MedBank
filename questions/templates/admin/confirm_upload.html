@@ -7,26 +7,12 @@
         <div>
             <p>Please check that the following information is correct before saving it to the database.
         </div>
-        <table class="table">
-            <tr>
-                <th class="lead">Name</th>
-                <th class="lead">Block</th>
-                <th class="lead">Week</th>
-                <th class="lead">Position</th>
-                <th class="lead">Type</th>
-            </tr>
-            {% for b, ta in tab.iteritems %}
-                {% for t in ta %}
-                    <tr>
-                        <td>{{ t.name }}<input type="hidden" value="{{ t.reference_id }}" name="reference_id" /><input type="hidden" value="{{ t.name }}" name="name_{{ t.reference_id}}" /></td>
-                        <td>{{ b.name }}<input type="hidden" value="{{ b.code }}" name="block_{{ t.reference_id }}" /></td>
-                        <td>{{ t.week }}<input type="hidden" value="{{ t.week }}" name="week_{{ t.reference_id }}" /></td>
-                        <td>{{ t.position }}<input type="hidden" value="{{ t.position }}" name="position_{{ t.reference_id }}" /></td>
-                        <td>{{ t.get_activity_type_display }}<input type="hidden" value="{{ t.activity_type }}" name="activity_type_{{ t.reference_id }}" /></td>
-                    </tr>
-                {% endfor %}
-            {% endfor %}
-        </table>
+        <h2>Teaching activities which previously existed in MedBank with the same reference ID</h2>
+        {% include "admin/confirm_upload_table.html" with block_year_relation=teaching_activity_years_by_block_year_already_exist %}
+        <h2>Teaching activities which previously existed in MedBank with the same name</h2>
+        {% include "admin/confirm_upload_table.html" with block_year_relation=teaching_activity_years_by_block_year_same_name %}
+        <h2>Teaching activities which don't already exist in MedBank</h2>
+        {% include "admin/confirm_upload_table.html" with block_year_relation=teaching_activity_years_by_block_year_new %}
         <input type="hidden" name="year" value="{{ year }}" />
         <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save</button>

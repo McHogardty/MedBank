@@ -1,0 +1,11 @@
+{% extends "block/display_week.html" %}
+{% load custom_filters %}
+
+{% block activity_detail %}
+	<div class="pull-right hidden-xs">
+        <span class="loading">{{ teaching_activity_year.unassigned_questions_count }} {{ teaching_activity_year.unassigned_questions_count|plural:"question" }}</span>
+        <a href="{{ teaching_activity_year.get_approval_assign_url }}">Assign to me</a>
+	</div>
+    <div class="activity-info"><span class="loading">{{ teaching_activity.get_activity_type_display.0 }}</span> <a href="{{ teaching_activity.get_absolute_url }}">{{ teaching_activity.name }}</a></div>
+    <div class="clearfix"></div>
+{% endblock activity_detail %}

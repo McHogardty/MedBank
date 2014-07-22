@@ -327,7 +327,6 @@ div.activity {
 }
 
 .activity .body {
-    max-width:400px;
     float:left;
     overflow:hidden;
     white-space:nowrap;
@@ -482,5 +481,15 @@ div.comment-heading:hover {
     .text-xs-center {
         text-align:center;
     }
+}
+
+.ellipsis-overflow {
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+a.ellipsis-overflow {
+  display:block;
 }
 

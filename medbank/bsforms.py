@@ -5,7 +5,7 @@ from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 
 from django.forms.util import flatatt
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.encoding import force_text
 from django.utils import datetime_safe, formats
 
@@ -143,17 +143,6 @@ class BoundField(forms.forms.BoundField):
 
         attrs = attrs or {}
         c = attrs['class'].split() if 'class' in attrs else []
-        # if attrs:
-        #     if 'class' in attrs:
-        #         c = attrs['class'].split()
-        #         c.append('control-label')
-        #         c.append('col-md-2')
-        #         c.append()
-        #         attrs['class'] = " ".join(c)
-        #     else:
-        #         attrs['class'] = 'control-label col-md-2'
-        # else:
-        #     attrs = {'class': 'control-label col-md-2'}
         c.append('control-label')
         c.append('col-md-%s' % self.label_size)
         attrs['class'] = " ".join(c)
@@ -166,7 +155,7 @@ class BoundField(forms.forms.BoundField):
         return " ".join(classes)
 
     def as_widget(self, widget=None, attrs=None, only_initial=False):
-        if self.field.widget.__class__.__name__ in ["RadioSelect", "ClearableFileInput", "CheckboxInput"]:
+        if self.field.widget.__class__.__name__ in ["ButtonGroupWithToggle", "RadioSelect", "ClearableFileInput", "CheckboxInput"]:
             self.field.widget.label = self.label
             return super(BoundField, self).as_widget(widget, attrs, only_initial)
 
@@ -180,7 +169,7 @@ class BoundField(forms.forms.BoundField):
         else:
             a.update({'class': 'form-control'})
 
-        return super(BoundField, self).as_widget(widget, attrs, only_initial)
+        return super(BoundField, self).as_widget(widget, a, only_initial)
 
 
 class NewErrorList(forms.util.ErrorList):
@@ -366,17 +355,23 @@ class RichTextarea(forms.Textarea):
 
 
 class TextInputWithAddon(forms.TextInput):
-    def __init__(self, add_on=None, post_add_on=None, **kwargs):
+    def __init__(self, add_on=None, post_add_on=None, group_class="", **kwargs):
         self.add_on = add_on
         self.post_add_on = post_add_on
+        self.group_class = ""
         super(TextInputWithAddon, self).__init__(**kwargs)
 
     def render(self, name, value, attrs=None):
+        classes = ['input-group', ]
+        if self.group_class:
+            classes += self.group_class.split()
+
         i = super(TextInputWithAddon, self).render(name, value, attrs)
+        input_group_attrs = {'class': " ".join(classes)}
         if self.add_on and not self.post_add_on:
-            i = format_html('<div class="input-group"><span class="input-group-addon">{0}</span>{1}</div>', self.add_on, i)
+            i = format_html('<div{0}><span class="input-group-addon">{1}</span>{2}</div>', flatatt(input_group_attrs), self.add_on, i)
         if self.post_add_on and not self.add_on:
-            i = format_html('<div class="input-group">{0}<span class="input-group-addon">{1}</span></div>', i, self.post_add_on)
+            i = format_html('<div{0}>{1}<span class="input-group-addon">{2}</span></div>', flatatt(input_group_attrs), i, self.post_add_on)
         return i
 
 class CheckboxInput(forms.CheckboxInput):
@@ -391,3 +386,34 @@ class CheckboxInput(forms.CheckboxInput):
         """
         return format_html(checkbox, checkbox_input, self.label)
 
+
+class RadioInputLikeButton(forms.widgets.RadioInput):
+    def render(self, name=None, value=None, attrs=None, choices=()):
+        choice_label = force_text(self.choice_label)
+
+        label_classes = ["btn", "btn-default"]
+        if self.is_checked(): label_classes.append("active")
+
+        label_class = " ".join(label_classes)
+        return format_html('<label{0}>{1} {2}</label>', flatatt({'class': label_class}), self.tag(), choice_label)
+
+
+class ButtonGroupWithToggleRenderer(forms.widgets.RadioFieldRenderer):
+    def get_input(self, choice, index):
+        return RadioInputLikeButton(self.name, self.value, self.attrs.copy(), choice, index)
+
+    def __iter__(self):
+        for i, choice in enumerate(self.choices):
+            yield self.get_input(choice, i)
+
+    def __getitem__(self, idx):
+        choice = self.choices[idx]
+        return self.get_input(choice, idx)
+
+    def render(self):
+        radio_fields = format_html_join('\n', '{0}', [(force_text(w),) for w in self])
+        return format_html('<div class="btn-group" data-toggle="buttons">\n{0}\n</div>', radio_fields)
+
+
+class ButtonGroupWithToggle(forms.RadioSelect):
+    renderer = ButtonGroupWithToggleRenderer

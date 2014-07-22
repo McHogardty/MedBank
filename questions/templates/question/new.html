@@ -1,0 +1,42 @@
+{% extends "newbase.html" %}
+
+{% block head %}
+<style type="text/css">
+    .options_table.col-md-6 {
+        margin-left:0;
+    }
+    .options_table .option-label {
+        width:80px;
+    }
+    .options_table input {
+        margin:2px;
+    }
+
+    .options-group {
+        width:100%;
+        margin-bottom:4px;
+    }
+
+    .options-group:last-of-type {
+        margin-bottom:0px;
+    }
+
+    .options-group .input-group-addon {
+        width:36px;
+    }
+</style>
+{% endblock head %}
+
+{% block content %}
+    <h1>Add a new question</h1>
+    <p class="lead">We've written a guide for you on how to write questions. It would be great if you could give it a read. You can view the guide by <a href="{% url 'question-guide' %}">clicking here</a>.</p>
+    <form class="form-horizontal" method="post" role="form">
+        {% csrf_token %}
+        {{ form.as_bootstrap }}
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-6">
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+        </div>
+    </form>
+{% endblock content %}

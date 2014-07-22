@@ -18,7 +18,7 @@
 			<div class="dashboard">
 				<h1>{{ block_count }}</h1>
 				<p class="lead">blocks with pending questions.</p>
-				<a class="action" href="{% url 'admin-approve-choose' %}">Assign questions to me</a>
+				<a class="action" href="{{ block_list_for_assigning_activities_url }}">Assign questions to me</a>
 			</div>
 		</div>
 		<div class="col-sm-6">
@@ -26,7 +26,7 @@
 				<h1>{{ questions_to_approve }}</h1>
 				<p class="lead">questions left to approve.</p>
 				{% if questions_to_approve %}
-				<a class="action" href="{% url 'admin-approve-assigned-start' %}?assigned">Approve questions</a>
+				<a class="action" href="{% url 'approve-assigned' %}">Approve questions</a>
 				{% else %}
 				<p class="lead action">Choose questions to the left</p>
 				{% endif %}

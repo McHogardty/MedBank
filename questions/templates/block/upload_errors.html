@@ -1,0 +1,35 @@
+{% extends "block/upload_base.html" %}
+
+{% block page_detail %}
+	<p>Some errors were found in the upload file. Please see below for details.</p>
+	{% if errors.bad_activity_type %}
+		<h2>The following rows had invalid activity types</h2>
+		<p>Please make sure that the activity type is one of the valid types (listed on the main upload page).</p>
+		{% include "block/upload_error_table.html" with error_rows=errors.bad_activity_type %}
+	{% endif %}
+	{% if errors.bad_reference_id %}
+		<h2>The following rows had an invalid reference ID</h2>
+		<p>Please make sure that it is a non-negative integer.</p>
+		{% include "block/upload_error_table.html" with error_rows=errors.bad_reference_id %}
+	{% endif %}
+	{% if errors.bad_teaching_activity %}
+		<h2>The following rows did not pass activity validation</h2>
+		<p>This is probably because the name was blank.</p>
+		{% include "block/upload_error_table.html" with error_rows=errors.bad_teaching_activity %}
+	{% endif %}
+	{% if errors.bad_activity_year %}
+		<h2>The following rows did not pass activity year validation.</h2>
+		<p>It is likely that the week or position is not a number.</p>
+		{% include "block/upload_error_table.html" with error_rows=errors.bad_activity_year %}
+	{% endif %}
+	{% if errors.duplicated_by_position %}
+		<h2>The following rows had duplicates by position</h2>
+		<p>Please make sure that there is only one kind of activity in each position. Activities with different types can be in the same position but there cannot be two lectures with the same week and position, for example.</p>
+		{% include "block/upload_error_table.html" with error_rows=errors.duplicated_by_position using_instances=True %}
+	{% endif %}
+	{% if errors.duplicated_by_name %}
+		<h2>The following rows had duplicates by name</h2>
+		<p>Please make sure that there is only one activity with a particular name. If the Meet the Expert sessions are in the file, it is a good idea to remove them as they aren't suitable for writing questions.</p>
+		{% include "block/upload_error_table.html" with error_rows=errors.duplicated_by_name using_instances=True %}
+	{% endif %}
+{% endblock page_detail %}

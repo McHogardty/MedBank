@@ -1,9 +1,26 @@
 from django import template
+import inflect
 
 from collections import defaultdict
 
+PLURAL_ENGINE = inflect.engine()
 register = template.Library()
 
+
+@register.filter
+def plural(value, arg):
+    # Finds the plural of the arg based on the value of value.
+    try:
+        value = int(value)
+    except ValueError:
+        return arg
+
+    arg = arg.split()
+    plural_phrase = []
+    for word in arg:
+        plural_phrase.append(PLURAL_ENGINE.plural(word, value))
+
+    return " ".join(plural_phrase)
 
 @register.filter
 def subtract(value, arg):
@@ -24,6 +41,8 @@ def humanize_list(value):
     elif len(value) == 1:
         return value[0]
 
+    value = [str(x) for x in value]
+
     s = ", ".join(value[:-1])
 
     if len(value) > 3:
@@ -34,6 +53,9 @@ def humanize_list(value):
 
 @register.assignment_tag
 def questions_left(user, activity):
+    if not user.student.is_writing_for(activity):
+        return 0
+
     return activity.questions_left_for(user.student)
 
 @register.assignment_tag

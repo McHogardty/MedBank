@@ -1,0 +1,20 @@
+<h2>Question {% if perms.questions.can_approve %}#{{ question.id }}{% endif %} <small>{% include "question/display_status.html" with show_approver=True %}</small></h2>
+{% if user.is_superuser %}<h4>Written by {{ question.creator }}</h4>{% endif %}
+
+<p class="lead">{{ question.body|linebreaksbr }}</p>
+<ol class="alpha">
+    {% for a in question.options_list %}
+        <li>{{ a }}</li>
+    {% endfor %}
+</ol>
+
+<h3>Answer and explanations <small><a class="toggle-answer">{% if show_answer %}Hide{% else %}Show{% endif %}</a></small></h3>
+<div class="answer collapse{% if show_answer %} in{% endif %}">
+	<p>Answer: {{ question.correct_answer }}</p>
+    <p>The following explanations were provided for each of the options:</p>
+    <ol class="alpha">
+    {% for option, answer in question.explanation_dict.iteritems %}
+        <li {% if not answer %}class="loading"{% endif %}>{{ answer|default:"Explanation was not provided."}}</li>
+    {% endfor %}
+    </ol>
+</div>

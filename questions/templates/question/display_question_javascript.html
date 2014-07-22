@@ -1,0 +1,18 @@
+<script type="text/javascript">
+    var toggle_answer_button = ".toggle-answer";
+    $(document).ready(function () {
+        $(".answer").on("hide.bs.collapse", function () {
+            $(toggle_answer_button).html("Show");
+        })
+
+        $(".answer").on("show.bs.collapse", function () {
+            $(toggle_answer_button).html("Hide");
+        })
+
+        $(".toggle-answer").click(function (e) {
+            e.preventDefault();
+            $collapse = $(".answer")
+            $collapse.collapse("toggle");
+        })
+    })
+</script>

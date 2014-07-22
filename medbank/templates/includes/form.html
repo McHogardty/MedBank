@@ -1,4 +1,4 @@
-<form class="form-horizontal" role="form" method="post">
+<form class="form-horizontal" method="post" role="form"{% if form.needs_multipart %} enctype="multipart/form-data"{% endif %}{% if form_submit_url %} action="{{ form_submit_url }}"{% endif %}>
     {% csrf_token %}
     {{ form.as_bootstrap }}
     <div class="form-group">

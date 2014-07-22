@@ -1,0 +1,29 @@
+{% extends "newbase.html" %}
+
+{% block head %}
+{% include "block/display_week_css.html" %}
+{% endblock head %}
+
+{% block content %}
+	<h1>Block {{ teaching_block.code }}: {{ teaching_block }}</h1>
+    <p class="lead">You can sign up for activities in this block from {{ teaching_block_year.start }} until {{ teaching_block_year.end }}.</p>
+    <p class="lead">You will be able to write questions for activities until {{ teaching_block_year.close }}.</p>
+    <p class="lead">The question documents for this block have {% if not teaching_block_year.released %}not {% endif %}been released{% if not teaching_block_year.released %} yet{% endif %}.{% if teaching_block.released %} You can download the documents by using the page actions panel.{% endif %}</p>
+
+    <p><span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a week below to see the classes available for that week. <span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a class to view more information, and to sign up to write questions for that activity.</p>
+
+    {% for week in weeks %}
+    {% include "block/display_week.html" %}
+    {% endfor %}
+
+    {% comment %}
+	{% regroup activities by week as weeks %}
+	{% for week in weeks %}
+	{% include "block/display_week.html" %}
+	{% endfor %}
+	{% endcomment %}
+{% endblock content %}
+
+{% block javascript %}
+{% include "block/display_week_javascript.html" %}
+{% endblock javascript %}

@@ -7,6 +7,8 @@ from django.conf import settings
 from django.utils.html import format_html
 from django.utils.datastructures import SortedDict
 from django.core.urlresolvers import reverse
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes import generic
 
 from medbank.models import Setting
 
@@ -17,6 +19,7 @@ import random
 import markdown2
 import html2text
 import hashlib
+import collections
 
 def int_to_base(x, base, places=0):
     """ A method which converts any base 10 integer (x) into its representation in a base using the lowercase alphabet in a fixed number of characters (places)."""
@@ -97,6 +100,17 @@ class Student(models.Model):
     def __unicode__(self):
         return self.user.username
 
+    def has_perm(self, *args, **kwargs):
+        return self.user.has_perm(*args, **kwargs)
+
+    def all_assigned_activities(self):
+        ACTIVITIES_CACHE_ATTR = "_assigned_activities"
+        if hasattr(self, ACTIVITIES_CACHE_ATTR):
+            return getattr(self, ACTIVITIES_CACHE_ATTR)
+
+        activities = self.assigned_activities.all()
+        setattr(self, ACTIVITIES_CACHE_ATTR, activities)
+        return activities
 
     def add_stage(self, stage, year=datetime.datetime.now().year):
         try:
@@ -120,6 +134,9 @@ class Student(models.Model):
     def get_all_stages(self):
         return Stage.objects.filter(number__lte=self.get_current_stage().number)
 
+    def get_previous_stages(self):
+        return Stage.objects.filter(number__lt=self.get_current_stage().number)
+
     def current_assigned_activities(self):
         return self.assigned_activities.filter(models.Q(block_year__release_date__year=datetime.datetime.now().year) | models.Q(block_year__start__year=datetime.datetime.now().year))
 
@@ -133,6 +150,94 @@ class Student(models.Model):
     def latest_quiz_attempt(self):
         return self.quiz_attempts.latest('date_submitted')
 
+    def is_writing_for(self, activity):
+        return self.assigned_activities.filter(teaching_activity=activity).exists()
+
+    def is_writing_for_year(self, activity_year):
+        return self.assigned_activities.filter(pk=activity_year.pk).exists()
+
+    def can_sign_up_for(self, activity):
+        # The student can sign up if the following conditions are met:
+        # 1. The latest activity year does not have enough writers
+        # 2. They are not already signed up for that activity
+        # 3. The signup period is open for the corresponding block year
+        # 4. They are in the correct stage.
+        latest_activity_year = activity.latest_year()
+        latest_block_year = latest_activity_year.block_year
+        return not latest_activity_year.enough_writers() and not self.is_writing_for(activity) and latest_block_year.can_sign_up and latest_block_year.block.stage == self.get_current_stage()
+
+    def can_write_for(self, activity):
+        latest_activity_year = activity.latest_year()
+        latest_block_year = latest_activity_year.block_year
+        return self.user.is_superuser or (self.is_writing_for(activity) and latest_block_year.can_write_questions)
+
+    def can_view_approved_questions_for(self, block_year):
+        # A student can view the questions for a block year if:
+        # 1. They are an approver.
+        # 2. They wrote a question for that block.
+        return self.has_perm("questions.can_approve") or block_year.questions_written_for_student(self)
+
+    def can_view_block_year(self, block_year):
+        # A student can view a block if:
+        # 1. They are the superuser. 
+        # 2. They are an approver and the block is in their stage or lower.
+        # 3. The block is open for writing and the block is within their current stage.
+        # 4. The block is released and they wrote questions for it.
+        if self.user.is_superuser:
+            return True
+
+        if self.has_perm("questions.can_approve") and block_year.block.stage.number in self.get_all_stages():
+            return True
+
+        if block_year.can_access():
+            if block_year.released and block_year.questions_written_for_student(self):
+                return True
+
+            if block_year.can_write_questions and block_year.block.stage == self.get_current_stage():
+                return True
+
+        return False
+
+    def can_view_activity(self, activity):
+        # A user can view an activity if:
+        # 1. They are a superuser
+        # 2. The activity is in one of their current or previous stages, i.e. they can view a block.
+        return self.user.is_superuser or self.can_view_block_year(activity.latest_block())
+
+    def can_view(self, question):
+        # A student can view a question in the following situations:
+        # 1. They wrote it and it is not deleted.
+        # 2. They wrote questions for that particular block and it is approved.
+        # 3. They are the superuser.
+
+        if self.user.is_superuser:
+            return True
+
+        if not question.deleted:
+            if self.has_perm('questions.can_approve'):
+                return True
+
+            if question.approved and self.can_view_approved_questions_for(question.teaching_activity_year.block_year):
+                return True
+            else:
+                return self == question.creator
+
+        return False
+
+    def can_edit(self, question):
+        # A student can edit a question in the following situations:
+        # 1. They wrote it, and the block is open for writing.
+        # 2. They are an approver (or the superuser).
+        return self.has_perm("questions.can_approve") or (question.creator == self and question.teaching_activity_year.block_year.can_write_questions)
+
+    def can_unassign_from(self, activity):
+        # The student can unassign themselves from an activity if the following conditions are met:
+        # 1. They are signed up for the latest activity year
+        # 2. The latest activity year is still open for signups
+        # 3. The student has not written any questions for the activity year.
+        latest_activity_year = activity.latest_year()
+        latest_block_year = latest_activity_year.block_year
+        return self.assigned_activities.filter(pk=latest_activity_year.pk).exists() and latest_block_year.can_sign_up and not latest_activity_year.questions.filter(creator=self).exists()
 
 @receiver(models.signals.post_save, sender=User)
 def user_created(sender, **kwargs):
@@ -159,6 +264,81 @@ class TeachingBlock(models.Model):
         return self.name
 
 
+class TeachingBlockYearManager(models.Manager):
+    def get_all_blocks_for_stages(self, stages):
+        if not isinstance(stages, (list, tuple, models.query.QuerySet)):
+            stages = [stages, ]
+
+        return self.get_query_set().filter(block__stage__in=stages)
+
+    def get_blocks_with_pending_questions_for_stages(self, stages):
+        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
+
+        blocks = all_blocks_for_stages.filter(activities__questions__status=Question.PENDING_STATUS)
+
+        return blocks.distinct().order_by("year", "block__code")
+
+    def get_blocks_with_unassigned_pending_questions_for_stages(self, stages):
+        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
+
+        blocks = all_blocks_for_stages.filter(activities__questions__in=Question.objects.get_unassigned_pending_questions())
+
+        return blocks.distinct().order_by("year", "block__code")
+
+    def get_blocks_with_flagged_questions_for_stages(self, stages):
+        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
+
+        return all_blocks_for_stages.filter(activities__questions__status=Question.FLAGGED_STATUS).distinct().order_by("year", "block__code")
+
+    def get_all_blocks_for_year_and_stages(self, year, stages):
+        # Returns all of the blocks for the supplied year which were
+        # 1. In one of the supplied stages
+        # 2. a. Released in that particular year, OR
+        #    b. Starting in that particular year
+        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
+
+        return all_blocks_for_stages.filter(models.Q(release_date__year=year) | models.Q(start__year=year)).distinct()
+
+    def get_released_blocks_for_year_and_date_and_stages(self, year, date, stages):
+        # Returns all the blocks for the year which were released before the date provide. 
+        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
+
+        return all_blocks_for_stages.filter(year=year, release_date__lte=date)
+
+    def get_released_blocks_for_year_and_date_and_student(self, year, date, student):
+        if student.user.is_superuser:
+            stages = student.get_all_stages()
+        elif student.has_perm("questions.can_approve"):
+            stages = student.get_previous_stages()
+        else:
+            stages = student.get_current_stage()
+
+        blocks = self.get_released_blocks_for_year_and_date_and_stages(year, date, stages)
+
+        if student.user.is_superuser:
+            return blocks
+
+        return blocks.filter(activities__questions__in=student.questions_created.all()).distinct().order_by("year", "block__code")
+
+    def get_open_blocks_for_year_and_date_and_stages(self, year, date, stages):
+        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
+
+        # We want all blocks which were open in the specified year. This means that 
+        return all_blocks_for_stages.filter(year=year, end__gt=date)
+
+    def get_from_kwargs(self, **kwargs):
+        return self.get_query_set().select_related().get(block__code=kwargs.get("code"), year=kwargs.get("year"))
+
+    # def has_started(self):
+    #     return self.start <= datetime.datetime.now().date()
+
+    # def has_ended(self):
+    #     return self.end <= datetime.datetime.now().date()
+
+    # def has_closed(self):
+    #     return self.close < datetime.datetime.now().date()
+
+
 class TeachingBlockYear(models.Model):
     ACTIVITY_MODE = 0
     WEEK_MODE = 1
@@ -176,6 +356,8 @@ class TeachingBlockYear(models.Model):
     sign_up_mode = models.IntegerField(choices=MODE_CHOICES)
     weeks = models.IntegerField(verbose_name=u'Number of weeks')
     block = models.ForeignKey(TeachingBlock, related_name="years")
+
+    objects = TeachingBlockYearManager()
 
     class Meta:
         unique_together = ('year', 'block')
@@ -203,6 +385,57 @@ class TeachingBlockYear(models.Model):
 
         setattr(self.__class__, "by_%s" % k.split("_")[0].lower(), property(check_mode_function))
 
+    def get_url_kwargs(self):
+        return {'code': self.block.code, 'year': self.year}
+
+    def get_activity_display_url(self):
+        return reverse('block-activities', kwargs=self.get_url_kwargs())
+
+    def get_approval_assign_url(self):
+        return reverse('approve-choose-activity', kwargs=self.get_url_kwargs())
+
+    def get_activity_upload_url(self):
+        return reverse('block-activity-upload', kwargs=self.get_url_kwargs())
+
+    def get_activity_upload_submit_url(self):
+        return reverse('block-activity-upload-submit', kwargs=self.get_url_kwargs())
+
+    def get_activity_upload_confirm_url(self):
+        return reverse('block-activity-upload-confirm', kwargs=self.get_url_kwargs())
+
+    def get_admin_url(self):
+        return reverse('block-admin', kwargs=self.get_url_kwargs())
+
+    def get_document_download_url(self, mode):
+        kwargs = self.get_url_kwargs()
+        kwargs['mode'] = mode
+        return reverse('block-download', kwargs=kwargs)
+
+    def get_question_document_download_url(self):
+        return self.get_document_download_url('question')
+
+    def get_answer_document_download_url(self):
+        return self.get_document_download_url('answer')
+
+    def get_release_url(self):
+        return reverse("block-release", kwargs=self.get_url_kwargs())
+
+    @classmethod
+    def get_block_display_url(cls):
+        return reverse("block-list")
+
+    @classmethod
+    def get_released_block_display_url(cls):
+        return reverse('block-released-list')
+
+    @classmethod
+    def get_open_block_display_url(cls):
+        return "%s?type=open" % (cls.get_block_display_url())
+
+    @classmethod
+    def get_approval_assign_block_list_url(cls):
+        return reverse("approve-choose-block")
+
     def name(self):
         return self.block.name
     name = property(name)
@@ -222,7 +455,34 @@ class TeachingBlockYear(models.Model):
     def name_for_form_fields(self):
         return self.name.replace(" ", "_").replace(",", "").lower()
 
-    def assigned_activities_count(self):
+    def convert_activities_to_weeks(self, activities):
+        weeks = {}
+        weeks_list = []
+
+        for activity in activities:
+            week = weeks.setdefault(activity.week, [])
+            week.append(activity)
+        
+        for week in weeks:
+            individual_week = {'number': week}
+            individual_week['activities'] = weeks[week]
+            weeks_list.append(individual_week)
+        return weeks_list
+
+    def get_activities_as_weeks(self):
+        activities = self.activities.select_related().order_by("week", "teaching_activity__activity_type", "position")
+
+        return self.convert_activities_to_weeks(activities)
+
+    def get_pending_unassigned_activities_as_weeks(self):
+        # There are two ways a pending question is unassigned:
+        # 1. It has no approver.
+        # 2. It was completed.
+        activities = self.activities.filter(questions__in=Question.objects.get_unassigned_pending_questions()).distinct()
+
+        return self.convert_activities_to_weeks(activities)
+
+    def assigned_activities_count(self):#
         return self.activities.exclude(question_writers=None).count()
 
     def total_activities_count(self):
@@ -266,51 +526,29 @@ class TeachingBlockYear(models.Model):
     def questions_need_approval(self):
         return bool(self.questions_pending_count())
 
+    def questions_for_status(self, status):
+        return Question.objects.filter(teaching_activity_year__block_year=self, status=status)
+
+    def approved_questions(self):
+        return self.questions_for_status(status=Question.APPROVED_STATUS)
+
+    def flagged_questions(self):
+        return self.questions_for_status(status=Question.FLAGGED_STATUS)
+
     def questions_approved_count(self):
-        # This is a complex query to count the number of questions which have been approved.
-        # We do this by constructing a set of (ApprovalRecord, Question) pairs and counting those.
-        # Get the latest approval date for each of the questions records and select it in the query.
-        # Filter the approval records by those whose completion date equals the max date.
-        # This means that for each question, we should only select the approval record with the
-        # latest completion date, so we only select each question once.
-        # Then, only select records which have the status approved and whose question is in this block year.
-        # It does not matter that this ignores questions without approval records or completion dates because they can't possibly have been approved.
-        return ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
-            .annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .filter(status=ApprovalRecord.APPROVED_STATUS) \
-            .count()
+        return self.approved_questions().count()
 
     def questions_pending_count(self):
-        # See self.questions_approved_count() for an explanation of how this query works.
-        # Note that a question is also pending if it has no approval records whatsoever, so we
-        # have to include them too. This is the case aswell if the latest record has no completion date.
-        pending_with_records = ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
-            .annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .filter(status=ApprovalRecord.PENDING_STATUS) \
-            .count()
-
-        # If a question has a record which has no completion date, this must always be the latest record. So it doesn't matter if there is an approval history.
-        pending_without_records= Question.objects.filter(teaching_activity_year__block_year=self) \
-            .filter(models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True)) \
-            .count()
-
-        return pending_with_records + pending_without_records
+        return Question.objects.filter(teaching_activity_year__block_year=self, status=Question.PENDING_STATUS).count()
 
     def questions_flagged_count(self):
-        # See self.questions_approved_count() for the explanation of how this query works.
-        return ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
-            .annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .filter(status=ApprovalRecord.FLAGGED_STATUS) \
-            .count()
+        return self.flagged_questions().count()
 
     def question_count_for_student(self, s):
         return Question.objects.filter(teaching_activity_year__block_year=self, creator=s).count()
+
+    def questions_written_for_student(self, s):
+        return Question.objects.filter(teaching_activity_year__block_year=self, creator=s).exists()
 
     def get_latest_approved_records(self):
         approval_records = ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
@@ -320,6 +558,11 @@ class TeachingBlockYear(models.Model):
             .filter(status=ApprovalRecord.APPROVED_STATUS)
 
         return approval_records.order_by("approver__user__username").select_related("approver", "approver__user")
+
+
+class TeachingActivityManager(models.Manager):
+    def get_from_kwargs(self, **kwargs):
+        return self.get_query_set().get(reference_id=kwargs.get("reference_id"))
 
 
 class TeachingActivity(models.Model):
@@ -337,10 +580,92 @@ class TeachingActivity(models.Model):
     )
     name = models.CharField(max_length=100)
     activity_type = models.IntegerField(choices=TYPE_CHOICES)
-    reference_id = models.IntegerField(blank=True, null=True)
+    reference_id = models.IntegerField(unique=True)
+    previous_activity = models.OneToOneField('self', null=True, blank=True)
+
+    objects = TeachingActivityManager()
 
     def __unicode__(self):
         return self.name
+
+    def get_url_kwargs(self):
+        return {'reference_id': self.reference_id, }
+
+    def get_absolute_url(self):
+        return reverse('activity-view', kwargs=self.get_url_kwargs())
+
+    def get_signup_url(self):
+        return reverse('activity-signup', kwargs=self.get_url_kwargs())
+
+    def get_signup_from_block_url(self):
+        return "%s?from=block" % (self.get_signup_url())
+
+    def get_unassign_url(self):
+        return reverse('activity-unassign', kwargs=self.get_url_kwargs())
+
+    def get_new_question_url(self):
+        return reverse('question-new', kwargs=self.get_url_kwargs())
+
+    def get_previous_activity_assign_url(self):
+        print reverse('activity-assign-previous', kwargs=self.get_url_kwargs())
+        return reverse('activity-assign-previous', kwargs=self.get_url_kwargs())
+
+    def get_reference_url(self):
+        compass_url = "http://smp.sydney.edu.au/compass/teachingactivity/view/id/%s"
+
+        return compass_url % self.reference_id
+
+    @classmethod
+    def accepted_types(cls):
+        accepted_types = collections.defaultdict(None)
+        for k, v in cls.TYPE_CHOICES:
+            if k == cls.WEEK_TYPE: continue
+            if k == cls.PRACTICAL_TYPE: continue
+            accepted_types[v] = k
+
+        return accepted_types
+
+    @classmethod
+    def get_type_value_from_name(cls, name):
+        try:
+            return cls.accepted_types()[name]
+        except KeyError:
+            raise ValueError("That activity type does not exist.")
+
+
+    def questions_for(self, student):
+        questions = []
+
+        for activity_year in self.years.all():
+            questions += activity_year.questions_for(student)
+
+        return questions
+
+    def questions_written_by(self, student):
+        questions = Question.objects.none()
+
+        for activity_year in self.years.all():
+            questions |= activity_year.questions_written_by(student)
+
+        return questions
+
+    def latest_block(self):
+        return self.latest_year().block_year
+
+    def latest_year(self):
+        return self.years.order_by("-block_year__year")[0]
+
+    def years_available(self):
+        return [activity_year.block_year.year for activity_year in self.years.select_related("block_year").order_by("block_year__year")]
+
+    def add_student(self, student):
+        latest_year = self.latest_year()
+        latest_year.question_writers.add(student)
+        latest_year.save()
+
+    def remove_student(self, student):
+        latest_year = self.latest_year()
+        latest_year.question_writers.remove(student)
 
 
 class TeachingActivityYear(models.Model):
@@ -355,7 +680,16 @@ class TeachingActivityYear(models.Model):
     name = property(name)
 
     def __unicode__(self):
-        return self.name
+        return "%s" % (self.name, )
+
+    def get_old_url_kwargs(self):
+        return {'id': self.id, }
+
+    def get_url_kwargs(self):
+        return {'reference_id': self.teaching_activity.reference_id, 'year': self.block_year.year}
+
+    def get_approval_assign_url(self):
+        return reverse('activity-approval-assign', kwargs=self.get_url_kwargs())
 
     def activity_type(self):
         return self.teaching_activity.activity_type
@@ -371,116 +705,124 @@ class TeachingActivityYear(models.Model):
     def current_block(self):
         return self.block_year
 
-    def enough_writers(self):
-        return self.question_writers.count() >= self.current_block().activity_capacity
+    def set_cache_value(self, attribute, value):
+        setattr(self, attribute, value)
 
-    def has_writers(self):
-        return bool(self.question_writers.count())
+    def get_cache_value(self, attribute):
+        if hasattr(self, attribute):
+            return getattr(self, attribute)
 
-    def has_questions(self):
-        return bool(self.questions.count())
+    def question_writer_count(self):
+        COUNT_CACHE_ATTR = "_question_writer_count"
+        if hasattr(self, COUNT_CACHE_ATTR):
+            return getattr(self, COUNT_CACHE_ATTR)
 
-    def has_assigned_approver(self):
-        # Get all of the questions with a status of pending and check whether they have assigned approvers.
-        # First, get all of the questions with no approval record. They won't have an approver.
-        if self.questions.filter(approval_records__isnull=True).count():
-            return False
-
-
-        # Like TeachingBlockYear.questions_pending_count(), find all the questions whose latest approval
-        # record is status pending and was completed.
-        if ApprovalRecord.objects.filter(question__teaching_activity_year=self) \
-            .annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .filter(status=ApprovalRecord.PENDING_STATUS) \
-            .filter(date_completed__isnull=False) \
-            .count():
-            return False
-
-        return True
-
-    def questions_pending_count(self):
-        count = 0
-
-        count += self.questions.filter(approval_records__isnull=True).count()
-
-        count += ApprovalRecord.objects.filter(question__teaching_activity_year=self) \
-                .annotate(max=models.Max('question__approval_records__date_completed')) \
-                .filter(max=models.F('date_completed')) \
-                .select_related('question') \
-                .filter(status=ApprovalRecord.PENDING_STATUS) \
-                .filter(date_completed__isnull=False) \
-                .count()
+        count = self.question_writers.count()
+        setattr(self, COUNT_CACHE_ATTR, count)
 
         return count
 
+    def enough_writers(self):
+        return self.question_writer_count() >= self.current_block().activity_capacity
+
+    def has_writers(self):
+        return bool(self.question_writer_count())
+
+    def has_questions(self):
+        return self.questions.exists()
+
+    def has_assigned_approver(self):
+        # If an activity has an assigned approver then of all the pending questions
+        # 1. None should lack an approver (approver__isnull=True)
+        # 2. None should be complete (date_completed__isnull=False)
+        questions = self.questions.filter(status=Question.PENDING_STATUS) \
+                .filter(models.Q(approver__isnull=True) | models.Q(date_completed__isnull=False))
+
+        return not questions.exists()
+
+    def questions_pending_count(self):
+        return self.questions.filter(status=Question.PENDING_STATUS).count()
+
+    def unassigned_questions_count(self):
+        UNASSIGNED_COUNT_CACHE_ATTR = "_unassigned_questions_count"
+
+        cached_value = self.get_cache_value(UNASSIGNED_COUNT_CACHE_ATTR)
+        if cached_value is not None:
+            return cached_value
+
+        questions = self.questions.filter(status=Question.PENDING_STATUS) \
+            .filter(models.Q(date_assigned__isnull=True, date_completed__isnull=True) | models.Q(date_assigned__isnull=False, date_completed__isnull=False)) \
+            .distinct()
+        count = questions.count()
+
+        self.set_cache_value(UNASSIGNED_COUNT_CACHE_ATTR, count)
+        return count
+
     def questions_left_for(self, student):
+        if not student.is_writing_for(self.teaching_activity):
+            # The user is not a question writer so they have no questions remaining.
+            return 0
+
         # Max number of questions to write.
         m = settings.QUESTIONS_PER_USER
         # Current question count.
-        c = ApprovalRecord.objects.filter(question__creator=student) \
-            .annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .exclude(status=ApprovalRecord.DELETED_STATUS) \
-            .count()
-        c += self.questions.filter(creator=student).filter(
-            models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True)
-            ).count()
-        # User is a question writer?
-        u = self.question_writers.filter(id=student.id).count()
+        c = self.questions.filter(creator=student).exclude(status=Question.DELETED_STATUS).count()
         r = 0
 
-        if c < m and u:
+        if c < m:
             r += m - c
 
         return r
 
-    def questions_for(self, user):
+    def questions_written_by(self, student):
+        return self.questions.filter(creator=student)
+
+    def questions_for(self, student):
         questions = []
 
-        # See TeachingBlockYear.questions_approved_count() for the logic of this query.
-        # Only consider questions from this teaching activity.
-        # Nobody can view questions which have been deleted.
-        records = ApprovalRecord.objects.filter(question__teaching_activity_year=self) \
-            .annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .exclude(status=ApprovalRecord.DELETED_STATUS)
+        questions = self.questions.all()
 
-        if not user.has_perm('questions.can_approve'):
+        if not student.user.is_superuser:
+            # Nobody can view questions which have been deleted.
+            questions = questions.exclude(status=Question.DELETED_STATUS)
+
+        if not student.has_perm('questions.can_approve'):
             # The user is not an approver so they are only allowed to view questions they wrote, or
             # questions which have been approved.
-            records = records.filter(
-                models.Q(question__creator=user.student) | models.Q(status=ApprovalRecord.APPROVED_STATUS)
+            questions = questions.filter(
+                models.Q(creator=student) | models.Q(status=Question.APPROVED_STATUS)
             )
 
-        questions = [record.question for record in records]
-
-        # The above query only misses questions without completion dates, and questions without records.
-        # We only need to consider questions without records, and only if the user is an approver.
-        # If their latest approval record doesn't have a completion date, we would like to consider
-        # the previous record as this gives the current status of the question, so we don't need to
-        # include the records without a completion date.
-        questions_without_records = self.questions.filter(models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True))
-        if not user.has_perm('questions.can_approve'):
-            questions_without_records = questions_without_records.filter(creator=user.student)
-
-        for question in questions_without_records:
-            questions.append(question)
-        questions = list(set(questions))
-
-        # if not user.has_perm('questions.can_approve'):
-        #     # Students should only be able to see their own questions, and questions which have been approved.
-        #     r = r.filter(
-        #         models.Q(creator=user.student) | models.Q(status=ApprovalRecord.APPROVED_STATUS)
-        #     )
         return questions
 
     def can_sign_up(self):
         return self.current_block().can_sign_up
     can_sign_up = property(can_sign_up)
+
+    def assign_pending_questions_to_student(self, student):
+        for question in self.questions.all():
+            if not question.date_completed and question.date_assigned:
+                # The question has already been assigned to someone. Skip it.
+                continue
+            if question.date_completed and not question.pending:
+                # The question is not pending and shouldn't be assigned to anyone.
+                continue
+            
+            # The question is now either
+            # 1. Not complete and not assigned, i.e. pending.
+            # 2. Complete and pending
+            # So we should assign it to someone.
+            question.assign_to_student(student)
+
+
+class QuestionManager(models.Manager):
+    def get_unassigned_pending_questions(self):
+        # Pending questions are unassigned if one of the two are satisfied:
+        # 1. It was completed.
+        # 2. It has no approver.
+        return self.get_query_set().filter(status=Question.PENDING_STATUS) \
+            .filter(models.Q(date_completed__isnull=False) | models.Q(approver__isnull=True)) \
+            .distinct()
 
 
 class Question(models.Model):
@@ -497,6 +839,13 @@ class Question(models.Model):
         (EDITING_STATUS, 'Editing'),
     )
 
+    STATUS_TO_ACTION = (
+        (APPROVED_STATUS, "Approve"),
+        (PENDING_STATUS, "Make pending"),
+        (FLAGGED_STATUS, "Flag"),
+        (DELETED_STATUS, "Delete"),
+    )
+
     body = models.TextField()
     options = models.TextField(blank=True)
     answer = models.CharField(max_length=1)
@@ -505,10 +854,16 @@ class Question(models.Model):
     creator = models.ForeignKey(Student, related_name="questions_created")
     approver = models.ForeignKey(Student, null=True, blank=True, related_name="questions_approved")
     teaching_activity_year = models.ForeignKey(TeachingActivityYear, related_name="questions")
-    status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS)
-    suitable_for_faculty = models.BooleanField()
-    suitable_for_quiz = models.BooleanField()
+    exemplary_question = models.BooleanField()
     requires_special_formatting = models.BooleanField()
+    status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS)
+    date_assigned = models.DateTimeField(blank=True, null=True)
+    date_completed = models.DateTimeField(blank=True, null=True)
+    approver = models.ForeignKey(Student, related_name="assigned_questions", blank=True, null=True)
+
+    reasons = generic.GenericRelation('questions.Reason', content_type_field="related_object_content_type", object_id_field="related_object_id")
+
+    objects = QuestionManager()
 
     class Meta:
         permissions = (
@@ -519,7 +874,6 @@ class Question(models.Model):
         super(Question, self).__init__(*args, **kwargs)
         # Adds properties to the model to check the status, e.g. self.approved, self.flagged
         attribute_list = self.__class__.__dict__.keys()
-        attribute_list.remove("approval_status")
         for k in attribute_list:
             if not "_STATUS" in k or hasattr(self, k.split("_")[0].lower()):
                 continue
@@ -539,65 +893,117 @@ class Question(models.Model):
                 if option == decoded_options["answer"]:
                     self.answer_letter = letter
 
-        # self.approval_status = -1
-        # if not self.approval_records.count():
-        #     self.approval_status = ApprovalRecord.PENDING_STATUS
-        # elif self.approval_records.filter(date_completed__isnull=True).count():
-        #     self.approval_status = ApprovalRecord.PENDING_STATUS
-        # else:
-        #     self.approval_status = self.approval_records.latest('date_completed').status
-
     def __str__(self):
         return "%s" % (self.id,)
 
-    def approval_status(self):
-        if hasattr(self, "_approval_status"):
-            return getattr(self, "_approval_status")
+    def was_assigned_before_being_completed(self):
+        return self.date_assigned and (not self.date_completed or self.date_assigned < self.date_completed)
 
-        approval_status = -1
+    def get_approval_records_recent_first(self):
+        return self.approval_records.order_by("-date_assigned")
 
-        try:
-            approval_status = self.approval_records.latest('date_completed').status
-        except:        
-            if not self.approval_records.count():
-                approval_status = ApprovalRecord.PENDING_STATUS
-            elif self.approval_records.filter(date_completed__isnull=True).count():
-                approval_status = ApprovalRecord.PENDING_STATUS
-
-        self._approval_status = approval_status
-        return approval_status
-    approval_status = property(approval_status)
-
+    def get_url_kwargs(self):
+        return {'pk': self.pk, 'reference_id': self.teaching_activity_year.teaching_activity.reference_id, }
 
     @classmethod
-    def questions_pending(cls):
-        # Returns a boolean indicating whether or not there are questions with status pending.
-        pending_with_records = ApprovalRecord.objects.annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .filter(status=ApprovalRecord.PENDING_STATUS) \
-            .count()
+    def request_is_in_multiple_approval_mode(self, request):
+        return request.GET.get("mode") == "multiple"
 
-        # If a question has a record which has no completion date, this must always be the latest record. So it doesn't matter if there is an approval history.
-        pending_without_records= Question.objects.filter(
-                models.Q(approval_records__isnull=True) | models.Q(approval_records__date_completed__isnull=True)
-            ).count()
+    def get_query_string(self, multiple_approval_mode=False):
+        params = []
+        if multiple_approval_mode:
+            params.append("mode=multiple")
 
-        return bool(pending_with_records + pending_without_records)
+        if not params:
+            return ""
+        return "?%s" % ("&".join(params),)
 
-    @classmethod
-    def questions_flagged(cls):
-        return bool(ApprovalRecord.objects.annotate(max=models.Max('question__approval_records__date_completed'))
-                .filter(max=models.F('date_completed')) \
-                .select_related('question') \
-                .filter(status=ApprovalRecord.FLAGGED_STATUS) \
-                .count()
-            )
+    def get_absolute_url(self):
+        return reverse('question-view', kwargs=self.get_url_kwargs())
 
+    def get_edit_url(self):
+        return reverse('question-edit', kwargs=self.get_url_kwargs())
+
+    def get_add_to_specification_url(self):
+        return reverse('quiz-spec-add', kwargs=self.get_url_kwargs())
+
+    def get_approval_url(self, multiple_approval_mode=False):
+        query_string = self.get_query_string(multiple_approval_mode=multiple_approval_mode)
+        return "%s%s" % (reverse('question-approval', kwargs=self.get_url_kwargs()), query_string)
+
+    def get_next_approval_url(self):
+        return reverse('approve-assigned-next', kwargs={'previous_question_id': self.id, })
+
+    def get_approval_history_url(self):
+        return reverse('question-approval-history', kwargs=self.get_url_kwargs())
+
+    def get_flag_url(self, multiple_approval_mode=False):
+        query_string = self.get_query_string(multiple_approval_mode=multiple_approval_mode)
+        return "%s%s" % (reverse('question-flag', kwargs=self.get_url_kwargs()), query_string)
+
+    def change_status(self, new_status, student):
+        # A manual change is once which occurs outside the regular approval process.
+        # This is when:
+        # 1. The question is currently complete.
+        # 2. The question is currently assigned but the person changing the status is different.
+        #
+        # If the question is brand new and has not been assigned, approver is None and the below
+        # code also treats it as a manual change.
+        is_manual_change = False
+
+        if self.date_completed:
+            # We only need to create an approval record for the current status
+            # if it has already been completed.
+            self.create_new_record()
+            is_manual_change = True
+        else:
+            is_manual_change = student != self.approver
+
+        self.status = new_status
+        self.approver = student
+        if is_manual_change:
+            self.date_assigned = datetime.datetime.now()
+
+        # We want the date_completed to be identical to the date_assigned when the status
+        # is manually changed instead of through the approval process.
+        self.date_completed = self.date_assigned if is_manual_change else datetime.datetime.now()
+        self.save()
+
+    def create_new_record(self):
+        approval_record = ApprovalRecord()
+        approval_record.question = self
+        approval_record.status = self.status
+        approval_record.approver = self.approver
+        approval_record.date_assigned = self.date_assigned
+        approval_record.date_completed = self.date_completed
+        approval_record.save()
+
+        if self.flagged:
+            for reason in self.reasons.filter(reason_type=Reason.TYPE_FLAG):
+                reason.related_object = approval_record
+                reason.save()
+
+        return approval_record
+
+
+    def assign_to_student(self, student):
+        if self.date_completed:
+            # The question already has a status. If it was made pending, then
+            # we can assign an approver, but we have to create the history first.
+            if self.status == self.PENDING_STATUS:
+                self.create_new_record()
+                self.date_completed = None
+            else:
+                # The question is not pending and thus does not accept a new approver.
+                return
+
+        self.approver = student
+        self.date_assigned = datetime.datetime.now()
+        self.save()
 
     def add_model_status_property_method(self, k):
         def check_status_function(self):
-            return self.approval_status == getattr(ApprovalRecord, k)
+            return self.status == getattr(Question, k)
 
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
@@ -610,7 +1016,7 @@ class Question(models.Model):
         if include_answer:
             json_repr['answer'] = self.answer
             json_repr['explanation'] = self.explanation_dict() or self.explanation
-            json_repr['url'] = reverse('view', kwargs={'pk': self.id, 'ta_id': self.teaching_activity_year.id})
+            json_repr['url'] = self.get_absolute_url()
 
         return json_repr
 
@@ -628,7 +1034,6 @@ class Question(models.Model):
 
     def options_list(self):
         if self.sorted_options:
-            print [option["text"] for option in self.sorted_options.values()]
             return [option["text"] for option in self.sorted_options.values()]
         else:
             l = list(json.loads(self.options).iteritems())
@@ -643,7 +1048,7 @@ class Question(models.Model):
         return self.options_dict()[option]
 
     def correct_answer(self):
-        return self.answer_letter
+        return self.answer or self.answer_letter
 
     def explanation_dict(self):
         if self.sorted_options:
@@ -673,13 +1078,7 @@ class Question(models.Model):
         return user.has_perm('questions.can_approve') or user.student == self.creator
 
     def latest_approver(self):
-        return self.latest_approval_record().approver
-
-    def latest_approval_record(self):
-        return self.approval_records.latest('date_assigned')
-
-    def all_approval_records_except_latest(self):
-        return self.approval_records.order_by('-date_assigned')[1:]
+        return self.approver
 
     def principal_comments(self):
         return self.comments.filter(reply_to__isnull=True)
@@ -743,8 +1142,39 @@ class Question(models.Model):
         difference = sum(qa.score() for qa in upper_group) - sum(qa.score() for qa in lower_group)
         return difference/group_size
 
+    def associated_reasons(self):
+        reasons_associated_with_question = Reason.objects.get_reasons_associated_with_object(self)
+        reasons_associated_with_records = Reason.objects.get_reasons_associated_with_multiple_objects(self.approval_records.all())
+        reasons = list(reasons_associated_with_question) + list(reasons_associated_with_records)
+        reasons.sort(key=lambda r: r.date_created, reverse=True)
+        return reasons
+
+
+class ApprovalRecordManager(models.Manager):
+    def get_latest_assigned_records_with_status(self, status):
+        # THIS METHOD WILL NOT WORK CORRECTLY FOR PENDING RECORDS
+        # We get approval records which satisfy the following:
+        # 1. They are the latest assigned approval record for their question.
+        # 2. They are complete.
+        # 3. They have the correct status.
+        return self.get_query_set().annotate(max=models.Max('question__approval_records__date_assigned')) \
+                                .filter(max=models.F('date_assigned')) \
+                                .filter(date_completed__isnull=False) \
+                                .filter(status=status)
+
 
 class ApprovalRecord(models.Model):
+    """
+        A class designed to track question approval history.
+        * question: the question that the approval record is tracking
+        * approver: the person who changed the status of a question
+        * date_assigned: the date that the approver was assigned to change the status
+        * date_completed: the date on which the status was changed
+        * status: the status of the question after the change
+
+        If date_completed and date_assigned are the same, then the change of status was done manually, i.e. outside of the
+        approval system directly through the question display page.
+    """
     APPROVED_STATUS = 0
     PENDING_STATUS = 1
     DELETED_STATUS = 2
@@ -760,10 +1190,13 @@ class ApprovalRecord(models.Model):
 
     approver = models.ForeignKey(Student, related_name="approval_records")
     question = models.ForeignKey(Question, related_name="approval_records")
-    date_assigned = models.DateTimeField(auto_now_add=True)
+    date_assigned = models.DateTimeField(blank=True, null=True)
     date_completed = models.DateTimeField(blank=True, null=True)
     status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS, blank=True, null=True)
-    reason = models.TextField(blank=True, null=True)
+
+    reasons = generic.GenericRelation('questions.Reason', content_type_field="related_object_content_type", object_id_field="related_object_id")
+
+    objects = ApprovalRecordManager()
 
 
     def __init__(self, *args, **kwargs):
@@ -784,6 +1217,9 @@ class ApprovalRecord(models.Model):
 
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
+    def was_assigned_before_being_completed(self):
+        return self.date_assigned and (not self.date_completed or self.date_assigned < self.date_completed)
+
 
 class QuizSpecification(models.Model):
     name = models.CharField(max_length=100)
@@ -791,6 +1227,7 @@ class QuizSpecification(models.Model):
     description = models.TextField(blank=True)
     # A 160-bit SHA1 hash converted to base 26 requires 36 characters to be represented.
     slug = models.SlugField(max_length=36)
+    active = models.BooleanField(default=False)
 
     def __unicode__(self):
         return "%s (%s)" % (self.name, self.stage)
@@ -875,6 +1312,7 @@ class QuizSpecification(models.Model):
             lowest = min(len(question_attempts) for quiz_attempt, question_attempts in quiz_attempts.items())
 
         return lowest
+
 
 class QuizQuestionSpecification(models.Model):
     SPECIFIC_QUESTION = 0
@@ -1121,20 +1559,38 @@ class QuestionRating(models.Model):
     date_rated = models.DateTimeField(auto_now_add=True)
 
 
+class ReasonManager(models.Manager):
+    def get_reasons_associated_with_object(self, related_object):
+        object_content_type = ContentType.objects.get_for_model(model=related_object)
+
+        return self.get_query_set().filter(related_object_content_type=object_content_type, related_object_id=related_object.id)
+
+    def get_reasons_associated_with_multiple_objects(self, related_objects):
+        related_objects_list = list(related_objects)
+        if not related_objects_list:
+            return self.none()
+        object_content_type = ContentType.objects.get_for_model(model=related_objects[0])
+
+        return self.get_query_set().filter(related_object_content_type=object_content_type, related_object_id__in=related_objects)
+
 class Reason(models.Model):
     TYPE_EDIT = 0
     TYPE_FLAG = 1
     
     REASON_TYPES = (
-        (TYPE_EDIT, "Reason for editing"),
-        (TYPE_FLAG, "Reason for flagging"),
+        (TYPE_EDIT, "Edited"),
+        (TYPE_FLAG, "Flagged"),
     )
     
     body = models.TextField()
-    question = models.ForeignKey(Question, related_name="reasons_edited")
     creator = models.ForeignKey(Student, related_name="reasons")
     date_created = models.DateTimeField(auto_now_add=True)
     reason_type = models.IntegerField(choices=REASON_TYPES)
+    related_object_id = models.PositiveIntegerField(blank=True, null=True)
+    related_object_content_type = models.ForeignKey(ContentType, blank=True, null=True)
+    related_object = generic.GenericForeignKey('related_object_content_type', 'related_object_id')
+
+    objects = ReasonManager()
 
     def for_flagging(self):
         return self.reason_type == self.TYPE_FLAG
@@ -1181,6 +1637,7 @@ class DashboardSettingMixin(object):
 
     def secondary_text(self):
         return self.get_value_from_dict("secondary_text")
+
 
 class StudentDashboardSetting(Setting, DashboardSettingMixin):
     HAS_QUESTIONS_DUE_SOON = "has_questions_due_soon"

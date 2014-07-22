@@ -1,0 +1,26 @@
+<table class="table">
+	<thead>
+		<tr>
+			<th>Reference ID</th>
+			<th>Name</th>
+			<th>Activity type</th>
+			<th>Week</th>
+			<th>Position</th>
+		</tr>
+	</thead>
+	<tbody>
+	{% for row in error_rows %}
+		<tr>
+			<td>{{ row.reference_id }}</td>
+			<td>{{ row.name}}</td>
+			{% if using_instances %}
+			<td>{{ row.get_activity_type_display }}</td>
+			{% else %}
+			<td>{{ row.activity_type }}</td>
+			{% endif %}
+			<td>{{ row.week }}</td>
+			<td>{{ row.position }}</td>
+		</tr>
+	{% endfor %}
+	</tbody>
+</table>

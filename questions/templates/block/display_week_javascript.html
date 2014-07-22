@@ -1,0 +1,9 @@
+<script type="text/javascript">
+	var week_attribute = "data-week";
+    $(document).ready(function () {
+        $(".collapse-trigger").click(function () {
+            var week = $(this).attr(week_attribute);
+            $(".week-activities[" + week_attribute + "='" + week + "']").collapse("toggle");
+        });
+    })
+</script>

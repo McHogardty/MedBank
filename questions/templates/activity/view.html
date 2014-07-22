@@ -1,0 +1,92 @@
+{% extends "generic/newbase_with_actions.html" %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello-ie7.css"><![endif]-->
+{% endblock head %}
+{% load custom_filters %}
+
+{% block actions %}
+	<h3>Page actions</h3>		
+{% if view_signup_status and activity.latest_block.can_sign_up %}
+	{% if student_can_sign_up %}
+		<a class="action" href="{{activity.get_signup_url}}">Assign to me</a>
+	{% endif %}{% if student_can_unassign_from_activity %}
+    <a class="action" href="{{ activity.get_unassign_url }}">Unassign from me</a>
+{% endif %}
+{% endif %}{% if can_write_questions or user.is_superuser %}
+    <a class="action" href="{{ activity.get_new_question_url }}">Write questions</a>
+{% endif %}
+	<a class="action" href="{{ activity.latest_block.get_activity_display_url }}">Back to block</a>
+{% if user.is_superuser %}
+	<h3>Admin</h3>
+	<a class="action" href="{{ activity.get_previous_activity_assign_url }}">Assign previous activity</a>	
+{% endif %}
+{% endblock actions %}
+
+{% block maincontent %}
+	<h1>{% if activity.latest_block.by_activity %}{{ activity.get_activity_type_display }} - {% endif %}{{ activity.name }} ({{ activity.latest_block.code }}.{{ activity.latest_year.week|stringformat:"02d" }}) <small>{% include "activity/display_activity_availability.html" with teaching_activity_year=activity.latest_year %}</small></h1>
+	<p><strong>Current block:</strong> {{ activity.latest_block.name }}</p>
+	<p><strong>Years available:</strong> {{ activity.years_available|humanize_list }}</p>
+	<p><strong>Link to Compass:</strong> <a target="_blank" href="{{ activity.get_reference_url }}">Click here</a> to view this activity on Compass.</p>
+{% if activity.previous_activity %}
+	<p><strong>There is an older version of this activity on MedBank. You can view the older version by <a href="{{ activity.previous_activity.get_absolute_url }}">clicking here</a>.</strong></p>
+{% endif %}
+	{% if view_signup_status %}
+		{% if not activity.latest_year.has_writers %}
+	        <p>Nobody has assigned themselves to write questions for this activity.</p>
+	    {% else %}
+		    <p><strong>{% if student_is_writing_for_activity %}You have assigned yourself to write questions for this {{ activity.get_activity_type_display }}. {{ activity.latest_year.question_writers.count|subtract:"1"|default:"No" }} other {{ object.latest_year.question_writers.count|subtract:"1"|plural:"person has" }}{% else %}{{ activity.latest_year.question_writers.count }} {{ object.latest_year.question_writers.count|plural:"person has" }}{% endif %} assigned themselves to this {{ activity.get_activity_type_display.lower }}.</strong></p>
+		{% endif %}
+		{% if student_is_writing_for_activity %}
+			{% if questions_left_for_student %}
+				<p>You {% if not activity.latest_block.has_closed %}have{% else %}had{% endif %} {{ questions_left_for_student }} {{ questions_left_for_student|plural:"question" }} left to write.
+			{% else %}
+	            <p>Thankyou! You've given us enough questions for this teaching activity, but there's no limit to how many you can submit.
+			{% endif %}
+			Questions for this activity {% if object.current_block.has_closed %}were{% else %}are{% endif %} due by {{ object.latest_block.close }}.</p>
+		{% endif %}
+	{% endif %}
+
+	<h2>Questions</h2>
+	{% if can_view_questions %}
+		{% regroup question_list by teaching_activity_year.block_year.year as questions_by_year %}
+		{% for question_group in questions_by_year %}
+			<div class="week">
+		        <div class="week-heading collapse-trigger" data-target="#week-activities-{{ question_group.grouper }}">
+		            <h3>{{ question_group.grouper }}</h3>
+		            <i class="icon-angle-down"></i>
+		            <h3 class="pull-right hidden-xs">{{ question_group.list|length }} {{ question_group.list|length|plural:"question" }}</h3>
+		        </div>
+		        <div class="week-activities collapse" id="week-activities-{{ question_group.grouper }}">
+		            {% for question in question_group.list %}
+		                <div class="activity">
+		                	<div class="row">
+		                		<div class="col-sm-10"><a class="ellipsis-overflow" href="{{ question.get_absolute_url }}">{{ question.body }}</a></div>
+		                		<div class="col-sm-2 hidden-xs">{% include "question/display_status.html" %}</div>
+		                	</div>
+		                </div>
+		            {% endfor %}
+		        </div>
+			</div>
+		{% empty %}
+		<p>No questions have been written for this activity so far.</p>
+		{% endfor %}
+	{% else %}
+		<p>You cannot currently view questions for this block.</p>
+	    <p>You can view questions from previous years by writing questions for {{ activity.latest_block.name }} this year. You can only view questions from this year once you have written questions and the block has been released on MedBank.</p>
+	{% endif %}
+{% endblock maincontent %}
+
+{% block javascript %}
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $(".collapse-trigger").each(function () {
+                $(this).click(function () {
+                    $($(this).attr("data-target")).collapse("toggle")
+                })
+            })
+        })
+    </script>
+{% endblock javascript %}

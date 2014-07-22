@@ -16,11 +16,11 @@ import datetime
 class QuestionOptionsWidget(forms.MultiWidget):
     def __init__(self, attrs=None):
         widgets = [
-            forms.TextInput(),
-            forms.TextInput(),
-            forms.TextInput(),
-            forms.TextInput(),
-            forms.TextInput(),
+            bsforms.TextInputWithAddon(),
+            bsforms.TextInputWithAddon(),
+            bsforms.TextInputWithAddon(),
+            bsforms.TextInputWithAddon(),
+            bsforms.TextInputWithAddon(),
         ]
         super(QuestionOptionsWidget, self).__init__(widgets, attrs)
 
@@ -38,27 +38,21 @@ class QuestionOptionsWidget(forms.MultiWidget):
         if not isinstance(value, list):
             value = self.decompress(value)
 
-        output = ['<div class="options_table span6"><table style="width:100%;">']
+        output = []
         final_attrs = self.build_attrs(attrs)
-        c = final_attrs.get('class', '')
-        if c:
-            c += " input-block-level"
-        else:
-            c = "input-block-level"
-        final_attrs['class'] = c
         id_ = final_attrs.get('id', None)
         alphabet = string.ascii_uppercase
         for i, widget in enumerate(self.widgets):
+            option_value = alphabet[i]
             try:
                 widget_value = value[i]
             except IndexError:
                 widget_value = None
             if id_:
-                final_attrs = dict(final_attrs, id='%s_%s' % (id_, alphabet[i]))
-            output.append('<tr><td class="option-label">%s</td><td class="">' % (alphabet[i], ))
+                final_attrs = dict(final_attrs, id='%s_%s' % (id_, option_value))
+            widget.add_on = option_value
+            widget.group_class = "options-group"
             output.append(widget.render(name + '_%s' % i, widget_value, final_attrs))
-            output.append('</td></tr>')
-        output.append('</table></div>')
         return mark_safe(self.format_output(output))
 
 
@@ -109,7 +103,7 @@ class QuestionOptionWidget(forms.MultiWidget):
 
 
 class QuestionOptionsField(forms.MultiValueField):
-    widget = QuestionOptionsWidget
+    widget = QuestionOptionsWidget(attrs={'class': 'options-field'})
 
     def __init__(self, *args, **kwargs):
         fields = [
@@ -163,6 +157,16 @@ class NewQuestionForm(bsforms.NewBootstrapModelForm):
 
     def __init__(self, admin=False, *args, **kwargs):
         super(NewQuestionForm, self).__init__(*args, **kwargs)
+        if self.instance:
+            if not self.instance.explanation_dict():
+                explanation = []
+                for character in string.ascii_uppercase[:5]:
+                    if self.instance.answer == character:
+                        explanation.append((character, self.instance.explanation))
+                    else:
+                        explanation.append((character, ""))
+                print "Setting explanation %s" % json.dumps(dict(explanation))
+                self.initial["explanation"] = json.dumps(dict(explanation))
         if admin:
             self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(), help_text="This reason will be sent in an email to the question writer. Be nice! (and please use proper grammar)")
 
@@ -177,10 +181,11 @@ class NewQuestionForm(bsforms.NewBootstrapModelForm):
 
     class Meta:
         model = Question
-        exclude = ('status', 'approver', 'suitable_for_faculty', 'suitable_for_quiz', 'requires_special_formatting')
+        exclude = ('status', 'approver', 'exemplary_question', 'requires_special_formatting', 'date_assigned', 'date_completed')
 
 
 class TeachingActivityValidationForm(bsforms.BootstrapHorizontalModelForm):
+
     class Meta:
         model = TeachingActivity
 
@@ -283,6 +288,7 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
 
 
 class NewQuizSpecificationForm(bsforms.NewBootstrapModelForm):
+    active = forms.BooleanField(widget=bsforms.CheckboxInput())
     class Meta:
         model = QuizSpecification
         exclude = ('slug', )
@@ -308,25 +314,25 @@ class CommentForm(bsforms.NewBootstrapModelForm):
         model = Comment
 
 
-# class ReasonForFlaggingForm(bsforms.NewBootstrapModelForm):
-#     body = forms.CharField(widget=forms.Textarea(), label="Reason")
-#     question = forms.ModelChoiceField(queryset=Question.objects.all(), widget=forms.HiddenInput())
-#     reason_type = forms.ChoiceField(choices=Reason.REASON_TYPES, widget=forms.HiddenInput())
-#     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
+class ReasonForFlaggingForm(bsforms.NewBootstrapModelForm):
+    body = forms.CharField(widget=forms.Textarea(), label="Reason")
+    reason_type = forms.ChoiceField(choices=Reason.REASON_TYPES, widget=forms.HiddenInput())
+    creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
 
-#     class Meta:
-#         model = Reason
+    class Meta:
+        model = Reason
+        exclude = ('related_object_id', 'related_object_content_type')
 
-class ReasonForFlaggingForm(bsforms.NewBootstrapForm):
-    reason = forms.CharField(widget=forms.Textarea())
+# class ReasonForFlaggingForm(bsforms.NewBootstrapForm):
+#     reason = forms.CharField(widget=forms.Textarea())
 
 class QuestionAttributesForm(bsforms.NewBootstrapModelForm):
-    suitable_for_quiz = forms.BooleanField(widget=bsforms.CheckboxInput(), label="This is suitable for inclusion in the model quiz for this block, and for submission to the Faculty for consideration as official exam material.", required=False)
+    exemplary_question = forms.BooleanField(widget=bsforms.CheckboxInput(), label="This is an exemplary question for this block.", required=False)
     requires_special_formatting = forms.BooleanField(widget=bsforms.CheckboxInput(), label="This question requires special formatting.", required=False)
 
     class Meta:
         model = Question
-        exclude = ('body', 'options', 'answer', 'explanation', 'date_created', 'creator', 'approver', 'teaching_activity_year', 'status', 'suitable_for_faculty')
+        exclude = ('body', 'options', 'answer', 'explanation', 'date_created', 'creator', 'approver', 'teaching_activity_year', 'status')
 
 
 class SettingEditForm(SettingEditForm):
@@ -384,3 +390,44 @@ class PresetQuizSpecificationForm(bsforms.NewBootstrapForm):
 
     quiz_type = forms.ChoiceField(choices=QUIZ_TYPE_CHOICES, widget=forms.HiddenInput())
     quiz_specification = forms.ModelChoiceField(queryset=QuizSpecification.objects.all(), to_field_name="slug", widget=forms.HiddenInput())
+
+
+BOOLEAN_CHOICES = (
+    (True, 'Yes'),
+    (False, 'No'),
+)
+
+class QuestionApprovalForm(bsforms.NewBootstrapModelForm):
+    exemplary_question = forms.TypedChoiceField(choices=BOOLEAN_CHOICES, coerce=lambda x: (x == "True"), widget=bsforms.ButtonGroupWithToggle)
+
+    new_status = forms.TypedChoiceField(choices=Question.STATUS_TO_ACTION, widget=bsforms.ButtonGroupWithToggle, coerce=int)
+
+    def __init__(self, *args, **kwargs):
+        super(QuestionApprovalForm, self).__init__(*args, **kwargs)
+        print self.fields
+        question_status = self.instance.status
+
+        NEW_STATUS_TO_ACTION = []
+        for status, action in Question.STATUS_TO_ACTION:
+            if question_status == status:
+                continue
+
+            NEW_STATUS_TO_ACTION.append((status, action))
+
+        self.fields['new_status'].choices = tuple(NEW_STATUS_TO_ACTION)
+
+    class Meta:
+        model = Question
+        exclude = ('body', 'options', 'answer', 'explanation', 'date_created', 'creator', 'approver', 'teaching_activity_year', 'status', 'requires_special_formatting', 'date_assigned', 'date_completed', 'approver')
+
+
+class TeachingBlockActivityUploadForm(bsforms.NewBootstrapForm):
+    upload_file = forms.FileField(label="Activity file")
+
+
+class AssignPreviousActivityForm(bsforms.NewBootstrapModelForm):
+    previous_activity = forms.ModelChoiceField(to_field_name="reference_id", widget=forms.TextInput(), queryset=TeachingActivity.objects.all(), help_text="Type in the reference ID of the previous activity to assign it as the old version of the current activity.")
+
+    class Meta:
+        model = TeachingActivity
+        exclude = ('name', 'activity_type', 'reference_id')

@@ -1,0 +1,40 @@
+<table class="table">
+    <thead>
+        <tr>
+            <th>Reference ID</th>
+            <th>Name</th>
+            <th>Week</th>
+            <th>Position</th>
+            <th>Type</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for teaching_activity_year in activity_year_list %}
+    {% with teaching_activity_year.teaching_activity as teaching_activity %}
+        <tr>
+            <td>
+                {{ teaching_activity.reference_id }}
+                <input type="hidden" value="{{ teaching_activity.reference_id }}" name="reference_id" />
+            </td>
+            <td>
+                {{ teaching_activity.name }}{% if teaching_activity.id %} <span class="text-success">(Already exists)</span>{% endif %}
+                <input type="hidden" value="{{ teaching_activity.name }}" name="name_{{ teaching_activity.reference_id}}" />
+                <input type="hidden" value="{{ teaching_activity.id }}">
+            </td>
+            <td>
+                {{ teaching_activity_year.week }}
+                <input type="hidden" value="{{ teaching_activity_year.week }}" name="week_{{ teaching_activity.reference_id }}" />
+            </td>
+            <td>
+                {{ teaching_activity_year.position }}
+                <input type="hidden" value="{{ teaching_activity_year.position }}" name="position_{{ teaching_activity.reference_id }}" />
+            </td>
+            <td>
+                {{ teaching_activity_year.get_activity_type_display }}
+                <input type="hidden" value="{{ teaching_activity.activity_type }}" name="activity_type_{{ teaching_activity.reference_id }}" />
+            </td>
+        </tr>
+    {% endwith %}
+    {% endfor %}
+    </tbody>
+</table>

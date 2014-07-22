@@ -1,4 +1,5 @@
 {% extends "newbase.html" %}
+{% load custom_filters %}
 
 {% block content %}
 {% with object as block %}
@@ -14,6 +15,7 @@
             <div class="dashboard">
                 <h1>{{ block.total_activities_count }}</h1>
                 <p class="lead">activit{% if block.total_activities_count == 1 %}y{% else %}ies{% endif %} total</p>
+                <a class="action" href="{{ block.get_activity_upload_url }}">Upload</a>
             </div>
         </div>
         <div class="col-sm-4">
@@ -49,14 +51,12 @@
             <div class="dashboard">
                 <h1>{{ block.questions_pending_count }}</h1>
                 <p class="lead">question{{ block.questions_pending_count|pluralize }} pending</p>
-                <a class="action" href="{% url 'admin-approve-start' code=block.code year=block.year %}">Approve</a>
             </div>
         </div>
         <div class="col-sm-4">
             <div class="dashboard">
                 <h1>{{ block.questions_flagged_count }}</h1>
                 <p class="lead">question{{ block.questions_flagged_count|pluralize }} flagged</p>
-                <a class="action" href="{% url 'admin-approve-start' code=block.code year=block.year %}?flagged">Review</a>
             </div>
         </div>
     </div>
@@ -88,7 +88,7 @@
             <div class="dashboard">
                 <p class="lead">Release status</p>
                 {% if block.released %}<h1 class="text-success">Released</h1>{% else %}<h1 class="text-danger">Not released</h1>{% endif %}
-                {% if block.released %}<a class="action" href="{% url 'email' code=block.code year=block.year %}?document">Email questions</a>{% else %}<a class="action" href="{% url "release" year=block.year code=block.code %}">Release now</a>{% endif %}
+                {% if block.released %}<a class="action" href="{% url 'email' code=block.code year=block.year %}?document">Email questions</a>{% else %}<a class="action" href="{{ b.get_release_url }}">Release now</a>{% endif %}
             </div>
         </div>
     </div>
@@ -182,9 +182,9 @@
         <tr>
             <td>{{ b.stage }}</td>
             <td>{{ b.name }}</td>
-            <td><a href="{% url 'questions.views.download' code=b.code year=b.year mode='question' %}">Download</a></td>
-            <td><a href="{% url 'questions.views.download' code=b.code year=b.year mode='answer' %}">Download</a></td>
-            <td><a href="{% url 'release' code=b.code year=b.year %}">Release</a></td>
+            <td><a href="{{ b.get_question_document_download_url }}">Download</a></td>
+            <td><a href="{{ b.get_answer_document_download_url }}">Download</a></td>
+            <td><a href="{{ b.get_release_url }}">Release</a></td>
             <td>{% if b.released %}<a href="{% url 'email' pk=b.code year=b.year %}?document">Email</a>{% endif %}</td>
         </tr>
     {% endif %}

@@ -1,0 +1,16 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+    <h1>Choose a block</h1>
+    <div class="row col-md-10 spacer">
+    {% for b in object_list %}
+        <div class="week">
+            <div class="week-heading">
+                <h3><a href="{{ b.get_approval_assign_url }}">{{ b.name }}</a></h3>
+            </div>
+        </div>
+    {% empty %}
+        <p>There are currently no blocks available.</p>
+    {% endfor %}
+    </div>
+{% endblock content %}

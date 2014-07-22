@@ -1,0 +1,14 @@
+<table class="table">
+    <tr>
+        <th class="lead">Name</th>
+        <th class="lead">Block</th>
+        <th class="lead">Week</th>
+        <th class="lead">Position</th>
+        <th class="lead">Type</th>
+    </tr>
+    {% for b, ta in block_year_relation.iteritems %}
+        {% for t in ta %}
+            {% include "admin/confirm_upload_row.html" %}
+        {% endfor %}
+    {% endfor %}
+</table>

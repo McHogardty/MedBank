@@ -1,0 +1,36 @@
+{% extends "generic/newbase_with_actions.html" %}
+
+{% block actions %}
+    <h3>Page actions</h3>
+    <a class="action" href="{{ question.teaching_activity_year.teaching_activity.get_absolute_url }}">Back to activity</a>
+{% if student_can_edit_question %}
+    <a class="action" href="{{ question.get_edit_url }}">Edit question</a>
+{% endif %}
+
+{% if perms.questions.can_approve %}
+    <h3>Admin</h3>    
+    <a class="action" href="{{ question.get_approval_url }}">View approval mode</a>
+    <a class="action" href="{{ question.get_approval_history_url }}">View approval history</a>
+{% if user.is_superuser %}
+    <a class="action" href="{{ question.get_add_to_specification_url }}">Add to specification</a>
+{% endif %}    
+{% endif %}
+{% endblock actions %}
+
+{% block maincontent %}
+    <h1>{{ question.teaching_activity_year.block_year.code }}.{{ question.teaching_activity_year.week|stringformat:"02d" }}: {{ question.teaching_activity_year.name }}</h1>
+    <p class="lead">Block: {{ question.teaching_activity_year.block_year }}</p>
+
+    {% if perms.questions.can_approve %}
+    {% if question.exemplary_question %}
+        <p><strong>This question has been marked as an exemplary question for this block.</strong></p>
+    {% endif %}
+    {% endif %}
+
+    {% include "question/display_question.html" %}
+    {% include "question/display_question_reasons.html" %}
+{% endblock maincontent %}
+
+{% block javascript %}
+{% include "question/display_question_javascript.html" %}
+{% endblock javascript %}

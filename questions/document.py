@@ -90,11 +90,7 @@ def generate_document(tb, answer, request):
     body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 
     body.append(docx.heading("%s - Questions" % (tb), 1))
-    # qq = list(models.Question.objects.filter(teaching_activity_year__block_year=tb, status=models.ApprovalRecord.APPROVED_STATUS))
-    approval_records = models.ApprovalRecord.objects.annotate(max=Max('question__approval_records__date_completed')) \
-                            .filter(max=F('date_completed')) \
-                            .filter(status=models.ApprovalRecord.APPROVED_STATUS, question__teaching_activity_year__block_year=tb)
-    qq = [record.question for record in approval_records]
+    qq = list(models.Question.objects.filter(teaching_activity_year__block_year=tb, status=models.Question.APPROVED_STATUS))
     qq = sorted(qq, key=lambda x: x.body.strip()[:-1][::-1] if x.body.strip()[-1] in "?:." else x.body.strip()[::-1])
     style_file = os.path.join(current_path, 'stylesBase.xml')
     style_tree = etree.parse(style_file)
@@ -118,12 +114,12 @@ def generate_document(tb, answer, request):
         body.append(docx.pagebreak(type='page', orient='portrait'))
         body.append(docx.heading("Individual explanations for each question", 1))
     n = 0
-    for q in qq:
+    for question_number, q in enumerate(qq):
         style_name = 'ListUpperLetter%d' % n
         numid = 14 + n
         abstract_numid = 12 + n
 
-        body.append(docx.paragraph("Question %d: %s" % (n+1, q.body)))
+        body.append(docx.paragraph("Question %d: %s" % (question_number+1, q.body)))
         [body.append(docx.paragraph(o, style=style_name)) for o in q.options_list()]
 
         n += 1
@@ -140,7 +136,7 @@ def generate_document(tb, answer, request):
                 body.append(docx.paragraph(q.explanation))
             body.append(docx.paragraph("%s.%02d Lecture %d: %s" % (q.teaching_activity_year.current_block().code, q.teaching_activity_year.week, q.teaching_activity_year.position, q.teaching_activity_year.name)))
             p = docx.paragraph("To view this question online, click ")
-            url = request.build_absolute_uri(reverse('view', kwargs={'pk': q.pk, 'ta_id': q.teaching_activity_year.id}))
+            url = request.build_absolute_uri(q.get_absolute_url())
             p.append(hyperlink('here', url, hyperlink_count))
             hyperlinks.append((hyperlink_count, ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', url, 'External']))
             hyperlink_count += 1
@@ -194,7 +190,7 @@ def generate_document(tb, answer, request):
         etree.SubElement(b, "%scontextualSpacing" % xhtml_namespace)
         n += 1
 
-        if answer and x.explanation_dict():
+        if answer and qq[x].explanation_dict():
             style_name = 'ListUpperLetter%d' % n
             numid = 14 + n
             # Add a style element to the style.xml file
