@@ -70,6 +70,7 @@
                 <button type="submit" class="btn btn-primary">Submit</button>
             {% if multiple_question_approval_mode %}
                 <a href="{{ question.get_next_approval_url }}" class="btn btn-default">Skip question</a>
+                <a href="{{ multiple_question_approval_mode_edit_url }}" class="btn btn-default">Edit question</a>
             {% else %}
                 <a href="{{ question.get_absolute_url }}" class="btn btn-default">Back to question page</a>
             {% endif %}

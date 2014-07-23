@@ -940,8 +940,9 @@ class Question(models.Model):
     def get_absolute_url(self):
         return reverse('question-view', kwargs=self.get_url_kwargs())
 
-    def get_edit_url(self):
-        return reverse('question-edit', kwargs=self.get_url_kwargs())
+    def get_edit_url(self, multiple_approval_mode=False):
+        query_string = self.get_query_string(multiple_approval_mode=multiple_approval_mode)
+        return "%s%s" % (reverse('question-edit', kwargs=self.get_url_kwargs()), query_string)
 
     def get_add_to_specification_url(self):
         return reverse('quiz-spec-add', kwargs=self.get_url_kwargs())

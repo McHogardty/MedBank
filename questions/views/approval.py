@@ -206,6 +206,7 @@ class QuestionApproval(UpdateView):
         c['multiple_question_approval_mode'] = self.multiple_question_approval_mode
 
         if self.multiple_question_approval_mode:
+            c["multiple_question_approval_mode_edit_url"] = self.object.get_edit_url(multiple_approval_mode=True)
             # Add a progress bar to the top of the page. We will consider the progress bar 'reset' if they had no questions left to approve
             # when they last assigned some questions to themselves.
             # We will only consider questions which were assigned from the approval dashboard. This means any questions which were

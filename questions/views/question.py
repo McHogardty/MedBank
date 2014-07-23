@@ -57,6 +57,8 @@ class UpdateQuestion(UpdateView):
     template_name = "question/new.html"
 
     def dispatch(self, request, *args, **kwargs):
+        self.multiple_question_approval_mode = (request.GET.get("mode") == "multiple")
+
         r = super(UpdateQuestion, self).dispatch(request, *args, **kwargs)
 
         if not self.request.user.student.can_edit(self.object):
@@ -97,7 +99,12 @@ class UpdateQuestion(UpdateView):
 
 
     def get_success_url(self):
-        return self.object.get_absolute_url()
+        print "Multiple question approval mode is %s" % self.multiple_question_approval_mode
+        print self.request.GET
+        if self.multiple_question_approval_mode:
+            return self.object.get_approval_url(multiple_approval_mode=True)
+        else:
+            return self.object.get_absolute_url()
 
 
 @class_view_decorator(login_required)
