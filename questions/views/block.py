@@ -41,6 +41,13 @@ class AllBlocksView(ListView):
         return c
 
 
+class OpenBlocksView(ListView):
+    template_name = "block/list.html"
+
+    def get_queryset(self):
+        return models.TeachingBlockYear.objects.get_open_blocks_for_year_and_date_and_student(datetime.datetime.now().year, datetime.datetime.now(), self.request.user.student)
+
+
 @class_view_decorator(login_required)
 class ReleasedBlocksView(ListView):
     template_name = "block/list.html"

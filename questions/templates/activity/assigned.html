@@ -1,0 +1,43 @@
+{% extends "newbase.html" %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello.css">
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/animation.css"><!--[if IE 7]>
+    <link rel="stylesheet" href="{{ STATIC_URL }}medbank/fontello/css/fontello-ie7.css"><![endif]-->
+{% endblock head %}
+
+{% block content %}
+	<h1>Your assigned teaching activities</h1>
+	<p>Below is a list of all the teaching activities which you have been assigned to for writing questions. {% include "includes/display_in_context.html" with xs_text="Tap" default_text="Click" %} on a block to view the assigned activities for that particular block. {% include "includes/display_in_context.html" with xs_text="Tap" default_text="Click" %} on the name of an activity to view more information about it and write questions for it.</p>
+
+{% regroup assigned_activities by block_year as block_years %}
+{% for block_year in block_years %}
+    <div class="week">
+        <div class="week-heading collapse-trigger" data-target="#week-activities-{{ block_year.grouper.id }}">
+            <h3>{{ block_year.grouper }}</h3>
+            <i class="icon-angle-down"></i>
+        </div>
+        <div class="week-activities collapse" id="week-activities-{{ block_year.grouper.id }}">
+        {% for activity in block_year.list %}
+            <div class="activity">
+                <a href="{{ activity.teaching_activity.get_absolute_url }}">{{ activity }}</a>
+            </div>                
+        {% endfor %}
+        </div>
+    </div>
+{% empty %}
+<p>It looks like you haven't signed up for any activities yet. You can sign up for open blocks by following the links from the dashboard.</p>
+{% endfor %}
+{% endblock content %}
+
+{% block javascript %}
+   <script type="text/javascript">
+        $(document).ready(function () {
+            $(".collapse-trigger").each(function () {
+                $(this).click(function () {
+                    $($(this).attr("data-target")).collapse("toggle")
+                })
+            })
+        })
+    </script>
+{% endblock javascript %}

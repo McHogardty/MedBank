@@ -1,4 +1,4 @@
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
 from django.views.generic import DetailView, ListView
 from django.views.generic.base import RedirectView
 from django.views.generic.edit import UpdateView
@@ -10,21 +10,19 @@ from .base import class_view_decorator, user_is_superuser
 
 from questions import models, forms
 
+
 @class_view_decorator(login_required)
 class MyActivitiesView(ListView):
     model = models.TeachingActivityYear
-    template_name = "activity/mine.html"
+    template_name = "activity/assigned.html"
 
     def get_queryset(self):
-        ret = {}
-        ta = models.TeachingActivityYear.objects.filter(question_writers=self.request.user).order_by('week', 'position')
-        for t in ta:
-            l = ret.setdefault(t.block_year, [])
-            l.append(t)
-        ret = ret.items()
-        ret.sort(key=lambda a: a[0].code)
-        return ret
+        return models.TeachingActivityYear.objects.get_activities_assigned_to(self.request.user.student)
 
+    def get_context_data(self, **kwargs):
+        c = super(MyActivitiesView, self).get_context_data(**kwargs)
+        c['assigned_activities'] = self.object_list
+        return c
 
 
 @class_view_decorator(login_required)

@@ -22,6 +22,7 @@ specific_block_urls = patterns("",
 
 block_urls = patterns("",
     url(r'^$', block.AllBlocksView.as_view(), name='block-list'),
+    url(r'^open/$', block.OpenBlocksView.as_view(), name='block-open-list'),
     url(r'^released/$', block.ReleasedBlocksView.as_view(), name="block-released-list"),
     url(r'^new/$', block.NewBlock.as_view(), name='block-new'),
     url(r'^(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/', include(specific_block_urls)),

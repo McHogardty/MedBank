@@ -324,7 +324,19 @@ class TeachingBlockYearManager(models.Manager):
         all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
 
         # We want all blocks which were open in the specified year. This means that 
-        return all_blocks_for_stages.filter(year=year, end__gt=date)
+        return all_blocks_for_stages.filter(year=year, end__gt=date, start__lte=date)
+
+    def get_open_blocks_for_year_and_date_and_student(self, year, date, student):
+        if student.user.is_superuser:
+            stages = student.get_all_stages()
+        # elif student.has_perm("questions.can_approve"):
+        #     stages = student.get_previous_stages()
+        else:
+            stages = student.get_current_stage()
+
+        blocks = self.get_open_blocks_for_year_and_date_and_stages(year, date, stages)
+
+        return blocks.distinct()
 
     def get_from_kwargs(self, **kwargs):
         return self.get_query_set().select_related().get(block__code=kwargs.get("code"), year=kwargs.get("year"))
@@ -361,6 +373,7 @@ class TeachingBlockYear(models.Model):
 
     class Meta:
         unique_together = ('year', 'block')
+        ordering = ('year', 'block__code')
 
     def __unicode__(self):
         return "%s, %d" % (self.block, self.year)
@@ -430,7 +443,7 @@ class TeachingBlockYear(models.Model):
 
     @classmethod
     def get_open_block_display_url(cls):
-        return "%s?type=open" % (cls.get_block_display_url())
+        return reverse('block-open-list')
 
     @classmethod
     def get_approval_assign_block_list_url(cls):
@@ -443,10 +456,6 @@ class TeachingBlockYear(models.Model):
     def stage(self):
         return self.block.stage
     stage = property(stage)
-
-    # def number(self):
-    #     return self.block.number
-    # number = property(number)
 
     def code(self):
         return self.block.code
@@ -668,12 +677,22 @@ class TeachingActivity(models.Model):
         latest_year.question_writers.remove(student)
 
 
+class TeachingActivityYearManager(models.Manager):
+    def get_activities_assigned_to(self, student):
+        return self.get_query_set().filter(question_writers=student)
+
+
 class TeachingActivityYear(models.Model):
     teaching_activity = models.ForeignKey(TeachingActivity, related_name="years")
     week = models.IntegerField()
     position = models.IntegerField()
     block_year = models.ForeignKey(TeachingBlockYear, related_name='activities')
     question_writers = models.ManyToManyField(Student, blank=True, null=True, related_name='assigned_activities')
+
+    objects = TeachingActivityYearManager()
+
+    class Meta:
+        ordering = ('block_year', 'week', 'position')
 
     def name(self):
         return self.teaching_activity.name

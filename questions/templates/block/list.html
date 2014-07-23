@@ -3,10 +3,10 @@
 {% block content %}
     <h1>Choose a block</h1>
     <div class="row col-md-10 spacer">
-    {% for b in object_list %}
+    {% for block_year in object_list %}
         <div class="week">
             <div class="week-heading">
-                <h3><a href="{{ b.get_activity_display_url }}">{{ b.name }}</a></h3>
+                <h3><a href="{{ block_year.get_activity_display_url }}">{{ block_year.block.name }}, {{ block_year.year }}</a></h3>
             </div>
         </div>
     {% empty %}

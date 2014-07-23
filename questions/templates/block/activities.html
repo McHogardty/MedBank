@@ -15,13 +15,6 @@
     {% for week in weeks %}
     {% include "block/display_week.html" %}
     {% endfor %}
-
-    {% comment %}
-	{% regroup activities by week as weeks %}
-	{% for week in weeks %}
-	{% include "block/display_week.html" %}
-	{% endfor %}
-	{% endcomment %}
 {% endblock content %}
 
 {% block javascript %}

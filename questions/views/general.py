@@ -18,8 +18,7 @@ class DashboardView(TemplateView):
     def get_context_data(self, **kwargs):
         c = super(DashboardView, self).get_context_data(**kwargs)
         c.update({'example_quiz_slug': settings.EXAMPLE_QUIZ_SLUG})
-        current_stage = self.request.user.student.get_current_stage()
-        block_count = models.TeachingBlockYear.objects.get_open_blocks_for_year_and_date_and_stages(datetime.datetime.now().year, datetime.datetime.now(), [current_stage.id, ]).count()
+        block_count = models.TeachingBlockYear.objects.get_open_blocks_for_year_and_date_and_student(datetime.datetime.now().year, datetime.datetime.now(), self.request.user.student).count()
         c.update({'block_count': block_count})
 
         released_blocks = models.TeachingBlockYear.objects.get_released_blocks_for_year_and_date_and_student(
