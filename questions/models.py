@@ -48,6 +48,15 @@ class classproperty(property):
         return self.fget.__get__(None, owner)()
 
 
+class ObjectCacheMixin(object):
+    def set_cache_value(self, attribute, value):
+        setattr(self, attribute, value)
+
+    def get_cache_value(self, attribute):
+        if hasattr(self, attribute):
+            return getattr(self, attribute)
+
+
 class Stage(models.Model):
     stage_cache = {}
 
@@ -93,7 +102,7 @@ class Year(models.Model):
         return "%s: %s, %d" % (self.student, self.stage, self.year)
 
 
-class Student(models.Model):
+class Student(models.Model, ObjectCacheMixin):
     user = models.OneToOneField(User)
     stages = models.ManyToManyField(Stage, through='questions.Year')
 
@@ -151,7 +160,15 @@ class Student(models.Model):
         return self.quiz_attempts.latest('date_submitted')
 
     def is_writing_for(self, activity):
-        return self.assigned_activities.filter(teaching_activity=activity).exists()
+        CACHE_ATTR = "_is_writing_for"
+
+        cache_value = self.get_cache_value(CACHE_ATTR)
+        if cache_value is not None:
+            return cache_value
+
+        is_writing_for = self.assigned_activities.filter(teaching_activity=activity).exists()
+        self.set_cache_value(CACHE_ATTR, is_writing_for)
+        return is_writing_for
 
     def is_writing_for_year(self, activity_year):
         return self.assigned_activities.filter(pk=activity_year.pk).exists()
@@ -262,6 +279,24 @@ class TeachingBlock(models.Model):
 
     def __unicode__(self):
         return self.name
+
+    def is_viewable_by(self, student):
+        if student.user.is_superuser: return True
+
+        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage).exists():
+            return True
+
+        block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
+        if self.years.filter(block_is_released_and_questions_written).exists():
+            return True
+
+        # A student can view a block open for signup if it is in their stage.
+        if student.get_current_stage() == self.stage:
+            block_is_open = models.Q(start__lte=datetime.datetime.now(), close__gte=datetime.datetime.now())
+            if self.years.filter(block_is_open).exists():
+                return True
+
+        return False
 
 
 class TeachingBlockYearManager(models.Manager):
@@ -507,7 +542,6 @@ class TeachingBlockYear(models.Model):
 
         return self.close.year == current_year
 
-
     def has_started(self):
         return self.start <= datetime.datetime.now().date()
 
@@ -574,7 +608,7 @@ class TeachingActivityManager(models.Manager):
         return self.get_query_set().get(reference_id=kwargs.get("reference_id"))
 
 
-class TeachingActivity(models.Model):
+class TeachingActivity(models.Model, ObjectCacheMixin):
     LECTURE_TYPE = 1
     PBL_TYPE = 0
     PRACTICAL_TYPE = 3
@@ -641,6 +675,11 @@ class TeachingActivity(models.Model):
         except KeyError:
             raise ValueError("That activity type does not exist.")
 
+    def is_viewable_by(self, student):
+        if student.user.is_superuser:
+            return True
+
+        return self.latest_block().is_viewable_by(student)
 
     def questions_for(self, student):
         questions = []
@@ -662,7 +701,15 @@ class TeachingActivity(models.Model):
         return self.latest_year().block_year
 
     def latest_year(self):
-        return self.years.order_by("-block_year__year")[0]
+        LATEST_YEAR_CACHE = "_latest_year"
+
+        value = self.get_cache_value("_latest_year")
+        if value:
+            return value
+
+        latest_year = self.years.select_related().order_by("-block_year__year")[0]
+        self.set_cache_value(LATEST_YEAR_CACHE, latest_year)
+        return latest_year
 
     def years_available(self):
         return [activity_year.block_year.year for activity_year in self.years.select_related("block_year").order_by("block_year__year")]
@@ -680,6 +727,9 @@ class TeachingActivity(models.Model):
 class TeachingActivityYearManager(models.Manager):
     def get_activities_assigned_to(self, student):
         return self.get_query_set().filter(question_writers=student)
+
+    def get_from_kwargs(self, **kwargs):
+        return self.get_query_set().get(reference_id=kwargs.pop("reference_id"))
 
 
 class TeachingActivityYear(models.Model):
@@ -1592,6 +1642,7 @@ class ReasonManager(models.Manager):
         object_content_type = ContentType.objects.get_for_model(model=related_objects[0])
 
         return self.get_query_set().filter(related_object_content_type=object_content_type, related_object_id__in=related_objects)
+
 
 class Reason(models.Model):
     TYPE_EDIT = 0

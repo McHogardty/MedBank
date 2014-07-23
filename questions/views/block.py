@@ -74,7 +74,7 @@ class BlockActivitiesView(DetailView):
     def dispatch(self, request, *args, **kwargs):
         r = super(BlockActivitiesView, self).dispatch(request, *args, **kwargs)
 
-        if not self.request.user.student.can_view_block_year(self.object):
+        if not self.object.block.is_viewable_by(self.request.user.student):
             messages.warning(self.request, "Unfortunately, you are unable to view that block right now.")
             return redirect("dashboard")
 

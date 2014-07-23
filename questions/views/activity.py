@@ -27,20 +27,19 @@ class MyActivitiesView(ListView):
 
 @class_view_decorator(login_required)
 class ViewActivity(DetailView):
-    model = models.TeachingActivityYear
     template_name="activity/view.html"
 
     def dispatch(self, request, *args, **kwargs):
         r = super(ViewActivity, self).dispatch(request, *args, **kwargs)
 
-        if not self.request.user.student.can_view_activity(self.object):
+        if not self.object.is_viewable_by(self.request.user.student):
             messages.warning(self.request, "Unfortunately you are unable to view that activity at this time.")
             return redirect(self.object.latest_block().get_activity_display_url())
 
         return r
 
     def get_object(self):
-        return models.TeachingActivity.objects.get(reference_id=self.kwargs['reference_id'])
+        return models.TeachingActivity.objects.get_from_kwargs(**self.kwargs)
 
     def get_context_data(self, **kwargs):
         c = super(ViewActivity, self).get_context_data(**kwargs)
@@ -51,7 +50,7 @@ class ViewActivity(DetailView):
 
         c['activity'] = self.object
         # The user can see questions written for this activity if they have written questions for this block at some point.
-        has_written_questions_for_block = any(activity_year.block_year.question_count_for_student(self.request.user.student) for activity_year in self.object.years.all())
+        has_written_questions_for_block = any(activity_year.block_year.question_count_for_student(self.request.user.student) for activity_year in self.object.years.all().select_related("block_year"))
         c['can_view_questions'] = has_written_questions_for_block or self.request.user.has_perm("questions.can_approve")
         if c['can_view_questions']:
             question_list += self.object.questions_for(self.request.user.student)
