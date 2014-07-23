@@ -174,7 +174,7 @@ class DownloadView(View):
             messages.error(request, "That particular block does not exist.")
             return redirect('dashboard')
 
-        if not request.user.student.can_view_approved_questions_for(block_year) or not block_year.released:
+        if not block_year.block.is_available_for_download_by(request.user.student):
             messages.warning(request, "Unfortunately you are unable to download questions for that block right now.")
             return redirect('dashboard')
 

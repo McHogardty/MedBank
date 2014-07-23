@@ -298,6 +298,18 @@ class TeachingBlock(models.Model):
 
         return False
 
+    def is_available_for_download_by(self, student):
+        if student.user.is_superuser: return True
+
+        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage).exists():
+            return True
+
+        block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
+        if self.years.filter(block_is_released_and_questions_written).exists():
+            return True
+
+        return False
+
 
 class TeachingBlockYearManager(models.Manager):
     def get_all_blocks_for_stages(self, stages):
