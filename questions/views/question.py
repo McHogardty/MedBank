@@ -31,7 +31,7 @@ class NewQuestion(CreateView):
         except models.TeachingActivity.DoesNotExist:
             raise Http404
 
-        if not self.request.user.student.can_write_for(self.activity):
+        if not self.activity.questions_can_be_written_by(self.request.user.student):
             messages.warning(request, "You are not currently able to write questions for this activity.")
             return redirect(self.activity)
 
@@ -39,7 +39,7 @@ class NewQuestion(CreateView):
 
     def get_initial(self):
         i = super(NewQuestion, self).get_initial().copy()
-        i.update({'teaching_activity_year': self.activity.latest_year(), 'creator': self.request.user.student})
+        i.update({'teaching_activity_year': self.activity.current_activity_year(), 'creator': self.request.user.student})
         return i
 
     def form_valid(self, form):
@@ -61,7 +61,7 @@ class UpdateQuestion(UpdateView):
 
         r = super(UpdateQuestion, self).dispatch(request, *args, **kwargs)
 
-        if not self.request.user.student.can_edit(self.object):
+        if not self.object.is_editable_by(self.request.user.student):
             messages.warning(self.request, "Unfortunately you are unable to edit that question.")
             return redirect(self.object)
 
@@ -97,10 +97,14 @@ class UpdateQuestion(UpdateView):
                 r.save()
         return super(UpdateQuestion, self).form_valid(form)
 
+    def get_context_data(self, **kwargs):
+        c = super(UpdateQuestion, self).get_context_data(**kwargs)
+        c['question'] = self.object
+        c['can_cancel'] = True
+        c['cancel_url'] = self.get_success_url()
+        return c
 
     def get_success_url(self):
-        print "Multiple question approval mode is %s" % self.multiple_question_approval_mode
-        print self.request.GET
         if self.multiple_question_approval_mode:
             return self.object.get_approval_url(multiple_approval_mode=True)
         else:
@@ -165,7 +169,7 @@ class ViewQuestion(DetailView):
     def dispatch(self, request, *args, **kwargs):
         r = super(ViewQuestion, self).dispatch(request, *args, **kwargs)
 
-        if not self.request.user.student.can_view(self.object):
+        if not self.object.is_viewable_by(self.request.user.student):
             if self.object.deleted and not self.request.user.is_superuser:
                 raise Http404
             messages.warning(self.request, "Unfortunately you are unable to view that question at this time.")
@@ -176,7 +180,7 @@ class ViewQuestion(DetailView):
     def get_context_data(self, **kwargs):
         c = super(ViewQuestion, self).get_context_data(**kwargs)
 
-        c['student_can_edit_question'] = self.request.user.student.can_edit(self.object)
+        c['student_can_edit_question'] = self.object.is_editable_by(self.request.user.student)
 
         if self.request.user.has_perm('questions.can_approve'):
             c['associated_reasons'] = self.object.associated_reasons()

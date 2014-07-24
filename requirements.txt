@@ -5,7 +5,7 @@ lxml==3.2.1
 html2text==3.200.3
 markdown2==2.2.0
 wsgiref==0.1.2
-#git+git://github.com/django/django-localflavor-au.git
+git+git://github.com/django/django-localflavor-au.git
 flup==1.0.3.dev-20110405
 South==0.8.4
 django-maintenancemode==0.10

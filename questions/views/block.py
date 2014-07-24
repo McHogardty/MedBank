@@ -252,7 +252,7 @@ class UploadForTeachingBlock(FormView):
 
         # Create a mapping from reference ID to teaching activity so that we can identify
         # teaching activities which already exist.
-        existing_teaching_activities = models.TeachingActivity.objects.all()
+        existing_teaching_activities = models.TeachingActivity.objects.filter(block_year__block=self.object.block)
         existing_teaching_activities_by_referenceID = dict((activity.reference_id, activity) for activity in existing_teaching_activities)
 
         # Lists for the new teaching activity years.
@@ -347,7 +347,7 @@ class ConfirmUploadForTeachingBlock(View):
         except models.TeachingBlockYear.DoesNotExist:
             raise Http404
 
-        existing_teaching_activities = models.TeachingActivity.objects.all()
+        existing_teaching_activities = models.TeachingActivity.objects.filter(block_year__block=self.object.block)
         existing_teaching_activities_by_referenceID = dict((activity.reference_id, activity) for activity in existing_teaching_activities)
 
         every_referenceID = post.getlist('reference_id')

@@ -159,102 +159,6 @@ class Student(models.Model, ObjectCacheMixin):
     def latest_quiz_attempt(self):
         return self.quiz_attempts.latest('date_submitted')
 
-    def is_writing_for(self, activity):
-        CACHE_ATTR = "_is_writing_for"
-
-        cache_value = self.get_cache_value(CACHE_ATTR)
-        if cache_value is not None:
-            return cache_value
-
-        is_writing_for = self.assigned_activities.filter(teaching_activity=activity).exists()
-        self.set_cache_value(CACHE_ATTR, is_writing_for)
-        return is_writing_for
-
-    def is_writing_for_year(self, activity_year):
-        return self.assigned_activities.filter(pk=activity_year.pk).exists()
-
-    def can_sign_up_for(self, activity):
-        # The student can sign up if the following conditions are met:
-        # 1. The latest activity year does not have enough writers
-        # 2. They are not already signed up for that activity
-        # 3. The signup period is open for the corresponding block year
-        # 4. They are in the correct stage.
-        latest_activity_year = activity.latest_year()
-        latest_block_year = latest_activity_year.block_year
-        return not latest_activity_year.enough_writers() and not self.is_writing_for(activity) and latest_block_year.can_sign_up and latest_block_year.block.stage == self.get_current_stage()
-
-    def can_write_for(self, activity):
-        latest_activity_year = activity.latest_year()
-        latest_block_year = latest_activity_year.block_year
-        return self.user.is_superuser or (self.is_writing_for(activity) and latest_block_year.can_write_questions)
-
-    def can_view_approved_questions_for(self, block_year):
-        # A student can view the questions for a block year if:
-        # 1. They are an approver.
-        # 2. They wrote a question for that block.
-        return self.has_perm("questions.can_approve") or block_year.questions_written_for_student(self)
-
-    def can_view_block_year(self, block_year):
-        # A student can view a block if:
-        # 1. They are the superuser. 
-        # 2. They are an approver and the block is in their stage or lower.
-        # 3. The block is open for writing and the block is within their current stage.
-        # 4. The block is released and they wrote questions for it.
-        if self.user.is_superuser:
-            return True
-
-        if self.has_perm("questions.can_approve") and block_year.block.stage.number in self.get_all_stages():
-            return True
-
-        if block_year.can_access():
-            if block_year.released and block_year.questions_written_for_student(self):
-                return True
-
-            if block_year.can_write_questions and block_year.block.stage == self.get_current_stage():
-                return True
-
-        return False
-
-    def can_view_activity(self, activity):
-        # A user can view an activity if:
-        # 1. They are a superuser
-        # 2. The activity is in one of their current or previous stages, i.e. they can view a block.
-        return self.user.is_superuser or self.can_view_block_year(activity.latest_block())
-
-    def can_view(self, question):
-        # A student can view a question in the following situations:
-        # 1. They wrote it and it is not deleted.
-        # 2. They wrote questions for that particular block and it is approved.
-        # 3. They are the superuser.
-
-        if self.user.is_superuser:
-            return True
-
-        if not question.deleted:
-            if self.has_perm('questions.can_approve'):
-                return True
-
-            if question.approved and self.can_view_approved_questions_for(question.teaching_activity_year.block_year):
-                return True
-            else:
-                return self == question.creator
-
-        return False
-
-    def can_edit(self, question):
-        # A student can edit a question in the following situations:
-        # 1. They wrote it, and the block is open for writing.
-        # 2. They are an approver (or the superuser).
-        return self.has_perm("questions.can_approve") or (question.creator == self and question.teaching_activity_year.block_year.can_write_questions)
-
-    def can_unassign_from(self, activity):
-        # The student can unassign themselves from an activity if the following conditions are met:
-        # 1. They are signed up for the latest activity year
-        # 2. The latest activity year is still open for signups
-        # 3. The student has not written any questions for the activity year.
-        latest_activity_year = activity.latest_year()
-        latest_block_year = latest_activity_year.block_year
-        return self.assigned_activities.filter(pk=latest_activity_year.pk).exists() and latest_block_year.can_sign_up and not latest_activity_year.questions.filter(creator=self).exists()
 
 @receiver(models.signals.post_save, sender=User)
 def user_created(sender, **kwargs):
@@ -270,6 +174,11 @@ def user_created(sender, **kwargs):
             y.stage = kwargs['instance']._stage
         y.year = datetime.datetime.now().year
         y.save()
+
+
+class TeachingBlockManager(models.Manager):
+    def get_block_for_activity(self, activity):
+        return self.get_query_set().filter(years__activities__teaching_activity=activity).get()
 
 
 class TeachingBlock(models.Model):
@@ -299,6 +208,9 @@ class TeachingBlock(models.Model):
         return False
 
     def is_available_for_download_by(self, student):
+        return self.approved_questions_are_viewable_by(self, student)
+
+    def approved_questions_are_viewable_by(self, student):
         if student.user.is_superuser: return True
 
         if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage).exists():
@@ -309,7 +221,6 @@ class TeachingBlock(models.Model):
             return True
 
         return False
-
 
 class TeachingBlockYearManager(models.Manager):
     def get_all_blocks_for_stages(self, stages):
@@ -354,18 +265,21 @@ class TeachingBlockYearManager(models.Manager):
 
     def get_released_blocks_for_year_and_date_and_student(self, year, date, student):
         if student.user.is_superuser:
-            stages = student.get_all_stages()
+            stages = Stage.objects.all()
         elif student.has_perm("questions.can_approve"):
-            stages = student.get_previous_stages()
+            stages = student.get_all_stages()
         else:
             stages = student.get_current_stage()
 
         blocks = self.get_released_blocks_for_year_and_date_and_stages(year, date, stages)
 
-        if student.user.is_superuser:
+        if student.user.is_superuser or student.has_perm("questions.can_approve"):
             return blocks
 
-        return blocks.filter(activities__questions__in=student.questions_created.all()).distinct().order_by("year", "block__code")
+        return blocks.filter(activities__questions__in=student.questions_created.all()).distinct()
+
+    def all_open_blocks(self):
+        return self.get_query_set().filter(start__lte=datetime.datetime.now(), close__gte=datetime.datetime.now())
 
     def get_open_blocks_for_year_and_date_and_stages(self, year, date, stages):
         all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
@@ -554,6 +468,12 @@ class TeachingBlockYear(models.Model):
 
         return self.close.year == current_year
 
+    def student_is_eligible_for_sign_up(self, student):
+        return self.block.stage == student.get_current_stage()
+
+    def student_can_sign_up(self, student):
+        return self.student_is_eligible_for_sign_up(student) and self.can_sign_up
+
     def has_started(self):
         return self.start <= datetime.datetime.now().date()
 
@@ -691,7 +611,38 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
         if student.user.is_superuser:
             return True
 
-        return self.latest_block().is_viewable_by(student)
+        return self.current_block_year().block.is_viewable_by(student)
+
+    def student_can_view_sign_up_information(self, student):
+        current_block = self.current_block_year()
+
+        return not current_block.released and current_block.student_is_eligible_for_sign_up(student)
+
+    def student_is_eligible_for_sign_up(self, student):
+        return self.current_block_year().student_is_eligible_for_sign_up(student)
+
+    def student_can_sign_up(self, student):
+        # The student can sign up if the following conditions are met:
+        # 1. The current activity year does not have enough writers
+        # 2. They are not already signed up for that activity
+        # 3. They can sign up for activities within the particular block.
+        current_year = self.current_activity_year()
+
+        return not current_year.enough_writers() and not self.has_student(student) and current_year.block_year.student_can_sign_up(student)
+
+    def student_can_unassign_activity(self, student):
+        return self.has_student(student) and self.current_block_year().can_sign_up and not self.student_has_written_questions(student)
+
+    def approved_questions_are_viewable_by(self, student):
+        if student.user.is_superuser: return True
+
+        return self.current_block_year().block.approved_questions_are_viewable_by(student)
+
+    def questions_can_be_written_by(self, student):
+        if student.user.is_superuser: return True
+
+        current_year = self.current_activity_year()
+        return self.has_student(student) and current_year.block_year.can_write_questions
 
     def questions_for(self, student):
         questions = []
@@ -701,6 +652,9 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
 
         return questions
 
+    def student_has_written_questions(self, student):
+        return self.years.filter(questions__creator=student).exists()
+
     def questions_written_by(self, student):
         questions = Question.objects.none()
 
@@ -709,31 +663,55 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
 
         return questions
 
-    def latest_block(self):
-        return self.latest_year().block_year
+    def questions_left_for(self, student):
+        return self.current_activity_year().questions_left_for(student)
 
-    def latest_year(self):
-        LATEST_YEAR_CACHE = "_latest_year"
+    def current_activity_year(self):
+        CURRENT_YEAR_CACHE = "_current_year_cached"
 
-        value = self.get_cache_value("_latest_year")
-        if value:
-            return value
+        value = self.get_cache_value(CURRENT_YEAR_CACHE)
+        if value: return value
 
-        latest_year = self.years.select_related().order_by("-block_year__year")[0]
-        self.set_cache_value(LATEST_YEAR_CACHE, latest_year)
-        return latest_year
+        years = self.years.select_related("block_year").select_related("block_year__block")
+
+        try:
+            current_activity_year = years.get(block_year__year=datetime.datetime.now().year)
+        except TeachingActivityYear.DoesNotExist:
+            current_activity_year = years.order_by("-block_year__year")[0]
+
+        self.set_cache_value(CURRENT_YEAR_CACHE, current_activity_year)
+        return current_activity_year
+        
+    def current_block_year(self):
+        return self.current_activity_year().block_year
 
     def years_available(self):
         return [activity_year.block_year.year for activity_year in self.years.select_related("block_year").order_by("block_year__year")]
 
     def add_student(self, student):
-        latest_year = self.latest_year()
-        latest_year.question_writers.add(student)
-        latest_year.save()
+        current_year = self.current_activity_year()
+        current_year.question_writers.add(student)
+        current_year.save()
 
     def remove_student(self, student):
-        latest_year = self.latest_year()
-        latest_year.question_writers.remove(student)
+        current_year = self.current_activity_year()
+        current_year.question_writers.remove(student)
+
+    def has_student(self, student):
+        HAS_STUDENT_CACHE = "_has_student_cache"
+
+        value = self.get_cache_value(HAS_STUDENT_CACHE)
+        if value is not None:
+            return value
+
+        has_student = self.years.filter(question_writers=student).exists()
+        self.set_cache_value(HAS_STUDENT_CACHE, has_student)
+        return has_student
+
+    def current_question_writer_count(self):
+        current_year = self.current_activity_year()
+
+        return current_year.question_writer_count()
 
 
 class TeachingActivityYearManager(models.Manager):
@@ -812,6 +790,9 @@ class TeachingActivityYear(models.Model):
     def has_questions(self):
         return self.questions.exists()
 
+    def has_student(self, student):
+        return self.teaching_activity.has_student(student)
+
     def has_assigned_approver(self):
         # If an activity has an assigned approver then of all the pending questions
         # 1. None should lack an approver (approver__isnull=True)
@@ -840,7 +821,7 @@ class TeachingActivityYear(models.Model):
         return count
 
     def questions_left_for(self, student):
-        if not student.is_writing_for(self.teaching_activity):
+        if not self.has_student(student):
             # The user is not a question writer so they have no questions remaining.
             return 0
 
@@ -935,8 +916,8 @@ class Question(models.Model):
     creator = models.ForeignKey(Student, related_name="questions_created")
     approver = models.ForeignKey(Student, null=True, blank=True, related_name="questions_approved")
     teaching_activity_year = models.ForeignKey(TeachingActivityYear, related_name="questions")
-    exemplary_question = models.BooleanField()
-    requires_special_formatting = models.BooleanField()
+    exemplary_question = models.BooleanField(default=False)
+    requires_special_formatting = models.BooleanField(default=False)
     status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS)
     date_assigned = models.DateTimeField(blank=True, null=True)
     date_completed = models.DateTimeField(blank=True, null=True)
@@ -1022,6 +1003,32 @@ class Question(models.Model):
     def get_flag_url(self, multiple_approval_mode=False):
         query_string = self.get_query_string(multiple_approval_mode=multiple_approval_mode)
         return "%s%s" % (reverse('question-flag', kwargs=self.get_url_kwargs()), query_string)
+
+    def is_viewable_by(self, student):
+        # A student can view a question in the following situations:
+        # 1. They wrote it and it is not deleted.
+        # 2. They wrote questions for that particular block and it is approved.
+        # 3. They are the superuser.
+
+        if student.user.is_superuser:
+            return True
+
+        if not self.deleted:
+            if student.has_perm('questions.can_approve'):
+                return True
+
+            if self.approved and self.teaching_activity_year.block_year.block.approved_questions_are_viewable_by(student):
+                return True
+            else:
+                return student == self.creator
+
+        return False
+
+    def is_editable_by(self, student):
+        # A student can edit a question in the following situations:
+        # 1. They wrote it, and the block is open for writing.
+        # 2. They are an approver (or the superuser).
+        return student.has_perm("questions.can_approve") or (self.creator == student and self.teaching_activity_year.block_year.can_write_questions)
 
     def change_status(self, new_status, student):
         # A manual change is once which occurs outside the regular approval process.

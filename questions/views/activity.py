@@ -34,7 +34,7 @@ class ViewActivity(DetailView):
 
         if not self.object.is_viewable_by(self.request.user.student):
             messages.warning(self.request, "Unfortunately you are unable to view that activity at this time.")
-            return redirect(self.object.latest_block().get_activity_display_url())
+            return redirect(self.object.current_block_year().get_activity_display_url())
 
         return r
 
@@ -43,35 +43,29 @@ class ViewActivity(DetailView):
 
     def get_context_data(self, **kwargs):
         c = super(ViewActivity, self).get_context_data(**kwargs)
-        question_list = []
-
-        latest_activity_year = self.object.latest_year()
-        latest_block_year = latest_activity_year.block_year
+        c['question_list'] = []
 
         c['activity'] = self.object
+        c['current_question_writer_count'] = self.object.current_question_writer_count()
         # The user can see questions written for this activity if they have written questions for this block at some point.
-        has_written_questions_for_block = any(activity_year.block_year.question_count_for_student(self.request.user.student) for activity_year in self.object.years.all().select_related("block_year"))
-        c['can_view_questions'] = has_written_questions_for_block or self.request.user.has_perm("questions.can_approve")
+        c['can_view_questions'] = self.object.approved_questions_are_viewable_by(self.request.user.student)
         if c['can_view_questions']:
-            question_list += self.object.questions_for(self.request.user.student)
-        c['can_write_questions'] = self.request.user.student.can_write_for(self.object)
-        c['question_list'] = question_list
-        # The user has written questions for the activity.
-        c['student_has_written_questions'] = bool(self.object.years.filter(questions__creator=self.request.user.student).count())
+            c['question_list'] += self.object.questions_for(self.request.user.student)
 
-        # The user only needs to view the information about signup and due dates if they are able to sign up for it.
-        # This means that the latest block year should not be released yet, and they should be in the right stage.
-        c['view_signup_status'] = latest_block_year.block.stage == self.request.user.student.get_current_stage() and not latest_block_year.released
+        c['can_write_questions'] = self.object.questions_can_be_written_by(self.request.user.student)
+        c['student_has_written_questions'] = self.object.student_has_written_questions(self.request.user.student)
 
-        c['student_can_sign_up'] = self.request.user.student.can_sign_up_for(self.object)
-        c['student_is_writing_for_activity'] = self.request.user.student.is_writing_for(self.object)
-        c['questions_left_for_student'] = latest_activity_year.questions_left_for(self.request.user.student)
+        c['view_signup_status'] = self.object.student_can_view_sign_up_information(self.request.user.student)
+        c['student_is_writing_for_activity'] = self.object.has_student(self.request.user.student)
+        if c['student_is_writing_for_activity']:
+            c['questions_left_for_student'] = self.object.questions_left_for(self.request.user.student)
+            c['student_can_unassign_from_activity'] = self.object.student_can_unassign_activity(self.request.user.student)
+        else:
+            # The user only needs to view the information about signup and due dates if they are able to sign up for it.
+            # This means that the current block year should not be released yet, and they should be in the right stage.
+            if c['view_signup_status']:
+                c['student_can_sign_up'] = self.object.student_can_sign_up(self.request.user.student)
 
-        # The student can unassign themselves from an activity if three conditions are met:
-        # 1. They are writing for the latest activity year
-        # 2. The activity_year that they are signed up for still has its signup period open
-        # 3. They have not written any questions for the activity.
-        c['student_can_unassign_from_activity'] = self.request.user.student.can_unassign_from(self.object)
         return c
 
 
@@ -104,18 +98,18 @@ class SignupView(RedirectView):
             messages.error(self.request, "That teaching activity was not found.")
             return reverse('dashboard')
 
-        if self.request.user.student.can_sign_up_for(activity):
+        if activity.student_can_sign_up(self.request.user.student):
             activity.add_student(self.request.user.student)
             messages.success(self.request, "You are now signed up to write questions for '%s'." % activity.name)
-        elif not self.request.user.student.get_current_stage() == activity.latest_block().block.stage:
+        elif not activity.current_block_year().student_is_eligible_for_sign_up(self.request.user.student):
             messages.warning(self.request, "Unfortunately you are unable to sign up to this activity because it is not in your current stage.")
-        elif not activity.latest_block().can_sign_up:
+        elif not activity.current_block_year().can_sign_up:
             messages.warning(self.request, "Unfortunately you cannot sign up to this activity because the signup period has closed.")
-        elif activity.latest_year().enough_writers():
+        elif activity.current_activity_year().enough_writers():
             messages.warning(self.request, "Sorry, we already have anough people signed up for that activity.")
 
         if self.request.GET.get("from") == "block":
-            return activity.latest_block().get_activity_display_url()
+            return activity.current_block_year().get_activity_display_url()
         else:
             return activity.get_absolute_url()
 
@@ -131,15 +125,15 @@ class UnassignView(RedirectView):
             messages.error(self.request, "That teaching activity does not exist.")
             return reverse('dashboard')
         student = self.request.user.student
-        if student.can_unassign_from(activity):
+        if activity.student_can_unassign_activity(student):
             activity.remove_student(student)
             messages.success(self.request, "You have been unassigned from that activity")
         else:
-            if not student.is_writing_for_year(activity.latest_year()):
-                messages.warning(self.request, "You weren't signed up to that activity for %s" % activity.latest_year().block_year.year)
-            elif not activity.latest_year().block_year.can_sign_up:
+            if not activity.has_student(self.request.user.student):
+                messages.warning(self.request, "You weren't signed up to that activity for %s" % activity.current_block_year().year)
+            elif not activity.current_block_year().can_sign_up:
                 messages.error(self.request, "You are unable to unassign yourself from this activity because the sign-up period has closed.")
-            elif activity.latest_year().questions_written_by(student).exists():
+            elif activity.student_has_written_questions(self.request.user.student):
                 messages.error(self.request, "Once you have started writing questions for an activity, you are not able unassign yourself from it.")
             else:
                 messages.error(self.request, "Unfortunately you cannot unassign yourself from that activity.")

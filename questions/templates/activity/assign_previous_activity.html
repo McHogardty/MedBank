@@ -5,7 +5,7 @@
 	<h1>Assign a previous activity to a current activity</h1>
 	<p>Some activities have their details changed in Compass. If this happens, then the activity's ID in Compass is changed at the same time, even though it might have the same name. If you notice that a new activity was created in the upload, even though it has the same name as an activity in a previous year, you can link them here to make sure students get all of the questions.</p>
 	<p><strong>Current activity:</strong> {{ teaching_activity.name }}</p>
-	<p><strong>Block:</strong> {{ teaching_activity.latest_block.block }}</p>
+	<p><strong>Block:</strong> {{ teaching_activity.current_block_year.block }}</p>
 	<p><strong>Years available:</strong> {{ teaching_activity.years_available|humanize_list }}</p>
 	{% include "includes/form.html" %}
 {% endblock content %}

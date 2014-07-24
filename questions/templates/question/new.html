@@ -28,14 +28,21 @@
 {% endblock head %}
 
 {% block content %}
+{% if question %}
+    <h1>Edit an existing question</h1>
+{% else %}
     <h1>Add a new question</h1>
-    <p class="lead">We've written a guide for you on how to write questions. It would be great if you could give it a read. You can view the guide by <a href="{% url 'question-guide' %}">clicking here</a>.</p>
+{% endif %}
+    <p class="lead">We've written a guide for you on how to write questions. It would be great if you could give it a read. You can view the guide by <a href="{% url 'question-guide' %}" target="_blank">clicking here</a>.</p>
     <form class="form-horizontal" method="post" role="form">
         {% csrf_token %}
         {{ form.as_bootstrap }}
         <div class="form-group">
             <div class="col-md-offset-2 col-md-6">
                 <button type="submit" class="btn btn-primary">Submit</button>
+            {% if cancel_url %}
+                <a href="{{ cancel_url }}" class="btn btn-default">Cancel editing</a>
+            {% endif %}
             </div>
         </div>
     </form>

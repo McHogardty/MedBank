@@ -52,13 +52,6 @@ def humanize_list(value):
 
 
 @register.assignment_tag
-def questions_left(user, activity):
-    if not user.student.is_writing_for(activity):
-        return 0
-
-    return activity.questions_left_for(user.student)
-
-@register.assignment_tag
 def questions_list_by_year(user, activity):
     qq = activity.questions_for(user)
     ret = defaultdict(list)

@@ -79,7 +79,7 @@ class AssignActivitiesForApprovalView(DetailView):
         r = super(AssignActivitiesForApprovalView, self).dispatch(request, *args, **kwargs)
 
         # Approvers can only approve for blocks they have completed.
-        if not self.request.user.student.can_view_block_year(self.object):
+        if not self.object.block.is_viewable_by(self.request.user.student):
             messages.warning(self.request, "Unfortunately you are unable to view that block right now.")
             return redirect(models.TeachingBlockYear.get_approval_assign_block_list_url())
 

@@ -223,12 +223,7 @@ class BootstrapRadioFieldRenderer(forms.widgets.RadioFieldRenderer):
 
 
 class NewTeachingBlockYearForm(bsforms.NewBootstrapModelForm):
-#    start = forms.DateField(widget=forms.TextInput(
-#        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
-#    ), help_text="The first day that students can assign themselves to activities in this block.")
-#    end = forms.DateField(widget=forms.TextInput(
-#        attrs={'class': 'datepicker', 'data-date-format': 'dd/mm/yyyy'}
-#    ), help_text="The last day that students can assign themselves to activities in this block.")
+    # Localise=True is a cheating way of using a TextInput instead of a number input.
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage__number', 'code'))
     year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bsforms.StaticControl())
     start = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
@@ -236,6 +231,8 @@ class NewTeachingBlockYearForm(bsforms.NewBootstrapModelForm):
     close = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The last day that students can write questions for activities in this block.", label="Close date")
     release_date = forms.CharField(required=False, max_length=10, widget=bsforms.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
     sign_up_mode = forms.TypedChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES, coerce=int)
+    activity_capacity = forms.IntegerField(localize=True)
+    weeks = forms.IntegerField(localize=True, label="Number of weeks")
 
     class Meta:
         model = TeachingBlockYear
@@ -372,7 +369,7 @@ class CustomQuizSpecificationForm(bsforms.NewBootstrapForm):
         super(CustomQuizSpecificationForm, self).__init__(*args, **kwargs)
         self.block_fields = []
         for block in blocks:
-            self.fields[block.name_for_form_fields()] = forms.IntegerField(label=block.name, required=False, min_value=0)
+            self.fields[block.name_for_form_fields()] = forms.IntegerField(label=block.name, required=False, min_value=0, localize=True)
             self.block_fields.append(block.name_for_form_fields())
 
     def clean(self):
