@@ -192,7 +192,7 @@ class TeachingBlock(models.Model):
     def is_viewable_by(self, student):
         if student.user.is_superuser: return True
 
-        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage).exists():
+        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage.id).exists():
             return True
 
         block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
