@@ -208,7 +208,7 @@ class TeachingBlock(models.Model):
         return False
 
     def is_available_for_download_by(self, student):
-        return self.approved_questions_are_viewable_by(self, student)
+        return self.approved_questions_are_viewable_by(student)
 
     def approved_questions_are_viewable_by(self, student):
         if student.user.is_superuser: return True
