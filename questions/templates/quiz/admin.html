@@ -1,0 +1,32 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Quiz admin</h1>
+
+    <h2>Quiz specifications <small><a href="{% url 'quiz-specification-new' %}">New specification</a></small></h2>
+{% for qs in quiz_specifications %}
+{% if forloop.first %}
+    <table class="table">
+        <tr>
+            <th>Name</th>
+            <th>Stage</th>
+            <th>Actions</th>
+        </tr>
+{% endif %}
+	    <tr>
+	        <td>{{ qs.name }} ({% include "quiz/specification/display_status.html" with specification=qs %})</td>
+	        <td>{{ qs.stage }}</td>
+	        <td>
+	        	<span class="actions">
+	        		<a class="action" href="{{ qs.get_absolute_url }}">View</a>
+	        		<a class="action" href="{{ qs.get_edit_url }}">Edit</a>
+	        	</span>
+	        </td>
+	    </tr>
+{% if forloop.last %}
+    </table>
+{% endif %}
+{% empty %}
+    <p>There are not yet any quiz specifications in MedBank.</p>
+{% endfor %}
+{% endblock content %}

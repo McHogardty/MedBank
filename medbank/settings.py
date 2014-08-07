@@ -54,6 +54,8 @@ DATE_INPUT_FORMATS = (
     "%d/%m/%Y",
 )
 
+DATE_FORMAT = 'j N Y'
+
 # Absolute path to the directory static files should be collected to.
 # Don't put anything in this directory yourself; store your static files
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.

@@ -282,7 +282,9 @@ class NewBootstrapFormMixin(object):
                     # so insert a new, empty row.
                     last_row = (normal_row % {'errors': '', 'label': '',
                                               'field': '', 'help_text':'',
-                                              'html_class_attr': html_class_attr})
+                                              'html_class_attr': html_class_attr,
+                                              'size_class_attr': size_class_attr,
+                                              'messages': '',})
                     output.append(last_row)
                 output[-1] = last_row[:-len(row_ender)] + str_hidden + row_ender
             else:
@@ -294,7 +296,7 @@ class NewBootstrapFormMixin(object):
     def as_bootstrap(self):
         return self._html_output(
             normal_row="<div%(html_class_attr)s>%(label)s<div%(size_class_attr)s>%(field)s %(messages)s</div></div>",
-            error_row="<span class='help-block'>%s</span>",
+            error_row="<p class='text-danger'>%s</p>",
             row_ender="</div>",
             help_text_html="<span class='help-block'>%%(errors)s%s</span>",
             errors_on_separate_row=False
@@ -369,15 +371,15 @@ class TextInputWithAddon(forms.TextInput):
         i = super(TextInputWithAddon, self).render(name, value, attrs)
         input_group_attrs = {'class': " ".join(classes)}
         if self.add_on and not self.post_add_on:
-            i = format_html('<div{0}><span class="input-group-addon">{1}</span>{2}</div>', flatatt(input_group_attrs), self.add_on, i)
+            i = format_html(u'<div{0}><span class="input-group-addon">{1}</span>{2}</div>', flatatt(input_group_attrs), self.add_on, i)
         if self.post_add_on and not self.add_on:
-            i = format_html('<div{0}>{1}<span class="input-group-addon">{2}</span></div>', flatatt(input_group_attrs), i, self.post_add_on)
+            i = format_html(u'<div{0}>{1}<span class="input-group-addon">{2}</span></div>', flatatt(input_group_attrs), i, self.post_add_on)
         return i
 
 class CheckboxInput(forms.CheckboxInput):
     def render(self, name, value, attrs=None):
         checkbox_input = super(CheckboxInput, self).render(name, value, attrs)
-        checkbox = """
+        checkbox = u"""
         <div class="checkbox">
             <label>
                 {0} {1}
@@ -395,7 +397,7 @@ class RadioInputLikeButton(forms.widgets.RadioInput):
         if self.is_checked(): label_classes.append("active")
 
         label_class = " ".join(label_classes)
-        return format_html('<label{0}>{1} {2}</label>', flatatt({'class': label_class}), self.tag(), choice_label)
+        return format_html(u'<label{0}>{1} {2}</label>', flatatt({'class': label_class}), self.tag(), choice_label)
 
 
 class ButtonGroupWithToggleRenderer(forms.widgets.RadioFieldRenderer):

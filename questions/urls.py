@@ -44,7 +44,6 @@ comment_urls = patterns("",
 specific_question_urls = patterns("",
     url(r'^$', question.ViewQuestion.as_view(), name='question-view'),
     url(r'^edit/$', question.UpdateQuestion.as_view(), name='question-edit'),
-    url(r'^specification/add/$', quiz.QuizSpecificationAdd.as_view(), name='quiz-spec-add'),
     url(r'^status/flag/$', approval.FlagQuestion.as_view(), name='question-flag'),
     url(r'^attributes/$', question.QuestionAttributes.as_view(), name='question-attributes'),
     url(r'^history/$', approval.ViewQuestionApprovalHistory.as_view(), name='question-approval-history'),
@@ -71,23 +70,35 @@ activity_urls = patterns("",
     url(r'^(?P<reference_id>\d+)/', include(specific_activity_urls)),
 )
 
+quiz_attempt_urls = patterns("",
+    url(r"^questions/$", quiz.QuizAttemptQuestionsView.as_view(), name="quiz-attempt-questions"),
+    url(r"^submit/$", quiz.SubmitAnswerView.as_view(), name="quiz-attempt-submit"),
+    url(r"^submit/all/$", quiz.SubmitAllAnswersView.as_view(), name="quiz-attempt-submit-all"),
+    url(r"^report/$", quiz.QuizAttemptReport.as_view(), name="quiz-attempt-report"),
+    url(r'^start/$', quiz.ResumeAttemptView.as_view(), name="quiz-attempt-start"),
+    url(r"^resume/$", quiz.ResumeAttemptView.as_view(), name="quiz-attempt-resume"),
+)
+
+specific_quiz_specification_urls = patterns("",
+    url(r"^$", quiz.QuizSpecificationView.as_view(), name="quiz-specification-view"),
+    url(r"^edit/$", quiz.UpdateQuizSpecificationView.as_view(), name="quiz-specification-edit"),
+    url(r"^questions/add/$", quiz.AddQuizSpecificationQuestions.as_view(), name="quiz-specification-questions-add"),
+    url(r"^questions/add/confirm/$", quiz.ConfirmQuizSpecificationQuestions.as_view(), name="quiz-specification-questions-add-confirm"),
+)
+
+quiz_specification_urls = patterns("",
+    url(r"^new/$", quiz.NewQuizSpecificationView.as_view(), name="quiz-specification-new"),
+    url(r'^(?P<slug>[a-z]+)/', include(specific_quiz_specification_urls)),
+)
+
 quiz_urls = patterns("",
-    url(r'^$', quiz.Quiz.as_view(), name='quiz'),
-    url(r'^choose/$', quiz.QuizChooseView.as_view(), name="quiz-choose"),
-    url(r'^question/next/$', quiz.QuizQuestionView.as_view(), name='quiz-question'),
-    url(r'^question/submit/$', quiz.QuizQuestionSubmit.as_view(), name='quiz-question-submit'),
-    url(r'^attempt/generate/$', quiz.NewQuizAttempt.as_view(), name='quiz-generate-attempt'),
-    url(r'^start/$', quiz.QuizStartView.as_view(), name='quiz-start'),
-    url(r'^(?P<slug>[a-z]+)/start/$', quiz.QuizGenerationView.as_view(), name='quiz-spec'),
-    url(r'^(?P<slug>[a-z]+)/view/$', quiz.QuizSpecificationView.as_view(), name='quiz-spec-view'),
-    url(r'^prepare/$', quiz.QuizGenerationView.as_view(), name='quiz-prepare'),
-    url(r'^submit/$', quiz.QuizSubmit.as_view(), name='quiz-submit'),
-    url(r'^report/$', quiz.QuizReport.as_view(), name='quiz-report'),
-    url(r'^(?P<slug>[a-z]+)/report/$', quiz.QuizIndividualSummary.as_view(), name='quiz-attempt-report'),
-    url(r'^add/$', quiz.NewQuizSpecificationView.as_view(), name='quiz-spec-new'),
-    url(r'^(?P<slug>[a-z]+)/edit/$', quiz.UpdateQuizSpecificationView.as_view(), name='quiz-spec-edit'),
-    url(r'^(?P<slug>[a-z]+)/question/add/$', quiz.AddQuizSpecificationQuestions.as_view(), name='quiz-spec-question-add'),
-    url(r'^(?P<slug>[a-z]+)/question/confirm/$', quiz.ConfirmQuizSpecificationQuestion.as_view(), name='quiz-spec-question-confirm'),
+    url(r'^$', quiz.QuizDashboard.as_view(), name='quiz-home'),
+    url(r'^history/$', quiz.QuizHistory.as_view(), name='quiz-history'),
+    url(r'^choose/$', quiz.QuizView.as_view(), name='quiz-choose'),
+    url(r'^attempt/(?P<slug>[a-z]+)/', include(quiz_attempt_urls)),
+    url(r'^specification/', include(quiz_specification_urls)),
+    url(r'^admin/$', quiz.QuizAdminView.as_view(), name="quiz-admin"),
+
 )
 
 approval_urls = patterns("",
@@ -98,12 +109,6 @@ approval_urls = patterns("",
     url(r'^assigned/$', approval.CompleteAssignedApprovalView.as_view(), name="approve-assigned"),
     url(r'^assigned/(?P<previous_question_id>\d+)/next/$', approval.CompleteAssignedApprovalView.as_view(), name="approve-assigned-next"),
 )
-
-
-    # url(r'^approve/$', All BlocksView.as_view(template_name="approve.html"), name='admin-approve-choose'),
-    # url(r'^approve/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/$', StartApprovalView.as_view(), name='admin-approve-start'),
-    # url(r'^approve/assigned/$', StartApprovalView.as_view(), name='admin-approve-assigned-start'),
-    # url(r'^approve/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/(?P<q_id>\d+)/$', StartApprovalView.as_view(), name='admin-approve'),
 
 urlpatterns = patterns(
     'questions.views',

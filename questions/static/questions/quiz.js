@@ -159,10 +159,12 @@ var Questions = (function (questions_module, $) {
         var check_answer_text = "Check answer";
         this.mode = question_mode;
 
-        var nav_viewer = new questions_module.SplashScreen({
-                to_show: [questions_module.globals.nav_selector,],
-        });
-        nav_viewer.hide_immediately();
+        // var nav_viewer = new questions_module.SplashScreen({
+        //         to_show: [questions_module.globals.nav_selector,],
+        // });
+        // nav_viewer.hide_immediately();
+
+        var navigation_controller = new questions_module.NavigationController();
 
         $(questions_module.globals.total_question_number_selector).html(questions_module.globals.number_of_questions);
         options = $.extend({
@@ -181,8 +183,9 @@ var Questions = (function (questions_module, $) {
 
         this.update_display = function () {
             self.update_question_number();
-            $(questions_module.globals.previous_button_selector).prop("disabled", self.scroller.current() === 2);
-            $(questions_module.globals.next_button_selector).prop("disabled", this.mode === question_mode && self.scroller.last());
+            $(questions_module.globals.previous_button_selector).prop("disabled", self.scroller.current() <= 2);
+            $(questions_module.globals.next_button_selector).prop("disabled", this.mode === question_mode && (self.scroller.last() || self.scroller.first()));
+            $(questions_module.globals.finish_button_selector).prop("disabled", self.scroller.current() === 1);
             if (questions_module.globals.report_results) {
                 $(questions_module.globals.next_button_selector).html(self.scroller.first() ? "View questions" : "Next question");
                 $(".btn-summary").prop("disabled", self.scroller.first());
@@ -191,16 +194,16 @@ var Questions = (function (questions_module, $) {
 
         this.after_scroll = function () {
             if (options.after_scroll) options.after_scroll();
-            $(questions_module.globals.progress_button_selector).prop("disabled", false);
-            $(questions_module.globals.finish_button_selector).prop("disabled", false);
+            // $(questions_module.globals.progress_button_selector).prop("disabled", false);
+            // $(questions_module.globals.finish_button_selector).prop("disabled", false);
             self.update_display();
         };
 
         this.before_scroll = function () {
-            $(questions_module.globals.next_button_selector).prop("disabled", true);
-            $(questions_module.globals.previous_button_selector).prop("disabled", true);
-            $(questions_module.globals.progress_button_selector).prop("disabled", true);
-            $(questions_module.globals.finish_button_selector).prop("disabled", true);
+            // $(questions_module.globals.next_button_selector).prop("disabled", true);
+            // $(questions_module.globals.previous_button_selector).prop("disabled", true);
+            // $(questions_module.globals.progress_button_selector).prop("disabled", true);
+            // $(questions_module.globals.finish_button_selector).prop("disabled", true);
             if (options.before_scroll) options.before_scroll();
         };
 

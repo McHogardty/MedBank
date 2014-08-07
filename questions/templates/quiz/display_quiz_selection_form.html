@@ -1,0 +1,27 @@
+<form class="form-horizontal" role="form" method="post">
+    {% csrf_token %}
+    {{ selection_form.as_bootstrap }}
+    <div class="row">
+    	<div class="col-md-6 md-text-right">
+		    <p style="line-height:20px; margin:0; padding-top:7px; font-weight:bold;"{% if type_form.quiz_type.errors and selection_form.was_checked %} class="text-danger"{% endif %}>Do you want to see the answers after each question or at the end?</p>
+		</div>
+		<div class="col-md-6">
+		{% if selection_form.was_checked %}
+		    {{ type_form.quiz_type }}
+			{% if not type_form.is_valid %}
+				<p class="text-danger" style="margin-top:5px;">Please choose an option.</p>
+			{% else %}
+				{{ empty_type_form.quiz_type }}
+			{% endif %}
+		{% else %}
+			{{ type_form.quiz_type }}
+		{% endif %}
+		</div>
+	</div>
+	<br>
+	<div class="row">
+		<div class="col-md-6 col-md-offset-6">
+		    <button type="submit" name="{{ selection_form.prefix }}" class="btn btn-primary">Start quiz</button>
+		</div>
+	</div>
+</form>

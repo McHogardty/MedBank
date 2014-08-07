@@ -253,7 +253,6 @@ def generate_document(tb, answer, request):
         docxfile.writestr(treesandfiles[tree], treestring)
 
     files_to_ignore = ['.DS_Store', 'stylesBase.xml', 'numberingBase.xml']
-    print docx.template_dir
     for dirpath, dirnames, filenames in os.walk(docx.template_dir):
         for filename in filenames:
             if filename in files_to_ignore:

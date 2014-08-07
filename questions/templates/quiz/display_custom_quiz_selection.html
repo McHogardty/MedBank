@@ -1,0 +1,17 @@
+<h1>
+	{% if collapse_mode %}
+		<a class="collapse-trigger" data-quiz="custom">
+	{% endif %}
+		Create a custom quiz
+	{% if collapse_mode %}
+		</a>		
+	{% endif %}
+</h1>
+<p>If you don't want to choose a preset quiz, you're able to create one yourself.</p>
+{% if form %}
+<div class="collapse{% if form.was_checked %} in{% endif %}" data-quiz="custom">
+    <p>Please choose from the blocks below. Next to each block, type the number of questions you would like to be quizzed on.</p>
+    <p>If you don't want to be tested on a block, don't put a number in it.</p>
+    {% include "quiz/display_quiz_selection_form.html" with selection_form=form %}
+</div>
+{% endif %}

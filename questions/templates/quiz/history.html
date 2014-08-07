@@ -1,0 +1,12 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Quiz history</h1>
+	<p>You can view a list of all the quizzes you have attempted below. Click on the quiz title to view more information about your results.</p>
+
+	{% for quiz_attempt in student_quiz_attempts %}
+		<h2><a href="{{ quiz_attempt.get_report_url }}">{{ quiz_attempt.quiz_specification.name|default:"Custom quiz" }}</a> {% if quiz_attempt.complete %}<small class="text-success">Complete</small>{% else %} <small class="text-warning">Incomplete</small>{% endif%}</h2>
+		<p>Your score was {{ quiz_attempt.score }} out of {{ quiz_attempt.questions.count }}. You started this quiz on {{ quiz_attempt.date_submitted|date }}</p>
+	{% endfor %}
+
+{% endblock content %}
