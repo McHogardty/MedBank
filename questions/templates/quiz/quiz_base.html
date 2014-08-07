@@ -1,0 +1,329 @@
+{% extends "base-no-nav-early-javascript.html" %}
+
+{% block head %}
+    <style type="text/css">
+        html {
+            overflow:scroll;
+            height:100%;
+            width:100%;
+        }
+
+        body {
+            position:relative;
+            overflow:hidden;
+            min-height: 600px;
+            min-width: 950px;
+            height:100%;
+            width:100%;
+            padding-bottom:0;
+        }
+
+        .container.main {
+            height:100%;
+            width:100%!important;
+        }
+
+        .row.section {
+            height:100%;
+            padding-bottom:70px;
+        }
+
+        .centre-of-parent {
+            display: block;
+            vertical-align:middle;
+            position:relative;
+            max-height:100%;
+            width:100%;
+            top:50%;
+            transform: translateY(-50%);
+            -webkit-transform: translateY(-50%);
+            -moz-transform: translateY(-50%);
+            -o-transform: translateY(-50%);
+            -ms-transform: translateY(-50%);
+        }
+
+        .nav-down {
+            position:absolute;
+            bottom:0;
+            width:100%;
+            height:60px;
+            text-align:center;
+            vertical-align:middle;
+            z-index:1000;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            -o-user-select: none;
+            user-select: none; 
+        }
+
+        .timer {
+            position:absolute;
+            top:30px;
+            right:30px;
+            vertical-align:middle;
+            z-index:1999;
+        }
+        .timer h1 {
+            display:inline-block;
+            margin:0;
+            margin-right:10px;
+        }
+        .timer button {
+            position:relative;
+            top:3px;
+            width:80px;
+        }
+
+        .question-indicator {
+            display:inline-block;
+            position:relative;
+            margin:0 10px;
+            top:5px;
+        }
+
+        .question-options .btn {
+            float:left;
+        }
+        .question-options span {
+            margin-left:45px;
+            line-height:20px;
+            display:block;
+            padding:7px 12px;
+            vertical-align:middle;
+        }
+
+        .btn-option {
+            width: 40px;
+        }
+
+        .btn-option .glyphicon {
+            line-height:20px;
+            top:-1px;
+            color:#ffffff;
+        }
+
+        .error-screen {
+            background-color: #FFFFFF;
+            position: absolute;
+            z-index: 10000;
+            height:100%;
+            width:100%;
+            top:0;
+            left:0;
+        }
+
+        .pause-screen {
+            background-color: #FFFFFF;
+            position: absolute;
+            z-index: 1998;
+            height:100%;
+            width:100%;
+            top:0;
+            left:0;
+        }
+
+        .finish-screen {
+            background-color: #FFFFFF;
+            position: absolute;
+            z-index: 1000;
+            height:100%;
+            width:100%;
+            top:0;
+            left:0;
+        }
+
+        .loading-screen {
+            background-color:#FFFFFF;
+            position:absolute;
+            z-index:2000;
+            height:100%;
+            width:100%;
+            top:0;
+            left:0;
+        }
+
+        .splash-screen {
+            background-color: #FFFFFF;
+            position:absolute;
+            width:100%;
+            height:100%;
+            z-index:1100;
+            top:0;
+            left:0;
+        }
+
+        .splash-screen .content {
+            display:block;
+            vertical-align:middle;
+            width:100%;
+            height:100%;
+            overflow-y:scroll;
+        }
+
+        .splash-screen .buttons {
+            position:absolute;
+            bottom:0;
+            width:100%;
+            left:0;
+            text-align:center;
+            padding:20px 0;
+            background-color:rgba(255,255,255,0.8);
+        }
+
+        .explanation {
+            padding: 70px 0;
+        }
+
+        @-webkit-keyframes throbber {
+            0% {
+                color: #333;
+            }
+            33% {
+                color: #ccc;
+            }
+            100% {
+                color: #ccc;
+            }
+        }
+
+        .throbber .icon-throb {
+            display: inline-block;
+            -webkit-animation: throbber 1s .08s infinite linear;
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        .throbber .icon-throb:nth-child(2) {
+            -webkit-animation-delay: .16s;
+        }
+
+        .throbber .icon-throb:nth-child(3) {
+            -webkit-animation-delay: .24s;
+        }
+
+        .question-unanswered {
+            display:inline-block;
+            margin:0;
+        }
+    </style>
+{% endblock head %}
+
+{% block before %}
+    <div class="timer">
+        <h1 class="pull-left">00:00</h1> <button class="btn btn-default pull-right">Pause</button>
+    </div>
+    <div class="nav-down">
+        <button class="btn btn-default btn-previous" type="button">Previous question</button>
+        <h3 class="question-indicator">Question <span class="current-question-number">1</span> of <span class="total-question-number">-</span></h3>
+        <button class="btn btn-default btn-next" type="button">Next question</button>
+        <button class="btn btn-default btn-finish" type="button">Start quiz</button>
+    </div>
+    <div class="loading-screen text-center">
+        <div class="centre-of-parent">
+            <div class="loading-message">
+                <h1>Loading...</h1>
+                <div class="throbber">
+                    <i class="glyphicon glyphicon-minus icon-throb"></i>
+                    <i class="glyphicon glyphicon-minus icon-throb"></i>
+                    <i class="glyphicon glyphicon-minus icon-throb"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="error-screen text-center">
+        <div class="centre-of-parent">
+            <div class="error-message">
+                <h1>Uh oh... something has gone wrong.</h1>
+                <p class="lead">Unfortunately, an unexpected error has occurred and the quiz is unable to continue.</p>
+                <p class="lead">The good news is that your progress for any questions you have answered has been saved!</p>
+                <p class="lead">If you would like to resume the quiz, take a look at your <a>quiz history page</a>. This quiz should appear at the top of the list if you are able to continue.</p>
+            </div>
+        </div>
+    </div>
+    <div class="finish-screen text-center">
+        <div class="centre-of-parent container">
+            <div class="finish-message">
+                <h1>Are you sure you want to finish?</h1>
+                <p class="lead">You still have <span class="questions-remaining-number">0</span> questions remaining.</p>
+                {% block finish_text %}{% endblock finish_text %}
+                <button type="button" class="btn btn-default btn-return">Go back</button>
+                <button type="button" class="btn btn-primary btn-finish">Finish</button>
+                <form class="hidden submission-form" action="{{ quiz_attempt_submission_url }}" method="post">
+                    {% csrf_token %}
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="pause-screen text-center">
+        <div class="centre-of-parent container">
+            <div class="pause-message">
+                <h1 class="loading">Paused</h1>
+            </div>
+        </div>
+    </div>
+{% for question in questions %}
+    <div class="explanation-screen splash-screen" data-question="{{ forloop.counter }}">
+        <div class="content">
+            <div class="container nosection centre-of-parent" style="padding-bottom:70px;">
+                <p class="lead explanation"></p>
+            </div>
+        </div>
+        <div class="buttons">
+            <button class="btn btn-default btn-close" type="button">Close</button>
+        </div>
+    </div>
+{% endfor %}
+{% endblock before %}
+
+{% block content %}
+    <div class="row section">
+        <div class="col-xs-12 start-screen text-center centre-of-parent">
+            <h1>Start quiz</h1>
+            {% block start_menu_text %}{% endblock start_menu_text %}
+            <p class="lead">Once you are ready, click the button below to begin.</p>
+        </div>
+    </div>
+{% for question in questions %}
+    <div class="row section">
+        <div class="col-xs-12 question-screen" data-question="{{ forloop.counter }}" >
+            <h1 style="display:inline-block;">Question {{ forloop.counter }}</h1>
+            <p class="lead text-danger question-unanswered no-margin">You did not answer this question.</p>
+            <form class="form-horizontal">
+                <div class="lead question-body"></div>
+                <div class="question-options"></div>
+                <br>
+                <div class="lead">
+                    How confident are you in your answer?
+                {% for value, text in confidence_choices %}
+                {% if forloop.first %}
+                    <div class="btn-group confidence-widget">
+                {% endif %}
+                        <button type="button" class="btn btn-default" data-confidence="{{ value }}">{{ text }}</button>
+                {% if forloop.last %}
+                    </div>
+                {% endif %}
+                {% endfor %}
+                </div>
+                <div class="buttons btn-group">
+                    <button class="btn btn-default btn-explanation" type="button">View explanation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endfor %}
+{% endblock content %}
+
+
+{% block javascript %}
+    <script src="{{ STATIC_URL }}medbank/jquery.cookie.js"></script>
+    <script src="{{ STATIC_URL }}medbank/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/csrf.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/globals.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/screen.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/timer.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/scroller.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/widget.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}questions/preset.js"></script>
+    {% block extra_javascript %}{% endblock extra_javascript %}
+{% endblock javascript %}

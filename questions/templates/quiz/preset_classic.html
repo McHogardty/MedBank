@@ -1,0 +1,14 @@
+{% extends "quiz/quiz_base.html" %}
+
+{% block extra_javascript %}
+    <script type="text/javascript">
+        $(document).ready(function () {
+            csrf.protect();
+            quiz = new Questions.ClassicQuiz({
+                all_questions_url: "{{ quiz_attempt_questions_url }}",
+                question_submission_url: "{{ quiz_attempt_question_submission_url }}",
+                finish_url: "{% url 'quiz-history' %}",
+            });
+        });
+    </script>
+{% endblock extra_javascript %}

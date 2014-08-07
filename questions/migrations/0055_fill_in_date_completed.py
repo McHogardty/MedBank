@@ -3,7 +3,6 @@ from south.utils import datetime_utils as datetime
 from south.db import db
 from south.v2 import DataMigration
 from django.db import models
-from django.contrib.contenttypes.management import update_contenttypes
 
 class Migration(DataMigration):
 
@@ -13,18 +12,17 @@ class Migration(DataMigration):
         # Use orm.ModelName to refer to models in this application,
         # and orm['appname.ModelName'] for models in other applications.
 
-        # Make sure contenttypes already exist
-        update_contenttypes(models.get_app("questions"), models.get_models())
-        reasons = orm.Reason.objects.all()
-        question_content_type = orm['contenttypes.ContentType'].objects.get(app_label="questions", model="question")
-
-        for reason in reasons:
-            reason.related_object_content_type = question_content_type
-            reason.related_object_id = reason.question
-            reason.save()
+        for question_attempt in orm.QuestionAttempt.objects.all():
+            if question_attempt.answer is not None:
+                question_attempt.date_completed = question_attempt.quiz_attempt.date_submitted
+                question_attempt.save()
 
     def backwards(self, orm):
         "Write your backwards methods here."
+
+        for question_attempt in orm.QuestionAttempt.objects.all():
+            question_attempt.date_completed = None
+            question_attempt.save()
 
     models = {
         u'auth.group': {
@@ -45,7 +43,7 @@ class Migration(DataMigration):
             'date_joined': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now'}),
             'email': ('django.db.models.fields.EmailField', [], {'max_length': '75', 'blank': 'True'}),
             'first_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
-            'groups': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['auth.Group']", 'symmetrical': 'False', 'blank': 'True'}),
+            'groups': ('django.db.models.fields.related.ManyToManyField', [], {'symmetrical': 'False', 'related_name': "u'user_set'", 'blank': 'True', 'to': u"orm['auth.Group']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'is_active': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'is_staff': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
@@ -53,7 +51,7 @@ class Migration(DataMigration):
             'last_login': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now'}),
             'last_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'password': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
-            'user_permissions': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['auth.Permission']", 'symmetrical': 'False', 'blank': 'True'}),
+            'user_permissions': ('django.db.models.fields.related.ManyToManyField', [], {'symmetrical': 'False', 'related_name': "u'user_set'", 'blank': 'True', 'to': u"orm['auth.Permission']"}),
             'username': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '30'})
         },
         u'contenttypes.contenttype': {
@@ -66,11 +64,10 @@ class Migration(DataMigration):
         u'questions.approvalrecord': {
             'Meta': {'object_name': 'ApprovalRecord'},
             'approver': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'approval_records'", 'to': u"orm['questions.Student']"}),
-            'date_assigned': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
+            'date_assigned': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'date_completed': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'question': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'approval_records'", 'to': u"orm['questions.Question']"}),
-            'reason': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '1', 'null': 'True', 'blank': 'True'})
         },
         u'questions.comment': {
@@ -85,23 +82,25 @@ class Migration(DataMigration):
         u'questions.question': {
             'Meta': {'object_name': 'Question'},
             'answer': ('django.db.models.fields.CharField', [], {'max_length': '1'}),
-            'approver': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'questions_approved'", 'null': 'True', 'to': u"orm['questions.Student']"}),
+            'approver': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'assigned_questions'", 'null': 'True', 'to': u"orm['questions.Student']"}),
             'body': ('django.db.models.fields.TextField', [], {}),
             'creator': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'questions_created'", 'to': u"orm['questions.Student']"}),
+            'date_assigned': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
+            'date_completed': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'date_created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
+            'exemplary_question': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'explanation': ('django.db.models.fields.TextField', [], {}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'options': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             'requires_special_formatting': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '1'}),
-            'suitable_for_faculty': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'suitable_for_quiz': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'teaching_activity_year': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'questions'", 'to': u"orm['questions.TeachingActivityYear']"})
         },
         u'questions.questionattempt': {
             'Meta': {'object_name': 'QuestionAttempt'},
             'answer': ('django.db.models.fields.CharField', [], {'max_length': '1', 'null': 'True', 'blank': 'True'}),
             'confidence_rating': ('django.db.models.fields.IntegerField', [], {'null': 'True', 'blank': 'True'}),
+            'date_completed': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'position': ('django.db.models.fields.PositiveIntegerField', [], {}),
             'question': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'attempts'", 'to': u"orm['questions.Question']"}),
@@ -133,6 +132,7 @@ class Migration(DataMigration):
         },
         u'questions.quizspecification': {
             'Meta': {'object_name': 'QuizSpecification'},
+            'active': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'description': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
@@ -145,7 +145,6 @@ class Migration(DataMigration):
             'creator': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'reasons'", 'to': u"orm['questions.Student']"}),
             'date_created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'question': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'reasons_edited'", 'to': u"orm['questions.Question']"}),
             'reason_type': ('django.db.models.fields.IntegerField', [], {}),
             'related_object_content_type': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['contenttypes.ContentType']", 'null': 'True', 'blank': 'True'}),
             'related_object_id': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'})
@@ -166,10 +165,11 @@ class Migration(DataMigration):
             'activity_type': ('django.db.models.fields.IntegerField', [], {}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            'reference_id': ('django.db.models.fields.IntegerField', [], {'unique': 'True', 'null': 'True', 'blank': 'True'})
+            'previous_activity': ('django.db.models.fields.related.OneToOneField', [], {'to': u"orm['questions.TeachingActivity']", 'unique': 'True', 'null': 'True', 'blank': 'True'}),
+            'reference_id': ('django.db.models.fields.IntegerField', [], {'unique': 'True'})
         },
         u'questions.teachingactivityyear': {
-            'Meta': {'object_name': 'TeachingActivityYear'},
+            'Meta': {'ordering': "('block_year', 'week', 'position')", 'object_name': 'TeachingActivityYear'},
             'block_year': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'activities'", 'to': u"orm['questions.TeachingBlockYear']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'position': ('django.db.models.fields.IntegerField', [], {}),
@@ -185,7 +185,7 @@ class Migration(DataMigration):
             'stage': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['questions.Stage']"})
         },
         u'questions.teachingblockyear': {
-            'Meta': {'unique_together': "(('year', 'block'),)", 'object_name': 'TeachingBlockYear'},
+            'Meta': {'ordering': "('year', 'block__code')", 'unique_together': "(('year', 'block'),)", 'object_name': 'TeachingBlockYear'},
             'activity_capacity': ('django.db.models.fields.IntegerField', [], {'default': '2'}),
             'block': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'years'", 'to': u"orm['questions.TeachingBlock']"}),
             'close': ('django.db.models.fields.DateField', [], {}),

@@ -8,11 +8,14 @@ var Questions = (function (questions_module, $) {
 
         options = $.extend({
             widget: null,
-            value_attr: "",
-            click_callback: null,
+            checked_button_class: "btn-success",
+            default_button_class: "btn-default",
+            value_attr: "data-option",
         }, options);
 
         this.buttons = function () { return options.widget.find(questions_module.globals.button_selector); };
+
+        this.post_click_action = function () {};
 
         this.click = function (e) {
             $clicked = $(this);
@@ -23,12 +26,12 @@ var Questions = (function (questions_module, $) {
                 self.current_choice = clicked_choice;
             }
 
-            options.widget.find("." + questions_module.globals.checked_button_class).each(function () {
+            options.widget.find("." + options.checked_button_class).each(function () {
                 if ($(this).attr(options.value_attr) === clicked_choice) { return; }
                 self.check($(this));
             });
             self.check($clicked);
-            if (options.click_callback) options.click_callback(self.current_choice, options.widget);
+            self.post_click_action();
             e.preventDefault();
         };
 
@@ -36,61 +39,29 @@ var Questions = (function (questions_module, $) {
 
         this.choice = function () { return self.current_choice; };
         this.chosen = function () { return self.current_choice !== null; };
-        this.check = function(button) { button.toggleClass(questions_module.globals.default_button_class + " " + questions_module.globals.checked_button_class); };
-        this.toggle_unsuccessful = function (button, force) {
-            if (force === undefined) force = true;
-            button.toggleClass(questions_module.globals.default_button_class, !force);
-            button.toggleClass(questions_module.globals.unsuccessful_button_class, force);
-        };
-
-        this.setup = function (options_info, answer) {
-            $.each(options_info.labels, function (i, label) {
-                $outer_div = $('<div></div>').addClass("form-group");
-                $inner_div = $('<div></div>').addClass("col-xs-offset-1");
-                $button = $('<button></button>').attr("type", "button").addClass("btn btn-default btn-option").attr("data-option", label).html(label);
-                $button.click(self.click);
-                $span = $('<span></span>').html(options_info[label]).attr("style", "margin-left:45px;line-height:20px;display:block;padding:7px 12px;vertical-align:middle;");
-                options.widget.append($outer_div.append($inner_div.append($button).append($span)));
-            });
-
-            self.answer = answer || null;
-        };
+        this.check = function(button) { button.toggleClass(options.default_button_class + " " + options.checked_button_class); };
 
         this.disable = function () {
             options.widget.find(questions_module.globals.button_selector)
                 .addClass('btn-no-hover')
-                .off('click');
+                .off('click', self.click);
         };
 
-        this.add_icon = function ($button, glyphicon_class) {
-            $icon = $("<i></i>").addClass("glyphicon pull-right").addClass(glyphicon_class).addClass("blur");
-            $button.html($icon);
-            $icon = $button.find(".glyphicon");
-            $icon.addClass(questions_module.globals.transition_setup_class);
-            $icon.removeClass(questions_module.globals.transition_class);
-            setTimeout(function () {
-                $icon.removeClass(questions_module.globals.transition_setup_class);
-            }, 600);
-        };
-
-        this.mark = function (answer) {
-            self.answer = answer;
-            self.buttons().addClass(questions_module.globals.transition_setup_class);
-            $answer_button = options.widget.find('[' + options.value_attr + '="' + self.answer + '"]');
-            if (self.current_choice !== self.answer) {
-                options.widget.find('[' + options.value_attr + '="' + self.current_choice + '"]').each(function () {
-                    self.check($(this));
-                    self.toggle_unsuccessful($(this));
-                    self.add_icon($(this), "glyphicon-remove");
-                });
-                self.check($answer_button);
+        this.set_choice = function (choice) {
+            if (!choice) return;
+            if (typeof choice === "number" || choice instanceof Number) {
+                choice = choice.toString();
             }
-
-            self.add_icon($answer_button, "glyphicon-ok");
-            this.disable();
+            options.widget.find("." + options.checked_button_class).each(function () {
+                if ($(this).attr(options.value_attr) === choice) return;
+                self.check($(this));
+            });
+            options.widget.find(".btn").each(function () {
+                if ($(this).attr(options.value_attr) !== choice || $(this).hasClass(options.checked_button_class)) return;
+                self.check($(this));
+            });
+            self.current_choice = choice;
         };
-
-        this.is_correct = function () { return self.current_choice === self.answer; };
     };
 
     return questions_module;

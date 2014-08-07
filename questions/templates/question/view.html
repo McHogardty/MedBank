@@ -11,9 +11,6 @@
     <h3>Admin</h3>    
     <a class="action" href="{{ question.get_approval_url }}">View approval mode</a>
     <a class="action" href="{{ question.get_approval_history_url }}">View approval history</a>
-{% if user.is_superuser %}
-    <a class="action" href="{{ question.get_add_to_specification_url }}">Add to specification</a>
-{% endif %}    
 {% endif %}
 {% endblock actions %}
 

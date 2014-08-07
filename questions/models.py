@@ -62,6 +62,9 @@ class Stage(models.Model):
 
     number = models.IntegerField()
 
+    class Meta:
+        ordering = ('number',)
+
     def __unicode__(self):
         return u"Stage %s" % (self.number, )
 
@@ -162,7 +165,7 @@ class Student(models.Model, ObjectCacheMixin):
 
 @receiver(models.signals.post_save, sender=User)
 def user_created(sender, **kwargs):
-    if kwargs['created']:
+    if kwargs['created'] and not kwargs['raw']:
         s = Student()
         s.user = kwargs['instance']
         s.save()
@@ -192,7 +195,7 @@ class TeachingBlock(models.Model):
     def is_viewable_by(self, student):
         if student.user.is_superuser: return True
 
-        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage).exists():
+        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage.id).exists():
             return True
 
         block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
@@ -213,7 +216,7 @@ class TeachingBlock(models.Model):
     def approved_questions_are_viewable_by(self, student):
         if student.user.is_superuser: return True
 
-        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage).exists():
+        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage.id).exists():
             return True
 
         block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
@@ -221,6 +224,7 @@ class TeachingBlock(models.Model):
             return True
 
         return False
+
 
 class TeachingBlockYearManager(models.Manager):
     def get_all_blocks_for_stages(self, stages):
@@ -1096,7 +1100,7 @@ class Question(models.Model):
 
         setattr(self.__class__, k.split("_")[0].lower(), property(check_status_function))
 
-    def json_repr(self, include_answer = False):
+    def json_repr(self, include_answer=False):
         options = self.options_dict()
         label = options.keys()
         label.sort()
@@ -1104,7 +1108,11 @@ class Question(models.Model):
         json_repr = {'id': self.id, 'body': self.body, 'options': options}
         if include_answer:
             json_repr['answer'] = self.answer
-            json_repr['explanation'] = self.explanation_dict() or self.explanation
+            explanation = self.explanation_dict()
+            labels = explanation.keys()
+            labels.sort()
+            explanation['labels'] = labels
+            json_repr['explanation'] = explanation
             json_repr['url'] = self.get_absolute_url()
 
         return json_repr
@@ -1146,10 +1154,18 @@ class Question(models.Model):
                 explanation_dict[letter] = option["explanation"]
             return explanation_dict
         else:
-            if "{" not in self.explanation:
-                return {}
             explanation_dict = SortedDict()
-            explanation = json.loads(self.explanation)
+            # print "Generating explanation"
+            if "{" in self.explanation:
+                explanation = json.loads(self.explanation)
+            else:
+                explanation = self.options_dict()
+                for option, label in explanation.items():
+                    if option == self.answer:
+                        explanation[option] = self.explanation
+                    else:
+                        explanation[option] = ""
+                print explanation
             keys = explanation.keys()
             keys.sort()
             for key in keys:
@@ -1310,6 +1326,11 @@ class ApprovalRecord(models.Model):
         return self.date_assigned and (not self.date_completed or self.date_assigned < self.date_completed)
 
 
+class QuizSpecificationManager(models.Manager):
+    def get_from_kwargs(self, **kwargs):
+        return self.get_query_set().get(slug=kwargs['slug'])
+
+
 class QuizSpecification(models.Model):
     name = models.CharField(max_length=100)
     stage = models.ForeignKey(Stage)
@@ -1318,8 +1339,25 @@ class QuizSpecification(models.Model):
     slug = models.SlugField(max_length=36)
     active = models.BooleanField(default=False)
 
+    objects = QuizSpecificationManager()
+
     def __unicode__(self):
         return "%s (%s)" % (self.name, self.stage)
+
+    def get_url_kwargs(self):
+        return {'slug': self.slug, }
+
+    def get_absolute_url(self):
+        return reverse('quiz-specification-view', kwargs=self.get_url_kwargs())
+
+    def get_edit_url(self):
+        return reverse("quiz-specification-edit", kwargs=self.get_url_kwargs())
+
+    def get_add_questions_url(self):
+        return reverse('quiz-specification-questions-add', kwargs=self.get_url_kwargs())
+
+    def get_add_questions_confirmation_url(self):
+        return reverse('quiz-specification-questions-add-confirm', kwargs=self.get_url_kwargs())
 
     def generate_slug(self):
         return hex_to_base_26(hashlib.sha1("%s%s" % (self.name, self.description)).hexdigest())
@@ -1448,7 +1486,7 @@ class QuizQuestionSpecification(models.Model):
         return instance
 
     @classmethod
-    def form_list_of_questions(cls, question_list):
+    def from_list_of_questions(cls, question_list):
         instance = cls.from_parameters(question_list=[question.id for question in question_list])
         instance.specification_type = cls.QUESTION_LIST
         return instance
@@ -1470,19 +1508,65 @@ class QuizQuestionSpecification(models.Model):
         return questions_to_return.select_related("teaching_activity_year")
 
 
+class QuizAttemptManager(models.Manager):
+    def get_from_kwargs(self, **kwargs):
+        return self.get_query_set().get(slug=kwargs['slug'])
+
+    def get_latest_quiz_attempt_for_student(self, student):
+        return self.get_quiz_attempts_for_student(student).latest("date_submitted")
+
+    def get_quiz_attempts_for_student(self, student):
+        return self.get_query_set().filter(student=student).prefetch_related("questions")
+
+
 class QuizAttempt(models.Model):
+    INDIVIDUAL_QUIZ_TYPE = "individual"
+    CLASSIC_QUIZ_TYPE = "classic"
+    QUIZ_TYPE_CHOICES = (
+        (INDIVIDUAL_QUIZ_TYPE, "After each question"),
+        (CLASSIC_QUIZ_TYPE, "At the end"),
+    )
     student = models.ForeignKey(Student, related_name="quiz_attempts")
     date_submitted = models.DateTimeField(auto_now_add=True)
     quiz_specification = models.ForeignKey(QuizSpecification, related_name="attempts", blank=True, null=True)
     slug = models.SlugField(max_length=36)
+    quiz_type = models.CharField(choices=QUIZ_TYPE_CHOICES, max_length=20)
+
+    objects = QuizAttemptManager()
 
     def __unicode__(self):
         return u"Quiz attempt for %s" % self.student
 
+    def get_url_kwargs(self):
+        return {'slug': self.slug}
+
+    def get_questions_url(self):
+        return reverse("quiz-attempt-questions", kwargs=self.get_url_kwargs())
+
+    def get_answer_submission_url(self):
+        return reverse("quiz-attempt-submit", kwargs=self.get_url_kwargs())
+
+    def get_submission_url(self):
+        return reverse("quiz-attempt-submit-all", kwargs=self.get_url_kwargs())
+
+    def get_report_url(self):
+        return reverse("quiz-attempt-report", kwargs=self.get_url_kwargs())
+
+    def get_start_url(self, quiz_type):
+        return reverse("quiz-attempt-start", kwargs=self.get_url_kwargs())
+
+    def get_resume_url(self):
+        return reverse("quiz-attempt-resume", kwargs=self.get_url_kwargs())
+
+    def is_viewable_by(self, student):
+        return student.user.is_superuser or student == self.student
+
     @classmethod
-    def create_from_list_and_student(cls, question_list, student):
+    def create_from_list_and_student(cls, question_list, student, quiz_type="", quiz_specification=None):
         instance = cls()
         instance.student = student
+        instance.quiz_type = quiz_type
+        if quiz_specification: instance.quiz_specification = quiz_specification
         instance.save()
 
         if len(question_list) != len(set(question_list)):
@@ -1492,7 +1576,7 @@ class QuizAttempt(models.Model):
             attempt = QuestionAttempt()
             attempt.quiz_attempt = instance
             attempt.question = question
-            attempt.position = n
+            attempt.position = n+1
             attempt.save()
 
         return instance
@@ -1510,6 +1594,9 @@ class QuizAttempt(models.Model):
 
         return q
 
+    def get_question_attempt_by_question(self, questionID):
+        return self.questions.get(question__id=questionID)
+
     def generate_slug(self):
         spec = self.quiz_specification.id if self.quiz_specification else ""
         date_string = datetime.datetime.now().strftime("%Y%m%d %H%M")
@@ -1517,17 +1604,31 @@ class QuizAttempt(models.Model):
         to_hash = "%s%s%s%s" % (self.student.user.username, date_string, spec, rand_string)
         return hex_to_base_26(hashlib.sha1(to_hash).hexdigest())
 
+    def date_completed(self):
+        if self.incomplete_questions().exists(): return None
+        return self.questions.aggregate(models.Max('date_completed'))['date_completed__max']
+    date_completed = property(date_completed)
+
+    def incomplete_questions(self):
+        return self.questions.filter(date_completed__isnull=True)
+
     def questions_in_order(self):
         return self.questions.order_by('position')
+
+    def incomplete_questions_in_order(self):
+        return self.incomplete_questions().order_by("position")
 
     def score(self):
         return self.questions.filter(answer=models.F("question__answer")).count()
 
+    def number_of_questions_completed(self):
+        return self.questions.filter(date_completed__isnull=False).count()
+
+    def number_of_questions_incomplete(self):
+        return self.incomplete_questions().count()
+
     def complete(self):
-        if self.quiz_specification:
-            return self.questions.count() == self.quiz_specification.number_of_questions()
-        else:
-            return self.questions.exclude(answer__isnull=True).exists()
+        return not self.incomplete_questions().exists()
     complete = property(complete)
 
     def complete_questions_in_order(self):
@@ -1555,7 +1656,13 @@ class QuizAttempt(models.Model):
 @receiver(models.signals.pre_save, sender=QuizSpecification)
 @receiver(models.signals.pre_save, sender=QuizAttempt)
 def generate_quiz_slug(sender, instance, **args):
-    instance.slug = instance.generate_slug()
+    if not args["raw"]:
+        instance.slug = instance.generate_slug()
+
+
+class QuestionAttemptManager(models.Manager):
+    def get_question_attempts_for_student(self, student):
+        return self.get_query_set().filter(quiz_attempt__student=student).select_related('quiz_attempt', 'question')
 
 
 class QuestionAttempt(models.Model):
@@ -1602,6 +1709,9 @@ class QuestionAttempt(models.Model):
     answer = models.CharField(max_length=1, blank=True, null=True)
     time_taken = models.PositiveIntegerField(blank=True, null=True)
     confidence_rating = models.IntegerField(choices=CONFIDENCE_CHOICES, blank=True, null=True)
+    date_completed = models.DateTimeField(blank=True, null=True)
+
+    objects = QuestionAttemptManager()
 
     def incorrect_answer(self):
         if self.answer and not self.answer == self.question.answer:
@@ -1609,8 +1719,14 @@ class QuestionAttempt(models.Model):
 
         return {}
 
+    def student_choice(self):
+        if self.answer:
+            return {'option': self.answer, 'value': self.question.option_value(self.answer), 'explanation': self.question.explanation_dict()[self.answer]}
+
+        return {}
+
     def correct_answer(self):
-        return {'option': self.question.answer, 'value': self.question.option_value(self.question.answer)}
+        return {'option': self.question.answer, 'value': self.question.option_value(self.question.answer), 'explanation': self.question.explanation_dict()[self.question.answer]}
 
     def score(self):
         return int(self.answer == self.question.answer)

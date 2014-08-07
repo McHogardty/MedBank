@@ -1,0 +1,23 @@
+{% extends "quiz/quiz_base.html" %}
+{% load custom_filters %}
+
+{% block start_menu_text %}
+	<p class="lead">After each question is completed, you will be able to see the answer straight away. Your progress will be saved as you progress through the quiz.</p>
+{% endblock start_menu_text %}
+
+{% block finish_text %}
+    <p class="lead">You'll be able to resume from this point if you finish now.</p>
+{% endblock finish_text %}
+
+{% block extra_javascript %}
+	<script type="text/javascript">
+        $(document).ready(function () {
+            csrf.protect();
+            quiz = new Questions.PresetQuiz({
+                all_questions_url: "{{ quiz_attempt_questions_url }}",
+                question_submission_url: "{{ quiz_attempt_question_submission_url }}",
+                finish_url: "{% url 'quiz-history' %}",
+            });
+        });
+    </script>
+{% endblock extra_javascript %}

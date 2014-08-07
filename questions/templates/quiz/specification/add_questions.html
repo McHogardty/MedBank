@@ -4,15 +4,7 @@
 	<h1>Add a question to a quiz specification</h1>
 	<p>Use this page to add questions to the quiz "{{ specification.name }}" ({{ specification.stage}}).</p>
 	<p>Type in a question ID below and click add. You will be able to add multiple questions before saving the specification.</p>
-	<form class="form-horizontal" method="post" role="form">
-        {% csrf_token %}
-        {{ form.as_bootstrap }}
-        <div class="form-group">
-            <div class="col-md-offset-2 col-md-6">
-                <button type="submit" class="btn btn-primary">Add</button>
-            </div>
-        </div>
-	</form>
+	{% include "includes/form.html" %}
 	{% if questions %}
 	<h2>Questions to add</h2>
 	{% for question in questions %}
@@ -33,10 +25,10 @@
 			</table>
 		{% endif %}
 	{% endfor %}
-	<form class="form-horizontal" method="post" role="form" action="{% url "quiz-spec-question-confirm" slug=specification.slug %}">
+	<form class="form-horizontal" method="post" role="form" action="{{ specification.get_add_questions_confirmation_url }}">
 		{% csrf_token %}
 		{% for question in questions %}
-			<input type="hidden" name="question_id" value="{{question.id}}" />
+			<input type="hidden" name="question_id" value="{{ question.id }}" />
 		{% endfor %}
         <div class="form-group">
             <div class="col-md-12">

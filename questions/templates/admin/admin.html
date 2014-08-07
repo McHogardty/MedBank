@@ -3,7 +3,7 @@
 {% block actions %}
     <h3>Page actions</h3>    
     <a class="action" href="{% url 'block-new' %}">Add a new block</a>
-    <a class="action" href="{% url 'quiz-spec-new' %}">Add quiz specification</a>
+    <a class="action" href="{% url 'quiz-specification-new' %}">Add quiz specification</a>
     <a class="action" href="{% url 'admin-settings-create' %}">Create missing settings</a>
 {% endblock actions %}
 
@@ -63,9 +63,9 @@
         </tr>
     {% endif %}
     <tr>
-        <td>{{ qs.name }} ({% include "admin/display_specification_status.html" with specification=qs %})</td>
+        <td>{{ qs.name }} ({% include "quiz/specification/display_specification_status.html" with specification=qs %})</td>
         <td>{{ qs.stage }}</td>
-        <td><span class="actions"><a class="action" href="{% url 'quiz-spec-view' slug=qs.slug %}">View</a><a class="action" href="{% url 'quiz-spec-edit' slug=qs.slug %}">Edit</a></span></td>
+        <td><span class="actions"><a class="action" href="{{ qs.get_absolute_url }}">View</a><a class="action" href="{{ qs.get_edit_url }}">Edit</a></span></td>
     </tr>
     {% if forloop.last %}
     </table>

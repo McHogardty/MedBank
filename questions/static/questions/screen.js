@@ -37,6 +37,11 @@ var Questions = (function (questions_module, $) {
             });
             $.each(options.to_fade_out, function (i, selector) { $(selector).fadeIn(0); });
         };
+
+        this.show_immediately = function () {
+            $.each(options.to_show, function (i, selector) { $(selector).fadeIn(0); });
+            $.each(options.to_hide, function (i, selector) { $(selector).fadeOut(0); });
+        };
     };
 
     return questions_module;

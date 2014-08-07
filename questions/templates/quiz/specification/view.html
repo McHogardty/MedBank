@@ -2,13 +2,6 @@
 
 {% block head %}
 	<style type="text/css">
-/*	td.question a, th.body {
-		width:450px;
-		display:block;
-		white-space:nowrap;
-		text-overflow: ellipsis;
-		overflow: hidden;
-	}*/
 	td.stage, th.stage {
 		width:70px;
 	}
@@ -16,11 +9,11 @@
 {% endblock head %}
 
 {% block content %}
-	<h1>{{ object.stage }}: {{ object.name }} ({% include "admin/display_specification_status.html" %})</h1>
-	<p>{{ object.description }}</p>
-	<h2>Questions <small><a href="{% url "quiz-spec-question-add" slug=object.slug %}">Add Questions</a></small></h2>
+	<h1>{{ specification.stage }}: {{ specification.name }} ({% include "quiz/specification/display_status.html" %}) <small><a href="{{ specification.get_edit_url }}">Edit</a></small></h1>
+	<p>{{ specification.description }}</p>
+	<h2>Questions <small><a href="{{ specification.get_add_questions_url }}">Add Questions</a></small></h2>
 
-	{% for question in object.get_questions_in_order %}
+	{% for question in specification.get_questions_in_order %}
 	{% if forloop.first %}
 	<table class="table">
 		<tr>

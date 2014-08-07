@@ -6,7 +6,7 @@ from django.db import models
 
 from medbank import bsforms
 from medbank.forms import SettingEditForm
-from .models import Question, TeachingActivity, TeachingBlock, TeachingBlockYear, Student, Comment, TeachingActivityYear, QuizSpecification, Reason
+from .models import *
 
 import string
 import json
@@ -285,7 +285,7 @@ class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
 
 
 class NewQuizSpecificationForm(bsforms.NewBootstrapModelForm):
-    active = forms.BooleanField(widget=bsforms.CheckboxInput())
+    active = forms.BooleanField(widget=bsforms.CheckboxInput(), required=False)
     class Meta:
         model = QuizSpecification
         exclude = ('slug', )
@@ -354,15 +354,12 @@ class QuestionForm(bsforms.NewBootstrapForm):
 class ConfirmQuestionSelectionForm(bsforms.NewBootstrapForm):
     question_id = forms.ModelMultipleChoiceField(queryset=Question.objects.all())
 
+class QuizTypeSelectionForm(bsforms.NewBootstrapForm):
+    quiz_type = forms.ChoiceField(choices=QuizAttempt.QUIZ_TYPE_CHOICES, widget=bsforms.ButtonGroupWithToggle)
+
+
 class CustomQuizSpecificationForm(bsforms.NewBootstrapForm):
     form_widget_width=2
-
-    QUIZ_TYPE_CHOICES = (
-        ("individual", "individual"),
-        ("classic", "classic"),
-    )
-
-    quiz_type = forms.ChoiceField(choices=QUIZ_TYPE_CHOICES, widget=forms.HiddenInput())
 
     def __init__(self, *args, **kwargs):
         blocks = kwargs.pop("blocks", None)
@@ -376,16 +373,13 @@ class CustomQuizSpecificationForm(bsforms.NewBootstrapForm):
         c = self.cleaned_data
 
         # If none of the blocks have any cleaned data, the form is not valid.
-        if all(not c[block] for block in self.block_fields if block in c):
-            raise forms.ValidationError("At least one of the blocks must be filled in.")
+        if all(block in c for block in self.block_fields) and all(not c[block] for block in self.block_fields):
+            raise forms.ValidationError("Please enter a number of questions for at least one block.")
 
         return c
 
 
 class PresetQuizSpecificationForm(bsforms.NewBootstrapForm):
-    QUIZ_TYPE_CHOICES = CustomQuizSpecificationForm.QUIZ_TYPE_CHOICES
-
-    quiz_type = forms.ChoiceField(choices=QUIZ_TYPE_CHOICES, widget=forms.HiddenInput())
     quiz_specification = forms.ModelChoiceField(queryset=QuizSpecification.objects.all(), to_field_name="slug", widget=forms.HiddenInput())
 
 

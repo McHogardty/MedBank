@@ -1,0 +1,16 @@
+<h3>
+{% if collapse_mode %}
+	<a class="collapse-trigger" data-quiz="{{ specification.slug }}">
+{% endif %}
+	{{ specification.name }}
+{% if collapse_mode %}
+	</a>	
+{% endif %}
+</h3>
+{% if specification.description %}
+	<p>{{ specification.description }}</p>
+{% endif %}
+<div class="collapse{% if form.was_checked %} in{% endif %}" data-quiz="{{ specification.slug }}">
+	<input type="hidden" name="quiz_specification" value="{{ specification.slug }}" />
+	{% include "quiz/display_quiz_selection_form.html" with selection_form=form %}
+</div>

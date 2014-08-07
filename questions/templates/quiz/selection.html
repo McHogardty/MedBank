@@ -1,0 +1,48 @@
+{% extends "newbase.html" %}
+
+{% block head %}
+<style type="text/css">
+    @media (min-width:992px) {
+		.md-text-right {
+			text-align: right;
+		}
+	}
+</style>
+{% endblock head %}
+
+{% block content %}
+
+{% include "quiz/display_custom_quiz_selection.html" with collapse_mode=True %}
+
+{% regroup specifications by stage as by_stage %}
+
+{% for stage in by_stage %}
+	<h2>{{ stage.grouper }}</h2>
+	{% for spec in stage.list %}
+	{% include "quiz/display_preset_quiz_selection.html" with form=spec.selection_form specification=spec collapse_mode=True %}
+	{% endfor %}
+{% empty %}
+<p>Unfortunately, no preset quizzes have been added to MedBank yet. Please check back later.</p>
+{% endfor %}
+{% endblock content %}
+
+{% block javascript %}
+	<script type="text/javascript">
+		var quiz_attribute = "data-quiz";
+
+		function get_quiz_attribute_value(element) {
+			return element.attr(quiz_attribute);
+		}
+
+		function build_quiz_attribute_filter(trigger) {
+			value = get_quiz_attribute_value(trigger);
+
+			return "[" + quiz_attribute + '="' + value + '"]';
+		}
+		$(document).ready(function () {
+			$(".collapse-trigger").click(function () {
+				$(".collapse" + build_quiz_attribute_filter($(this))).collapse("toggle");
+			})
+		})
+	</script>
+{% endblock javascript %}

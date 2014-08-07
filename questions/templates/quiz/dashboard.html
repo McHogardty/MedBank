@@ -1,0 +1,40 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Quiz home <small><a href="{% url 'quiz-admin' %}">Go to admin</a></small></h1>
+	<div class="row">
+		<div class="col-sm-12">
+			<div class="dashboard">
+				<h2>Looking to test yourself?</h2>
+				<p class="lead">You can choose a preset quiz or create one yourself!</p>
+				<a class="action" href="{% url "quiz-choose" %}">Choose a quiz</a>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-sm-6">
+			<div class="dashboard">
+				{% if latest_quiz_attempt %}
+					<h1>{{ average_score|floatformat }}%</h1>
+					<p class="lead">scored on average</p>
+					<a class="action" href="{% url 'quiz-history' %}">View quiz history</a>					
+				{% else %}
+					<h1>-</h1>
+					<p class="lead">scored on average</p>
+				{% endif %}
+			</div>
+		</div>
+		<div class="col-sm-6">
+			<div class="dashboard">
+				{% if latest_quiz_attempt %}
+					<h1>{{ latest_quiz_attempt.score }}</h1>
+					<p class="lead">scored on your last quiz</p>
+					<a class="action" href="{{ latest_quiz_attempt.get_report_url }}">View results</a>
+				{% else %}
+					<h1>-</h1>
+					<p class="lead">scored on your last quiz</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+{% endblock content %}
