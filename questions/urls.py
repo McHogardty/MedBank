@@ -8,11 +8,11 @@ from .views import block, activity, question, admin, approval, general, quiz
 
 # from queue import base
 
-specific_block_urls = patterns("",
+teaching_block_year_urls = patterns("",
     url(r'^edit/$', block.EditBlock.as_view(), name='block-edit'),
     url(r'^activity/all/$', block.BlockActivitiesView.as_view(), name='block-activities'),
     url(r'^release/$', block.ReleaseBlockView.as_view(), name='block-release'),
-    url(r'^download/(?P<mode>(question|answer))/$', block.DownloadView.as_view(), name="block-download"),
+    url(r'^download/$', block.DownloadView.as_view(), name="block-download"),
     url(r'^admin/$', admin.BlockAdminView.as_view(), name='block-admin'),
     url(r'^admin/approval/statistics/$', admin.ApprovalStatisticsView.as_view(), name='block-approval-statistics'),
     url(r'^admin/upload/confirm/$', block.ConfirmUploadForTeachingBlock.as_view(), name='block-activity-upload-confirm'),
@@ -20,12 +20,17 @@ specific_block_urls = patterns("",
     url(r'^admin/upload/start/$', block.StartUploadForTeachingBlock.as_view(), name='block-activity-upload'),
 )
 
+specific_block_urls = patterns("",
+    # url(r'^download/$', block.DownloadView.as_view(), name="block-download"),
+    url(r'^(?P<year>\d{4})/', include(teaching_block_year_urls)),
+)
+
 block_urls = patterns("",
     url(r'^$', block.AllBlocksView.as_view(), name='block-list'),
     url(r'^open/$', block.OpenBlocksView.as_view(), name='block-open-list'),
     url(r'^released/$', block.ReleasedBlocksView.as_view(), name="block-released-list"),
     url(r'^new/$', block.NewBlock.as_view(), name='block-new'),
-    url(r'^(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/', include(specific_block_urls)),
+    url(r'^(?P<code>[a-z\d]{1,10})/', include(specific_block_urls)),
 )
 
 admin_urls = patterns("",

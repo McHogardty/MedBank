@@ -4,10 +4,11 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.core.urlresolvers import reverse
 from django.conf import settings
+from django.core.mail import EmailMessage, send_mass_mail, get_connection, EmailMultiAlternatives
 
 from .base import class_view_decorator, user_is_superuser
 
-from questions import models, forms, tasks
+from questions import models, forms
 
 import datetime
 
@@ -109,9 +110,8 @@ class EmailView(FormView):
         i = super(EmailView,self).get_initial()
         i.update({ 'block': self.tb, 'from_address': settings.EMAIL_FROM_ADDRESS, })
         if 'document' in self.request.GET:
-            i.update({'email' : '<p><a href="%s">Click here</a> to access the questions document.</p>\n<p><a href="%s">Click here</a> to access the document with answers.</p>' % (
-                self.request.build_absolute_uri(self.tb.get_question_document_download_url()),
-                self.request.build_absolute_uri(self.tb.get_answer_document_download_url()),
+            i.update({'email' : '<p><a href="%s">Click here</a> to view the block on MedBank.</p>' % (
+                self.request.build_absolute_uri(self.tb.get_activity_display_url()),
             )})
         return i
 
@@ -132,15 +132,16 @@ class EmailView(FormView):
         for tag in tags:
             c['email'] = c['email'].replace(tag, tags[tag])
 
-        t = tasks.HTMLEmailTask(
-            "[MedBank] %s" % c['subject'],
-            '<html><body style="font-family:%s,Helvetica,Arial,sans-serif;font-size:14px;">%s</body></html>' % ("'Helvetica Neue'", c['email']),
-            recipients
-        )
+        subject = "[MedBank] %s" % c['subject']
+        body = '<html><body style="font-family:%s,Helvetica,Arial,sans-serif;font-size:14px;">%s</body></html>' % ("'Helvetica Neue'", c['email'])
+        from_email = "SUMS MedBank <medbank@sydneymedsoc.org.au>"
+        c = get_connection(fail_silently=False)
 
-        #queue.add_task(t)
-        t.run()
+        email_messages = tuple(EmailMessage(subject, body, from_email, [r, ]) for r in recipients)
+        for m in email_messages:
+            m.content_subtype = 'html'
+        c.send_messages(email_messages)
+
         messages.success(self.request, "Your email has been successfully queued to be sent.")
-
         return redirect('admin')
 

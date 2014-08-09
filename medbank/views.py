@@ -13,11 +13,10 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.decorators import method_decorator
+from django.core.mail import send_mail
 
 
 import forms
-import queue
-from questions import tasks
 from questions import models
 
 
@@ -134,10 +133,10 @@ class ResetPasswordRequest(FormView):
         }
 
         body = loader.render_to_string('password/email.html', c)
+        recipient = self.user.email
 
-        from .tasks import ChangePasswordEmailTask
-        t = ChangePasswordEmailTask(body, self.user.email)
-        queue.add_task(t)
+        send_mail('Account change request - SUMS MedBank', body, "SUMS MedBank <medbank@sydneymedsoc.org.au>", [recipient, ])
+
 
     def form_valid(self, form):
         self.user = form.cleaned_data['user']
@@ -152,12 +151,12 @@ class FeedbackView(FormView):
 
     def form_valid(self, form):
         c = form.cleaned_data
-        t = tasks.EmailTask(
-            "[MedBank] Feedback received from %s" % self.request.user.username,
-            c['feedback'],
-            ['medbank@sydneymedsoc.org.au',],
-        )
 
-        queue.add_task(t)
+        subject = "[MedBank] Feedback received from %s" % self.request.user.username
+        recipient = ['medbank@sydneymedsoc.org.au',]
+        from_email = "SUMS MedBank <medbank@sydneymedsoc.org.au>"
+        body = c['feedback']
+
+        send_mail(subject, body, from_email, recipient)
         messages.success(self.request, "Your email has been sent successfully.")
         return redirect('medbank.views.home')

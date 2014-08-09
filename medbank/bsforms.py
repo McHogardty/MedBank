@@ -3,7 +3,7 @@ from django_localflavor_au import forms as auforms
 from django.utils.encoding import force_unicode
 from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
-
+from django.utils.datastructures import MultiValueDict, MergeDict
 from django.forms.util import flatatt
 from django.utils.html import format_html, format_html_join
 from django.utils.encoding import force_text
@@ -189,6 +189,7 @@ class NewBootstrapFormMixin(object):
     total_form_width = 8
     # The width of the form widgets in bootstrap column units. Cannot exceed total_form_width
     form_widget_width = 6
+    form_label_width = 2
     def __init__(self, *args, **kwargs):
         super(NewBootstrapFormMixin, self).__init__(*args, **kwargs)
         self.error_class = NewErrorList
@@ -205,8 +206,8 @@ class NewBootstrapFormMixin(object):
             raise ValueError("The form widget width should be less than the total form width.")
         if self.total_form_width > 12:
             raise ValueError("The form width cannot be larger than 12.")
-        field_size = self.total_form_width - self.form_widget_width
-        return BoundField(self, field, name, widget_size=self.form_widget_width, label_size=field_size)
+        self.form_label_width = self.total_form_width - self.form_widget_width
+        return BoundField(self, field, name, widget_size=self.form_widget_width, label_size=self.form_label_width)
 
     def _html_output(self, normal_row, error_row, row_ender, help_text_html, errors_on_separate_row):
         "Helper function for outputting HTML. Used by as_table(), as_ul(), as_p()."
@@ -396,13 +397,33 @@ class RadioInputLikeButton(forms.widgets.RadioInput):
         label_classes = ["btn", "btn-default"]
         if self.is_checked(): label_classes.append("active")
 
-        label_class = " ".join(label_classes)
+        label_class = u" ".join(label_classes)
         return format_html(u'<label{0}>{1} {2}</label>', flatatt({'class': label_class}), self.tag(), choice_label)
 
 
-class ButtonGroupWithToggleRenderer(forms.widgets.RadioFieldRenderer):
+class CheckboxInputAsButton(forms.widgets.RadioInput):
+    def tag(self):
+        if 'id' in self.attrs:
+            self.attrs['id'] = u'%s_%s' % (self.attrs['id'], self.index)
+        final_attrs = dict(self.attrs, type=u'checkbox', name=self.name, value=self.choice_value)
+        if self.is_checked():
+            final_attrs['checked'] = u'checked'
+        return format_html(u'<input{0} />', flatatt(final_attrs))
+
+    def render(self, name=None, value=None, attrs=None, choices=()):
+        choice_label = force_text(self.choice_label)
+
+        label_classes = ["btn", "btn-default"]
+        if self.is_checked(): label_classes.append("active")
+
+        label_class = u" ".join(label_classes)
+        return format_html(u'<label{0}>{1} {2}</label>', flatatt({'class': label_class}), self.tag(), choice_label)
+
+class BaseButtonGroupRenderer(forms.widgets.RadioFieldRenderer):
+    vertical = False
+
     def get_input(self, choice, index):
-        return RadioInputLikeButton(self.name, self.value, self.attrs.copy(), choice, index)
+        pass
 
     def __iter__(self):
         for i, choice in enumerate(self.choices):
@@ -413,9 +434,48 @@ class ButtonGroupWithToggleRenderer(forms.widgets.RadioFieldRenderer):
         return self.get_input(choice, idx)
 
     def render(self):
-        radio_fields = format_html_join('\n', '{0}', [(force_text(w),) for w in self])
-        return format_html('<div class="btn-group" data-toggle="buttons">\n{0}\n</div>', radio_fields)
+        radio_fields = format_html_join(u'\n', u'{0}', [(force_text(w),) for w in self])
+        attributes = {"data-toggle": "buttons"}
+        attributes['class'] = u"btn-group-vertical" if self.vertical else u"btn-group"
+        return format_html(u'<div{0} data-toggle="buttons">\n{1}\n</div>', flatatt(attributes), radio_fields)
 
 
-class ButtonGroupWithToggle(forms.RadioSelect):
-    renderer = ButtonGroupWithToggleRenderer
+class ButtonGroupCheckboxToggleRenderer(BaseButtonGroupRenderer):
+    def get_input(self, choice, index):
+        string_choice = force_text(choice[0])
+        value = string_choice if string_choice in self.value else None
+        return CheckboxInputAsButton(self.name, value, self.attrs.copy(), choice, index)
+
+
+class ButtonGroupRadioToggleRenderer(BaseButtonGroupRenderer):
+    def get_input(self, choice, index):
+        return RadioInputLikeButton(self.name, self.value, self.attrs.copy(), choice, index)
+
+
+class VerticalButtonGroupCheckboxToggleRenderer(ButtonGroupCheckboxToggleRenderer):
+    vertical = True
+
+
+class VerticalButtonGroupRadioToggleRenderer(ButtonGroupRadioToggleRenderer):
+    vertical = True
+
+
+class ButtonGroup(forms.RadioSelect):
+    def __init__(self, multiple=False, vertical=False, *args, **kwargs):
+        self.multiple = multiple
+        if multiple:
+            if vertical:
+                self.renderer = VerticalButtonGroupCheckboxToggleRenderer
+            else:
+                self.renderer = ButtonGroupCheckboxToggleRenderer
+        else:
+            if vertical:
+                self.renderer = VerticalButtonGroupRadioToggleRenderer
+            else:
+                self.renderer = ButtonGroupRadioToggleRenderer
+        return super(ButtonGroup, self).__init__(*args, **kwargs)
+
+    def value_from_datadict(self, data, files, name):
+        if self.multiple and isinstance(data, (MultiValueDict, MergeDict)):
+            return data.getlist(name)
+        return data.get(name, None)

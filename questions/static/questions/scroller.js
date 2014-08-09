@@ -213,18 +213,16 @@ var Questions = (function (questions_module, $) {
         };
 
         this.update_button_status = function () {
-            if (self.position === 1) {
-                self.disable_next_button();
-                self.disable_previous_button();
-            } else if (self.position === 2) {
-                self.enable_next_button();
-                self.disable_previous_button();
-            } else if (self.at_end) {
-                self.disable_next_button();
-                self.enable_previous_button();
+            if (this.position === 1 || self.at_end) {
+                this.disable_next_button();
             } else {
-                self.enable_next_button();
-                self.enable_previous_button();
+                this.enable_next_button();
+            }
+
+            if (this.position === 1 || this.position === 2) {
+                this.disable_previous_button();
+            } else {
+                this.enable_previous_button();
             }
         };
 
@@ -307,21 +305,15 @@ var Questions = (function (questions_module, $) {
         }, options);
 
         navigation_controller.update_button_status = function () {
-            if (this.position === 1) {
+            if (this.position === 1 || (this.at_end & self.mode === answer_mode)) {
                 this.disable_next_button();
-                this.disable_previous_button();
-            } else if (this.position === 2) {
-                this.enable_next_button();
-                this.disable_previous_button();
-            } else if (this.at_end) {
-                if (self.mode === answer_mode) {
-                    this.disable_next_button();
-                } else if (self.mode === question_mode) {
-                    this.enable_next_button();
-                }
-                this.enable_previous_button();
             } else {
                 this.enable_next_button();
+            }
+
+            if (this.position === 1 || this.position === 2) {
+                this.disable_previous_button();
+            } else {
                 this.enable_previous_button();
             }
         };

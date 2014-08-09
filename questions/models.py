@@ -180,8 +180,17 @@ def user_created(sender, **kwargs):
 
 
 class TeachingBlockManager(models.Manager):
+    def get_from_kwargs(self, **kwargs):
+        return self.get_query_set().get(code=kwargs['code'])
+
     def get_block_for_activity(self, activity):
         return self.get_query_set().filter(years__activities__teaching_activity=activity).get()
+
+    def get_released_blocks_for_student(self, student):
+        date = datetime.datetime.now()
+        block_years = TeachingBlockYear.objects.get_released_blocks_for_year_and_date_and_student(date.year, date, student)
+
+        return self.get_query_set().filter(years__in=block_years).distinct()
 
 
 class TeachingBlock(models.Model):
@@ -189,8 +198,28 @@ class TeachingBlock(models.Model):
     stage = models.ForeignKey(Stage)
     code = models.CharField(max_length=10)
 
+    objects = TeachingBlockManager()
+
+    class Meta:
+        ordering = ('stage', 'code')
+
     def __unicode__(self):
         return self.name
+
+    def filename(self):
+        spaceless = "".join(self.name.split())
+        commaless = "".join(spaceless.split(","))
+        return commaless
+
+    def get_url_kwargs(self):
+        return {'code': self.code, }
+
+    def get_download_url(self):
+        return reverse('block-download', kwargs=self.get_url_kwargs())
+
+    def get_released_years(self):
+        return self.years.filter(release_date__lte=datetime.datetime.now())
+    released_years = property(get_released_years)
 
     def is_viewable_by(self, student):
         if student.user.is_superuser: return True
@@ -211,7 +240,7 @@ class TeachingBlock(models.Model):
         return False
 
     def is_available_for_download_by(self, student):
-        return self.approved_questions_are_viewable_by(student)
+        return self.approved_questions_are_viewable_by(student) and self.released_years.exists()
 
     def approved_questions_are_viewable_by(self, student):
         if student.user.is_superuser: return True
@@ -224,6 +253,9 @@ class TeachingBlock(models.Model):
             return True
 
         return False
+
+    def name_for_form_fields(self):
+        return self.name.replace(" ", "_").replace(",", "").lower()
 
 
 class TeachingBlockYearManager(models.Manager):
@@ -384,16 +416,8 @@ class TeachingBlockYear(models.Model):
     def get_admin_url(self):
         return reverse('block-admin', kwargs=self.get_url_kwargs())
 
-    def get_document_download_url(self, mode):
-        kwargs = self.get_url_kwargs()
-        kwargs['mode'] = mode
-        return reverse('block-download', kwargs=kwargs)
-
-    def get_question_document_download_url(self):
-        return self.get_document_download_url('question')
-
-    def get_answer_document_download_url(self):
-        return self.get_document_download_url('answer')
+    def get_download_url(self):
+        return reverse('block-download', kwargs=self.get_url_kwargs())
 
     def get_release_url(self):
         return reverse("block-release", kwargs=self.get_url_kwargs())
@@ -427,7 +451,7 @@ class TeachingBlockYear(models.Model):
     code = property(code)
 
     def name_for_form_fields(self):
-        return self.name.replace(" ", "_").replace(",", "").lower()
+        return self.block.name_for_form_fields()
 
     def convert_activities_to_weeks(self, activities):
         weeks = {}
@@ -890,6 +914,11 @@ class QuestionManager(models.Manager):
             .filter(models.Q(date_completed__isnull=False) | models.Q(approver__isnull=True)) \
             .distinct()
 
+    def get_approved_questions_for_block_and_years(self, block, years):
+        return self.get_query_set().filter(teaching_activity_year__block_year__block=block) \
+                                   .filter(teaching_activity_year__block_year__year__in=years) \
+                                   .filter(status=Question.APPROVED_STATUS)
+
 
 class Question(models.Model):
     APPROVED_STATUS = 0
@@ -1330,6 +1359,13 @@ class QuizSpecificationManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
         return self.get_query_set().get(slug=kwargs['slug'])
 
+    def get_allowed_specifications_for_student(self, student):
+        stages = student.get_all_stages()
+        allowed_blocks = TeachingBlock.objects.get_released_blocks_for_student(student)
+        block_permission_needed = models.Q(block__in=allowed_blocks)
+        no_permission_needed = models.Q(block__isnull=True)
+        return self.get_query_set().filter(stage__in=stages, active=True).filter(block_permission_needed | no_permission_needed)
+
 
 class QuizSpecification(models.Model):
     name = models.CharField(max_length=100)
@@ -1338,8 +1374,12 @@ class QuizSpecification(models.Model):
     # A 160-bit SHA1 hash converted to base 26 requires 36 characters to be represented.
     slug = models.SlugField(max_length=36)
     active = models.BooleanField(default=False)
+    block = models.ForeignKey(TeachingBlock, blank=True, null=True)
 
     objects = QuizSpecificationManager()
+
+    class Meta:
+        ordering = ('stage',)
 
     def __unicode__(self):
         return "%s (%s)" % (self.name, self.stage)

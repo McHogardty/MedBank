@@ -347,15 +347,16 @@ class SettingEditForm(SettingEditForm):
 
 
 class QuestionForm(bsforms.NewBootstrapForm):
-    question_id = forms.ModelChoiceField(widget=forms.TextInput(), label="Question ID", queryset=Question.objects.all())
-    questions_selected = forms.ModelMultipleChoiceField(widget=forms.MultipleHiddenInput(), queryset=Question.objects.all(), required=False)
+    question_queryset = Question.objects.filter(status=Question.APPROVED_STATUS)
+    question_id = forms.ModelChoiceField(widget=forms.TextInput(), label="Question ID", queryset=question_queryset)
+    questions_selected = forms.ModelMultipleChoiceField(widget=forms.MultipleHiddenInput(), queryset=question_queryset, required=False)
 
 
 class ConfirmQuestionSelectionForm(bsforms.NewBootstrapForm):
     question_id = forms.ModelMultipleChoiceField(queryset=Question.objects.all())
 
 class QuizTypeSelectionForm(bsforms.NewBootstrapForm):
-    quiz_type = forms.ChoiceField(choices=QuizAttempt.QUIZ_TYPE_CHOICES, widget=bsforms.ButtonGroupWithToggle)
+    quiz_type = forms.ChoiceField(choices=QuizAttempt.QUIZ_TYPE_CHOICES, widget=bsforms.ButtonGroup)
 
 
 class CustomQuizSpecificationForm(bsforms.NewBootstrapForm):
@@ -389,9 +390,9 @@ BOOLEAN_CHOICES = (
 )
 
 class QuestionApprovalForm(bsforms.NewBootstrapModelForm):
-    exemplary_question = forms.TypedChoiceField(choices=BOOLEAN_CHOICES, coerce=lambda x: (x == "True"), widget=bsforms.ButtonGroupWithToggle)
+    exemplary_question = forms.TypedChoiceField(choices=BOOLEAN_CHOICES, coerce=lambda x: (x == "True"), widget=bsforms.ButtonGroup)
 
-    new_status = forms.TypedChoiceField(choices=Question.STATUS_TO_ACTION, widget=bsforms.ButtonGroupWithToggle, coerce=int)
+    new_status = forms.TypedChoiceField(choices=Question.STATUS_TO_ACTION, widget=bsforms.ButtonGroup, coerce=int)
 
     def __init__(self, *args, **kwargs):
         super(QuestionApprovalForm, self).__init__(*args, **kwargs)
@@ -422,3 +423,28 @@ class AssignPreviousActivityForm(bsforms.NewBootstrapModelForm):
     class Meta:
         model = TeachingActivity
         exclude = ('name', 'activity_type', 'reference_id')
+
+
+class TeachingBlockDownloadForm(bsforms.NewBootstrapForm):
+    form_widget_width = 3
+
+    QUESTION_TYPE = "question"
+    ANSWER_TYPE = "answer"
+
+    DOCUMENT_CHOICES = (
+        (QUESTION_TYPE, 'Questions only'),
+        (ANSWER_TYPE, 'Include answers'),
+    )
+
+    YEAR_CHOICES = ((datetime.datetime.now().year, datetime.datetime.now().year),)
+
+    document_type = forms.ChoiceField(choices=DOCUMENT_CHOICES, widget=bsforms.ButtonGroup(), label="Do you want the document to include answers?")
+    years = forms.TypedMultipleChoiceField(coerce=lambda val: int(val), choices=YEAR_CHOICES, widget=bsforms.ButtonGroup(multiple=True, vertical=True), label="For which years do you want to download questions?")
+
+    def __init__(self, teaching_block=None, *args, **kwargs):
+        if teaching_block is None: raise ValueError("A teaching block is required to initialise this form.")
+
+        super(TeachingBlockDownloadForm, self).__init__(*args, **kwargs)
+        
+        years_available = teaching_block.released_years.values_list('year', flat=True).distinct().order_by("-year")
+        self.fields['years'].choices = ((y, y) for y in years_available)

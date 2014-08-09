@@ -11,7 +11,7 @@ from django.template import loader
 
 from .base import class_view_decorator
 
-from questions import models, forms, tasks
+from questions import models, forms
 
 
 @class_view_decorator(login_required)
@@ -149,12 +149,12 @@ class AddComment(CreateView):
                 'link': self.request.build_absolute_uri(self.q.get_absolute_url())
             }
 
-            body = loader.render_to_string('email/newcomment.html', c)
-            t = tasks.HTMLEmailTask(
-                "[MedBank] One of your questions has received a comment",
-                body,
-                ["%s" % self.q.creator.user.email, ],
-            )
+            # body = loader.render_to_string('email/newcomment.html', c)
+            # t = tasks.HTMLEmailTask(
+            #     "[MedBank] One of your questions has received a comment",
+            #     body,
+            #     ["%s" % self.q.creator.user.email, ],
+            # )
 
             # queue.add_task(t)
 

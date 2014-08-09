@@ -43,7 +43,9 @@ class PasswordResetRequestForm(bsforms.NewBootstrapForm):
     username = forms.RegexField(max_length=20,
         regex=r'^([a-z]{4}\d{4})|[a-z]+$',
         error_messages={
-            'invalid': _("Your unikey should be either four lowercase letters followed by four digits, or all lowercase letters")}
+            'invalid': _("Your unikey should be either four lowercase letters followed by four digits, or all lowercase letters")
+        },
+        label='Unikey'
     )
 
     def clean_username(self):

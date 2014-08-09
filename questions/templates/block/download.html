@@ -1,0 +1,16 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Download questions for Block {{ teaching_block.code }}</h1>
+	<p>To download the questions for {{ teaching_block.name }}, you can fill in the form below and click "Download"</p>
+	<form class="form-horizontal" method="post" role="form">
+	    {% csrf_token %}
+	    {{ form.as_bootstrap }}
+	    <div class="form-group">
+	        <div class="col-md-offset-{{ form.form_label_width }} col-md-{{ form.form_widget_width }}">
+	            <button type="submit" class="btn btn-primary">Download</button>
+	            <a class="btn btn-default" href="{{ teaching_block_year.get_activity_display_url }}">Back to block</a>
+	        </div>
+	    </div>
+	</form>
+{% endblock content %}

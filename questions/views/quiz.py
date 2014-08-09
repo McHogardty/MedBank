@@ -92,7 +92,7 @@ class QuizView(TemplateView):
         self.current_form = None
         self.current_type_form = None
 
-        quiz_specifications = models.QuizSpecification.objects.filter(active=True).exclude(stage__number__gt=self.request.user.student.get_current_stage().number).exclude(questions__isnull=True)
+        quiz_specifications = models.QuizSpecification.objects.get_allowed_specifications_for_student(self.request.user.student)
         self.quiz_specifications = list(quiz_specifications)
 
         self.allowed_blocks = list(self.get_allowed_blocks())
@@ -116,8 +116,7 @@ class QuizView(TemplateView):
         return forms.QuizTypeSelectionForm
 
     def get_allowed_blocks(self):
-        return models.TeachingBlockYear.objects.get_released_blocks_for_year_and_date_and_student(
-            datetime.datetime.now().year, datetime.datetime.now(), self.request.user.student)
+        return models.TeachingBlock.objects.get_released_blocks_for_student(self.request.user.student)
 
     def get_kwargs_from_class(self, cls):
         kwargs = {'prefix': self.get_prefix_from_class(cls), }
@@ -202,7 +201,7 @@ class QuizView(TemplateView):
             for block in self.get_allowed_blocks():
                 number_of_questions = cleaned_data[block.name_for_form_fields()]
                 if number_of_questions:
-                    questions_for_block = models.Question.objects.filter(teaching_activity_year__block_year=block, status=models.Question.APPROVED_STATUS)
+                    questions_for_block = models.Question.objects.filter(teaching_activity_year__block_year__block=block, status=models.Question.APPROVED_STATUS)
                     question_list += random.sample(list(set(questions_for_block)), number_of_questions)
 
         random.seed()
@@ -247,6 +246,7 @@ class ResumeAttemptView(DetailView):
         c['questions'] = [question.position for question in questions]
         c['confidence_choices'] = models.QuestionAttempt.CONFIDENCE_CHOICES
         c['quiz_attempt_questions_url'] = self.object.get_questions_url()
+        c['quiz_attempt_report_url'] = self.object.get_report_url()
         if self.object.quiz_type == models.QuizAttempt.INDIVIDUAL_QUIZ_TYPE:
             c['quiz_attempt_question_submission_url'] = self.object.get_answer_submission_url()
         elif self.object.quiz_type == models.QuizAttempt.CLASSIC_QUIZ_TYPE:

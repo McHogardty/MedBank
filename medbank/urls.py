@@ -12,7 +12,7 @@ from django.views.generic import TemplateView
 
 urlpatterns = patterns(
     '',
-    url(r'^$', 'medbank.views.home'),
+    url(r'^$', 'medbank.views.home', name="medbank-home"),
     url(r'^(?P<name>[0-9]+)/$', 'medbank.views.test'),
     url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', {'authentication_form': forms.BootstrapAuthenticationForm}, name="login"),
     url(r'^logout/$', 'medbank.views.logout_view', name="logout"),
@@ -31,5 +31,11 @@ urlpatterns = patterns(
     # Uncomment the next line to enable the admin:
     url(r'^admin/', include(admin.site.urls)),
 )
+
+if settings.DEBUG:
+    urlpatterns += patterns('django.views.generic.simple',
+        url(r'^500/$', TemplateView.as_view(template_name="500.html")),
+        url(r'^404/$', TemplateView.as_view(template_name="404.html")),
+    )
 
 handler500 = 'medbank.views.server_error'

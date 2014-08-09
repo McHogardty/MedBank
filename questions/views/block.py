@@ -81,7 +81,10 @@ class BlockActivitiesView(DetailView):
         return r
 
     def get_object(self, *args, **kwargs):
-        return models.TeachingBlockYear.objects.get_from_kwargs(**self.kwargs)
+        try:
+            return models.TeachingBlockYear.objects.get_from_kwargs(**self.kwargs)
+        except models.TeachingBlockYear.DoesNotExist:
+            raise Http404
 
     def get_context_data(self, **kwargs):
         c = super(BlockActivitiesView, self).get_context_data(**kwargs)
@@ -164,25 +167,46 @@ class ReleaseBlockView(RedirectView):
 
 
 @class_view_decorator(login_required)
-class DownloadView(View):
-    def get(self, request, *args, **kwargs):
-        mode = kwargs.pop("mode")
+class DownloadView(FormView):
+    form_class = forms.TeachingBlockDownloadForm
+    template_name = "block/download.html"
 
+    def dispatch(self, request, *args, **kwargs):
         try:
-            block_year = models.TeachingBlockYear.objects.get_from_kwargs(**kwargs)
-        except models.TeachingBlockYear.DoesNotExist:
-            messages.error(request, "That particular block does not exist.")
-            return redirect('dashboard')
+            self.teaching_block_year = models.TeachingBlockYear.objects.get_from_kwargs(**kwargs)
+        except models.TeachingBlock.DoesNotExist:
+            raise Http404
 
-        if not block_year.block.is_available_for_download_by(request.user.student):
+        self.teaching_block = self.teaching_block_year.block
+
+        if not self.teaching_block.is_available_for_download_by(request.user.student):
             messages.warning(request, "Unfortunately you are unable to download questions for that block right now.")
             return redirect('dashboard')
 
-        f = document.generate_document(block_year, mode == "answer", request)
-        response = HttpResponse(f.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = 'attachment; filename=%sQuestions%s%s.docx' % (block_year.filename(), "Answers" if mode == "answer" else "", datetime.datetime.now().strftime("%Y%M%d"))
-        return response
+        return super(DownloadView, self).dispatch(request, *args, **kwargs)
 
+    def get_form_kwargs(self):
+        k = super(DownloadView, self).get_form_kwargs()
+        k['teaching_block'] = self.teaching_block
+        return k
+
+    def get_context_data(self, **kwargs):
+        c = super(DownloadView, self).get_context_data(**kwargs)
+        c['teaching_block'] = self.teaching_block
+        c['teaching_block_year'] = self.teaching_block_year
+        return c
+
+    def form_valid(self, form):
+        show_answers = form.cleaned_data['document_type'] == form.ANSWER_TYPE
+        years = form.cleaned_data['years']
+
+        questions = models.Question.objects.get_approved_questions_for_block_and_years(self.teaching_block, years)
+
+        document_to_send = document.generate_document(None, show_answers, self.request, block=self.teaching_block, questions=questions)
+
+        response = HttpResponse(document_to_send.getvalue(), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        response['Content-Disposition'] = 'attachment; filename=%sQuestions%s.docx' % (self.teaching_block.filename(), "Answers" if show_answers else "")
+        return response
 
 
 @class_view_decorator(user_is_superuser)

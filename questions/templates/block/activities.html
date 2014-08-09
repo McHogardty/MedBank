@@ -6,9 +6,14 @@
 
 {% block content %}
 	<h1>Block {{ teaching_block.code }}: {{ teaching_block }}</h1>
+	{% if teaching_block_year.released %}
+    <p class="lead">The question documents for this block have been released.</p>
+    <p class="lead">You can <a href="{{ teaching_block_year.get_download_url }}">click here</a> to download the questions.</p>
+	{% else %}
     <p class="lead">You can sign up for activities in this block from {{ teaching_block_year.start }} until {{ teaching_block_year.end }}.</p>
     <p class="lead">You will be able to write questions for activities until {{ teaching_block_year.close }}.</p>
-    <p class="lead">The question documents for this block have {% if not teaching_block_year.released %}not {% endif %}been released{% if not teaching_block_year.released %} yet{% endif %}.{% if teaching_block.released %} You can download the documents by using the page actions panel.{% endif %}</p>
+    <p class="lead">The question documents for this block have not been released yet.</p>
+	{% endif %}
 
     <p><span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a week below to see the classes available for that week. <span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a class to view more information, and to sign up to write questions for that activity.</p>
 

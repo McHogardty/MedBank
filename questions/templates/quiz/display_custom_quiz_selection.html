@@ -1,9 +1,9 @@
 <h1>
-	{% if collapse_mode %}
+	{% if collapse_mode and form %}
 		<a class="collapse-trigger" data-quiz="custom">
 	{% endif %}
 		Create a custom quiz
-	{% if collapse_mode %}
+	{% if collapse_mode and form %}
 		</a>		
 	{% endif %}
 </h1>
@@ -14,4 +14,6 @@
     <p>If you don't want to be tested on a block, don't put a number in it.</p>
     {% include "quiz/display_quiz_selection_form.html" with selection_form=form %}
 </div>
+{% else %}
+<p>Unfortunately you don't have access to any individual blocks yet so you are unable to create a custom quiz.</p>
 {% endif %}

@@ -7,7 +7,7 @@
             quiz = new Questions.ClassicQuiz({
                 all_questions_url: "{{ quiz_attempt_questions_url }}",
                 question_submission_url: "{{ quiz_attempt_question_submission_url }}",
-                finish_url: "{% url 'quiz-history' %}",
+                finish_url: "{{ quiz_attempt_report_url }}",
             });
         });
     </script>

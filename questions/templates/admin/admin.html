@@ -52,26 +52,6 @@
         <p>You can add a new block using the action on the right.</p>
     {% endfor %}
 
-    <h3>Quiz specifications</h3>
-    {% for qs in quiz_specifications %}
-    {% if forloop.first %}
-    <table class="table">
-        <tr>
-            <th>Name</th>
-            <th>Stage</th>
-            <th>Actions</th>
-        </tr>
-    {% endif %}
-    <tr>
-        <td>{{ qs.name }} ({% include "quiz/specification/display_specification_status.html" with specification=qs %})</td>
-        <td>{{ qs.stage }}</td>
-        <td><span class="actions"><a class="action" href="{{ qs.get_absolute_url }}">View</a><a class="action" href="{{ qs.get_edit_url }}">Edit</a></span></td>
-    </tr>
-    {% if forloop.last %}
-    </table>
-    {% endif %}
-    {% endfor %}
-
     <h3>Student dashboard settings</h3>
     <p>Click on a setting name to view it or change it.</p>
     {% for setting in student_dashboard_settings %}

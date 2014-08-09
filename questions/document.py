@@ -85,12 +85,20 @@ def hyperlink(text, url, i):
     return h
 
 
-def generate_document(tb, answer, request):
+def generate_document(tb, answer, request, block=None, questions=None):
     document = docx.newdocument()
     body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 
-    body.append(docx.heading("%s - Questions" % (tb), 1))
-    qq = list(models.Question.objects.filter(teaching_activity_year__block_year=tb, status=models.Question.APPROVED_STATUS))
+    if tb:
+        heading = "%s - Questions" % (tb)
+    else:
+        heading = block.name
+
+    body.append(docx.heading(heading, 1))
+    if tb:
+        qq = list(models.Question.objects.filter(teaching_activity_year__block_year=tb, status=models.Question.APPROVED_STATUS))
+    else:
+        qq = list(questions)
     qq = sorted(qq, key=lambda x: x.body.strip()[:-1][::-1] if x.body.strip()[-1] in "?:." else x.body.strip()[::-1])
     style_file = os.path.join(current_path, 'stylesBase.xml')
     style_tree = etree.parse(style_file)
