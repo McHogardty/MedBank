@@ -1,2 +1,0 @@
--f http://dist.plone.org/thirdparty/
-PIL==1.1.7

@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 from django import forms
 from django.utils.datastructures import MultiValueDict, MergeDict
-from django.forms.util import flatatt
+from django.forms.utils import flatatt
 from django.utils.html import format_html, format_html_join
 from django.utils.encoding import force_text
 from django.utils import datetime_safe, formats

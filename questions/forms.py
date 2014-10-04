@@ -185,9 +185,9 @@ class NewQuestionForm(bootstrap.ModelForm):
 
 
 class TeachingActivityValidationForm(bootstrap.ModelForm):
-
     class Meta:
         model = TeachingActivity
+        fields = '__all__'
 
 
 class TeachingActivityYearValidationForm(bootstrap.ModelForm):
@@ -199,6 +199,7 @@ class TeachingActivityYearValidationForm(bootstrap.ModelForm):
 class NewTeachingActivityForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingActivity
+        fields = '__all__'
 
 
 class NewTeachingActivityYearForm(bootstrap.ModelForm):
@@ -210,11 +211,6 @@ class NewTeachingActivityYearForm(bootstrap.ModelForm):
 class TeachingActivityBulkUploadForm(bootstrap.Form):
     ta_file = forms.FileField(label="Activity Information File")
     year = forms.IntegerField()
-
-
-class NewTeachingBlockForm(bootstrap.ModelForm):
-    class Meta:
-        model = TeachingBlock
 
 
 class BootstrapRadioFieldRenderer(forms.widgets.RadioFieldRenderer):
@@ -309,6 +305,7 @@ class CommentForm(bootstrap.ModelForm):
 
     class Meta:
         model = Comment
+        fields = '__all__'
 
 
 class ReasonForFlaggingForm(bootstrap.ModelForm):

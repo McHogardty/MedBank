@@ -182,16 +182,16 @@ def user_created(sender, **kwargs):
 
 class TeachingBlockManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(code=kwargs.get('code'))
+        return self.get_queryset().get(code=kwargs.get('code'))
 
     def get_block_for_activity(self, activity):
-        return self.get_query_set().filter(years__activities__teaching_activity=activity).get()
+        return self.get_queryset().filter(years__activities__teaching_activity=activity).get()
 
     def get_released_blocks_for_student(self, student):
         date = datetime.datetime.now()
         block_years = TeachingBlockYear.objects.get_released_blocks_for_year_and_date_and_student(date.year, date, student)
 
-        return self.get_query_set().filter(years__in=block_years).distinct()
+        return self.get_queryset().filter(years__in=block_years).distinct()
 
 
 class TeachingBlock(models.Model):
@@ -275,7 +275,7 @@ class TeachingBlockYearManager(models.Manager):
         if not isinstance(stages, (list, tuple, models.query.QuerySet)):
             stages = [stages, ]
 
-        return self.get_query_set().filter(block__stage__in=stages)
+        return self.get_queryset().filter(block__stage__in=stages)
 
     def get_blocks_with_pending_questions_for_stages(self, stages):
         all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
@@ -340,7 +340,7 @@ class TeachingBlockYearManager(models.Manager):
         return all_blocks_for_stages.filter(release_date_null | release_date_too_early)
 
     def all_open_blocks(self):
-        return self.get_query_set().filter(start__lte=datetime.datetime.now(), close__gte=datetime.datetime.now())
+        return self.get_queryset().filter(start__lte=datetime.datetime.now(), close__gte=datetime.datetime.now())
 
     def get_open_blocks_for_year_and_date_and_stages(self, year, date, stages):
         all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
@@ -361,7 +361,7 @@ class TeachingBlockYearManager(models.Manager):
         return blocks.distinct()
 
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().select_related().get(block__code=kwargs.get("code"), year=kwargs.get("year"))
+        return self.get_queryset().select_related().get(block__code=kwargs.get("code"), year=kwargs.get("year"))
 
     def get_open_blocks_assigned_to_student(self, student):
         current_date = datetime.datetime.now()
@@ -372,7 +372,7 @@ class TeachingBlockYearManager(models.Manager):
     def get_blocks_requiring_approval_for_student(self, student):
         if not student.has_perm('questions.can_approve'): return self.none()
 
-        blocks = self.get_query_set()
+        blocks = self.get_queryset()
         if not student.user.is_superuser:
             blocks = self.get_all_blocks_for_stages(student.get_previous_stages())
 
@@ -606,7 +606,7 @@ class TeachingBlockYear(models.Model):
 
 class TeachingActivityManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(reference_id=kwargs.get("reference_id"))
+        return self.get_queryset().get(reference_id=kwargs.get("reference_id"))
 
 
 class TeachingActivity(models.Model, ObjectCacheMixin):
@@ -787,14 +787,14 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
 
 class TeachingActivityYearManager(models.Manager):
     def get_activities_assigned_to(self, student):
-        return self.get_query_set().filter(question_writers=student)
+        return self.get_queryset().filter(question_writers=student)
 
     def get_unreleased_activities_assigned_to(self, student):
         unreleased_blocks = TeachingBlockYear.objects.get_unreleased_blocks_for_student(student)
         return self.get_activities_assigned_to(student).filter(block_year__in=unreleased_blocks)
 
     def get_from_kwargs(self, **kwargs):
-        activity = self.get_query_set().filter(teaching_activity__reference_id=kwargs.get('reference_id'))
+        activity = self.get_queryset().filter(teaching_activity__reference_id=kwargs.get('reference_id'))
         if 'year' in kwargs:
             activity = activity.filter(block_year__year=kwargs.get('year'))
         return activity.get()
@@ -958,7 +958,7 @@ class TeachingActivityYear(models.Model):
 class QuestionManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
         allow_deleted = kwargs.get('allow_deleted', False)
-        questions = self.get_query_set().filter(pk=kwargs.get('pk'))
+        questions = self.get_queryset().filter(pk=kwargs.get('pk'))
         if 'reference_id' in kwargs:
             questions = questions.filter(teaching_activity_year__teaching_activity__reference_id=kwargs.get('reference_id'))
         if not allow_deleted:
@@ -970,12 +970,12 @@ class QuestionManager(models.Manager):
         # Pending questions are unassigned if one of the two are satisfied:
         # 1. It was completed.
         # 2. It has no approver.
-        return self.get_query_set().filter(status=Question.PENDING_STATUS) \
+        return self.get_queryset().filter(status=Question.PENDING_STATUS) \
             .filter(models.Q(date_completed__isnull=False) | models.Q(approver__isnull=True)) \
             .distinct()
 
     def get_approved_questions_for_block_and_years(self, block, years):
-        return self.get_query_set().filter(teaching_activity_year__block_year__block=block) \
+        return self.get_queryset().filter(teaching_activity_year__block_year__block=block) \
                                    .filter(teaching_activity_year__block_year__year__in=years) \
                                    .filter(status=Question.APPROVED_STATUS)
 
@@ -1354,7 +1354,7 @@ class ApprovalRecordManager(models.Manager):
         # 1. They are the latest assigned approval record for their question.
         # 2. They are complete.
         # 3. They have the correct status.
-        return self.get_query_set().annotate(max=models.Max('question__approval_records__date_assigned')) \
+        return self.get_queryset().annotate(max=models.Max('question__approval_records__date_assigned')) \
                                 .filter(max=models.F('date_assigned')) \
                                 .filter(date_completed__isnull=False) \
                                 .filter(status=status)
@@ -1420,14 +1420,14 @@ class ApprovalRecord(models.Model):
 
 class QuizSpecificationManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(slug=kwargs.get('slug'))
+        return self.get_queryset().get(slug=kwargs.get('slug'))
 
     def get_allowed_specifications_for_student(self, student):
         stages = student.get_all_stages()
         allowed_blocks = TeachingBlock.objects.get_released_blocks_for_student(student)
         block_permission_needed = models.Q(block__in=allowed_blocks)
         no_permission_needed = models.Q(block__isnull=True)
-        return self.get_query_set().filter(stage__in=stages, active=True).filter(block_permission_needed | no_permission_needed)
+        return self.get_queryset().filter(stage__in=stages, active=True).filter(block_permission_needed | no_permission_needed)
 
 
 class QuizSpecification(models.Model):
@@ -1613,13 +1613,13 @@ class QuizQuestionSpecification(models.Model):
 
 class QuizAttemptManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(slug=kwargs.get('slug'))
+        return self.get_queryset().get(slug=kwargs.get('slug'))
 
     def get_latest_quiz_attempt_for_student(self, student):
         return self.get_quiz_attempts_for_student(student).latest("date_submitted")
 
     def get_quiz_attempts_for_student(self, student):
-        return self.get_query_set().filter(student=student).prefetch_related("questions")
+        return self.get_queryset().filter(student=student).prefetch_related("questions")
 
 
 class QuizAttempt(models.Model):
@@ -1765,7 +1765,7 @@ def generate_quiz_slug(sender, instance, **args):
 
 class QuestionAttemptManager(models.Manager):
     def get_question_attempts_for_student(self, student):
-        return self.get_query_set().filter(quiz_attempt__student=student).select_related('quiz_attempt', 'question')
+        return self.get_queryset().filter(quiz_attempt__student=student).select_related('quiz_attempt', 'question')
 
 
 class QuestionAttempt(models.Model):
@@ -1871,7 +1871,7 @@ class ReasonManager(models.Manager):
     def get_reasons_associated_with_object(self, related_object):
         object_content_type = ContentType.objects.get_for_model(model=related_object)
 
-        return self.get_query_set().filter(related_object_content_type=object_content_type, related_object_id=related_object.id)
+        return self.get_queryset().filter(related_object_content_type=object_content_type, related_object_id=related_object.id)
 
     def get_reasons_associated_with_multiple_objects(self, related_objects):
         related_objects_list = list(related_objects)
@@ -1879,7 +1879,7 @@ class ReasonManager(models.Manager):
             return self.none()
         object_content_type = ContentType.objects.get_for_model(model=related_objects[0])
 
-        return self.get_query_set().filter(related_object_content_type=object_content_type, related_object_id__in=related_objects)
+        return self.get_queryset().filter(related_object_content_type=object_content_type, related_object_id__in=related_objects)
 
 
 class Reason(models.Model):

@@ -89,4 +89,5 @@ class StageSelectionForm(bootstrap.Form):
 class SettingEditForm(bootstrap.ModelForm):
     class Meta:
         model = Setting
+        fields = '__all__'
 

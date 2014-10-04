@@ -128,7 +128,7 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'medbank',
     'questions',
-    'south',
+    # 'south',
     # 'tastypie',
     # 'debug_toolbar'
 )

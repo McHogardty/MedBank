@@ -1,13 +1,6 @@
-{% extends "generic/newbase_with_actions.html" %}
+{% extends "newbase.html" %}
 
-{% block actions %}
-    <h3>Page actions</h3>    
-    <a class="action" href="{% url 'block-new' %}">Add a new block</a>
-    <a class="action" href="{% url 'quiz-specification-new' %}">Add quiz specification</a>
-    <a class="action" href="{% url 'admin-settings-create' %}">Create missing settings</a>
-{% endblock actions %}
-
-{% block maincontent %}
+{% block content %}
     <h1>Administration</h1>
     <h3>Site status</h3>
     <dl class="dl-horizontal">
@@ -17,27 +10,27 @@
     <strong>If debug mode is set to ON, please let Michael know fairly quickly and urge him to change it.</strong>
     {% for b in blocks %}
         {% if forloop.first %}
-            <h3>Currently active blocks</h3>
+            <h3>Currently active blocks <small><a class="action" href="{% url 'block-new' %}">Add a new block</a></small></h3>
             <p>Currently active blocks were either opened/closed this year, or they were released this year.</p>
             <div class="spacer">
                 <table class="table">
                     <tr>
-                        <th>Stage</th>
+                        <th class="hidden-xs hidden-sm">Stage</th>
                         <th>Block</th>
-                        <th>Start</th>
-                        <th>End</th>
-                        <th>Close</th>
+                        <th class="hidden-xs hidden-sm">Start</th>
+                        <th class="hidden-xs hidden-sm">End</th>
+                        <th class="hidden-xs hidden-sm">Close</th>
                         <th>Edit</th>
                         <th>Admin</th>
                     </tr>
         {% endif %}
         {% if b.is_active %}
             <tr>
-                <td>{{ b.stage }}</td>
+                <td class="hidden-xs hidden-sm">{{ b.stage }}</td>
                 <td><a href="{{ b.get_activity_display_url }}">{{ b.name }}</a></td>
-                <td>{{ b.start }}</td>
-                <td>{{ b.end }}</td>
-                <td>{{ b.close }}</td>
+                <td class="hidden-xs hidden-sm">{{ b.start }}</td>
+                <td class="hidden-xs hidden-sm">{{ b.end }}</td>
+                <td class="hidden-xs hidden-sm">{{ b.close }}</td>
                 <td><a href="{% url 'block-edit' code=b.code year=b.year %}">Edit</a></td>
                 <td><a href="{% url 'block-admin' code=b.code year=b.year %}">Admin</a></td>
             </tr>
@@ -52,6 +45,7 @@
         <p>You can add a new block using the action on the right.</p>
     {% endfor %}
 
+    <h2>Settings <small><a class="action" href="{% url 'admin-settings-create' %}">Create missing settings</a></small></h2>
     <h3>Student dashboard settings</h3>
     <p>Click on a setting name to view it or change it.</p>
     {% for setting in student_dashboard_settings %}
@@ -70,4 +64,4 @@
         <p>There are no settings in the database yet.</p>
     {% endfor %}
     
-{% endblock maincontent %}
+{% endblock content %}

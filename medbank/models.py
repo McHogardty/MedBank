@@ -4,8 +4,8 @@ from django.db import models
 
 
 class SettingsManager(models.Manager):
-    def get_query_set(self):
-    	qs = super(SettingsManager, self).get_query_set()
+    def get_queryset(self):
+    	qs = super(SettingsManager, self).get_queryset()
     	if self.model.__name__ == "Setting":
     		return qs
 
