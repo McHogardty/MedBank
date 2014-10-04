@@ -88,7 +88,7 @@
             <div class="dashboard">
                 <p class="lead">Release status</p>
                 {% if block.released %}<h1 class="text-success">Released</h1>{% else %}<h1 class="text-danger">Not released</h1>{% endif %}
-                {% if block.released %}<a class="action" href="{% url 'email' code=block.code year=block.year %}?document">Email questions</a>{% else %}<a class="action" href="{{ b.get_release_url }}">Release now</a>{% endif %}
+                {% if block.released %}<a class="action" href="{% url 'email' code=block.code year=block.year %}?document">Email questions</a>{% else %}<a class="action" href="{{ block.get_release_url }}">Release now</a>{% endif %}
             </div>
         </div>
     </div>

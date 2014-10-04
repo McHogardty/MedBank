@@ -12,7 +12,6 @@ import math
 
 current_path = os.path.dirname(os.path.realpath(__file__ ))
 
-
 def build_answer_table(data, n=3):
     ret = []
     l = int(math.ceil(len(data)/float(n)))

@@ -1,5 +1,9 @@
+from __future__ import unicode_literals
+
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import user_passes_test
+from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
+from django.http import Http404
 
 
 def class_view_decorator(function_decorator):
@@ -19,3 +23,18 @@ def class_view_decorator(function_decorator):
 def user_is_superuser(func):
 	decorator = user_passes_test(lambda u: u.is_superuser)
 	return decorator(func)
+
+class GetObjectMixin(object):
+    def get_object(self, queryset=None):
+        if not self.model:
+            raise ImproperlyConfigured("%(cls)s is missing a model. Define "
+                                       "%(cls)s.model or override "
+                                       "%(cls)s.get_object()." % {
+                                            'cls': self.__class__.__name__
+                                    })
+
+
+        try:
+            return self.model.objects.get_from_kwargs(**self.kwargs)
+        except ObjectDoesNotExist:
+            raise Http404

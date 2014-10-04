@@ -1,0 +1,12 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<div class="row">
+		<div class="col-sm-12">
+			<div class="dashboard">
+				{% if main_feature_text %}<h2>{{ main_feature_text }}</h2>{% endif %}
+				{% if secondary_feature_text %}<p class="lead">{{ secondary_feature_text }}</p>{% endif %}
+			</div>
+		</div>
+	</div>
+{% endblock content %}

@@ -5,7 +5,7 @@
 {% endblock head %}
 
 {% block content %}
-	<h1>Block {{ teaching_block.code }}: {{ teaching_block }}</h1>
+	<h1>Block {{ teaching_block.code }}: {{ teaching_block }} <small><a href="{{ teaching_block_year.get_admin_url }}">Admin</a></h1>
 	{% if teaching_block_year.released %}
     <p class="lead">The question documents for this block have been released.</p>
     <p class="lead">You can <a href="{{ teaching_block_year.get_download_url }}">click here</a> to download the questions.</p>

@@ -1,11 +1,12 @@
-from django.contrib.auth.decorators import permission_required
+from __future__ import unicode_literals
+
 from django.views.generic import DetailView, TemplateView
 from django.views.generic.base import RedirectView
 from django.views.generic.edit import UpdateView
 from django.core.urlresolvers import reverse
 from django.conf import settings
 
-from .base import class_view_decorator, user_is_superuser
+from .base import class_view_decorator, user_is_superuser, GetObjectMixin
 
 from questions import models, forms
 
@@ -92,25 +93,28 @@ class CreateMissingSettingsView(RedirectView):
 
 
 @class_view_decorator(user_is_superuser)
-class BlockAdminView(DetailView):
+class BlockAdminView(GetObjectMixin, DetailView):
     model = models.TeachingBlockYear
-    template_name = "admin/block_admin.html"
+    template_name = "block/admin.html"
 
-    def get_object(self, queryset=None):
-        queryset = queryset or self.get_queryset()
-
-        return queryset.select_related("block").get(year=self.kwargs["year"], block__code=self.kwargs["code"])
+    def get_context_data(self, **kwargs):
+        c = super(BlockAdminView, self).get_context_data(**kwargs)
+        c['teaching_block'] = self.object
+        c['number_activities_total'] = self.object.total_activities_count()
+        c['number_activities_assigned'] = self.object.assigned_activities_count()
+        c['number_assigned_users'] = self.object.assigned_users_count()
+        c['number_questions_written'] = self.object.total_questions_count()
+        c['number_questions_pending'] = self.object.questions_pending_count()
+        c['number_questions_approved'] = self.object.questions_approved_count()
+        c['number_questions_flagged'] = self.object.questions_flagged_count()
+        return c
 
 
 @class_view_decorator(user_is_superuser)
-class ApprovalStatisticsView(DetailView):
+class ApprovalStatisticsView(GetObjectMixin, DetailView):
     model = models.TeachingBlockYear
     template_name = "admin/approval_statistics.html"
 
-    def get_object(self, queryset=None):
-        queryset = queryset or self.get_queryset()
-
-        return queryset.select_related("block").get(year=self.kwargs["year"], block__code=self.kwargs["code"])
     def query_string(self):
         allowed = ['approve', 'flagged', 'assigned',]
         allowed_with_parameters = ['total', 'progress']

@@ -1,10 +1,11 @@
+from __future__ import unicode_literals
+
 from django import forms
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html, format_html_join
 from django.utils.encoding import force_text
-from django.db import models
 
-from medbank import bsforms
+import bootstrap
 from medbank.forms import SettingEditForm
 from .models import *
 
@@ -16,11 +17,11 @@ import datetime
 class QuestionOptionsWidget(forms.MultiWidget):
     def __init__(self, attrs=None):
         widgets = [
-            bsforms.TextInputWithAddon(),
-            bsforms.TextInputWithAddon(),
-            bsforms.TextInputWithAddon(),
-            bsforms.TextInputWithAddon(),
-            bsforms.TextInputWithAddon(),
+            bootstrap.TextInputWithAddon(),
+            bootstrap.TextInputWithAddon(),
+            bootstrap.TextInputWithAddon(),
+            bootstrap.TextInputWithAddon(),
+            bootstrap.TextInputWithAddon(),
         ]
         super(QuestionOptionsWidget, self).__init__(widgets, attrs)
 
@@ -119,8 +120,15 @@ class QuestionOptionsField(forms.MultiValueField):
 
     def compress(self, values):
         if not values:
-            values = [u''] * 5
+            values = [''] * 5
         return json.dumps(dict(zip(string.ascii_uppercase[:len(values)], values)))
+
+    def validate(self, value):
+        if self.required:
+            json_value = json.loads(value)
+            if not all(v.replace(" ", "") for v in json_value.values()):
+                raise forms.ValidationError("Please make sure that you enter five options.")
+
 
 ANSWER_CHOICES = ((x, x) for x in string.ascii_uppercase[:5])
 
@@ -143,7 +151,7 @@ class QuestionOptionField(forms.MultiValueField):
 ANSWER_CHOICES = ((x, x) for x in string.ascii_uppercase[:5])
 
 
-class NewQuestionForm(bsforms.NewBootstrapModelForm):
+class NewQuestionForm(bootstrap.ModelForm):
     """A form for creation and editing of questions."""
     body = forms.CharField(label="Question body", widget=forms.Textarea())
     #body = forms.CharField(label="Question body", widget=bsforms.RichTextarea())
@@ -155,24 +163,16 @@ class NewQuestionForm(bsforms.NewBootstrapModelForm):
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     teaching_activity_year = forms.ModelChoiceField(queryset=TeachingActivityYear.objects.all(), widget=forms.HiddenInput())
 
-    def __init__(self, admin=False, *args, **kwargs):
+    def __init__(self, admin=False, change_student=False, *args, **kwargs):
         super(NewQuestionForm, self).__init__(*args, **kwargs)
-        if self.instance:
-            if not self.instance.explanation_dict():
-                explanation = []
-                for character in string.ascii_uppercase[:5]:
-                    if self.instance.answer == character:
-                        explanation.append((character, self.instance.explanation))
-                    else:
-                        explanation.append((character, ""))
-                print "Setting explanation %s" % json.dumps(dict(explanation))
-                self.initial["explanation"] = json.dumps(dict(explanation))
         if admin:
             self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(), help_text="This reason will be sent in an email to the question writer. Be nice! (and please use proper grammar)")
+        if change_student:
+            self.fields['creator'] = forms.ModelChoiceField(queryset=Student.objects.select_related().order_by('user__username'), widget=forms.Select())
 
     def clean(self):
         answer = self.cleaned_data['answer']
-        if answer:
+        if answer and 'explanation' in self.cleaned_data:
             explanations = json.loads(self.cleaned_data['explanation'])
             if not explanations[answer]:
                 extra = "also " if any(v for k, v in explanations.iteritems() if k != answer) else ""
@@ -184,35 +184,35 @@ class NewQuestionForm(bsforms.NewBootstrapModelForm):
         exclude = ('status', 'approver', 'exemplary_question', 'requires_special_formatting', 'date_assigned', 'date_completed')
 
 
-class TeachingActivityValidationForm(bsforms.BootstrapHorizontalModelForm):
+class TeachingActivityValidationForm(bootstrap.ModelForm):
 
     class Meta:
         model = TeachingActivity
 
 
-class TeachingActivityYearValidationForm(bsforms.BootstrapHorizontalModelForm):
+class TeachingActivityYearValidationForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingActivityYear
         exclude = ('teaching_activity', 'block_year')
 
 
-class NewTeachingActivityForm(bsforms.BootstrapHorizontalModelForm):
+class NewTeachingActivityForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingActivity
 
 
-class NewTeachingActivityYearForm(bsforms.BootstrapHorizontalModelForm):
+class NewTeachingActivityYearForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingActivityYear
         exclude = ('teaching_activity',)
 
 
-class TeachingActivityBulkUploadForm(bsforms.NewBootstrapForm):
+class TeachingActivityBulkUploadForm(bootstrap.Form):
     ta_file = forms.FileField(label="Activity Information File")
     year = forms.IntegerField()
 
 
-class NewTeachingBlockForm(bsforms.NewBootstrapModelForm):
+class NewTeachingBlockForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingBlock
 
@@ -222,14 +222,14 @@ class BootstrapRadioFieldRenderer(forms.widgets.RadioFieldRenderer):
         return format_html(format_html_join('\n', '<div class="radio">{0}</div>', [(force_text(w),) for w in self]))
 
 
-class NewTeachingBlockYearForm(bsforms.NewBootstrapModelForm):
+class NewTeachingBlockYearForm(bootstrap.ModelForm):
     # Localise=True is a cheating way of using a TextInput instead of a number input.
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage__number', 'code'))
-    year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bsforms.StaticControl())
+    year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bootstrap.StaticControl())
     start = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
     end = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
     close = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The last day that students can write questions for activities in this block.", label="Close date")
-    release_date = forms.CharField(required=False, max_length=10, widget=bsforms.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
+    release_date = forms.CharField(required=False, max_length=10, widget=bootstrap.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
     sign_up_mode = forms.TypedChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES, coerce=int)
     activity_capacity = forms.IntegerField(localize=True)
     weeks = forms.IntegerField(localize=True, label="Number of weeks")
@@ -272,37 +272,37 @@ class NewTeachingBlockYearForm(bsforms.NewBootstrapModelForm):
         return
 
 
-class NewTeachingBlockDetailsForm(bsforms.BootstrapHorizontalModelForm):
+class NewTeachingBlockDetailsForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingBlock
         exclude = ('name', 'year')
 
 
-class TeachingBlockValidationForm(bsforms.BootstrapHorizontalModelForm):
+class TeachingBlockValidationForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingBlock
         exclude = ('stage', 'code', 'start', 'end')
 
 
-class NewQuizSpecificationForm(bsforms.NewBootstrapModelForm):
-    active = forms.BooleanField(widget=bsforms.CheckboxInput(), required=False)
+class NewQuizSpecificationForm(bootstrap.ModelForm):
+    active = forms.BooleanField(widget=bootstrap.CheckboxInput(), required=False)
     class Meta:
         model = QuizSpecification
         exclude = ('slug', )
 
 
-class QuestionQuizSpecificationForm(bsforms.NewBootstrapForm):
+class QuestionQuizSpecificationForm(bootstrap.Form):
     specification = forms.ModelChoiceField(queryset=QuizSpecification.objects.all())
 
 
-class EmailForm(bsforms.NewBootstrapForm):
-    from_address = forms.CharField(widget=bsforms.StaticControl())
-    subject = forms.CharField(widget=bsforms.TextInputWithAddon(add_on="[MedBank]", attrs={'class': 'span6'}))
+class EmailForm(bootstrap.Form):
+    from_address = forms.CharField(widget=bootstrap.StaticControl())
+    subject = forms.CharField(widget=bootstrap.TextInputWithAddon(add_on="[MedBank]", attrs={'class': 'span6'}))
     email = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.all(), widget=forms.HiddenInput())
 
 
-class CommentForm(bsforms.NewBootstrapModelForm):
+class CommentForm(bootstrap.ModelForm):
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     question = forms.ModelChoiceField(queryset=Question.objects.all(), widget=forms.HiddenInput())
     reply_to = forms.ModelChoiceField(required=False, queryset=Comment.objects.all(), widget=forms.HiddenInput())
@@ -311,7 +311,7 @@ class CommentForm(bsforms.NewBootstrapModelForm):
         model = Comment
 
 
-class ReasonForFlaggingForm(bsforms.NewBootstrapModelForm):
+class ReasonForFlaggingForm(bootstrap.ModelForm):
     body = forms.CharField(widget=forms.Textarea(), label="Reason")
     reason_type = forms.ChoiceField(choices=Reason.REASON_TYPES, widget=forms.HiddenInput())
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
@@ -323,9 +323,9 @@ class ReasonForFlaggingForm(bsforms.NewBootstrapModelForm):
 # class ReasonForFlaggingForm(bsforms.NewBootstrapForm):
 #     reason = forms.CharField(widget=forms.Textarea())
 
-class QuestionAttributesForm(bsforms.NewBootstrapModelForm):
-    exemplary_question = forms.BooleanField(widget=bsforms.CheckboxInput(), label="This is an exemplary question for this block.", required=False)
-    requires_special_formatting = forms.BooleanField(widget=bsforms.CheckboxInput(), label="This question requires special formatting.", required=False)
+class QuestionAttributesForm(bootstrap.ModelForm):
+    exemplary_question = forms.BooleanField(widget=bootstrap.CheckboxInput(), label="This is an exemplary question for this block.", required=False)
+    requires_special_formatting = forms.BooleanField(widget=bootstrap.CheckboxInput(), label="This question requires special formatting.", required=False)
 
     class Meta:
         model = Question
@@ -346,20 +346,20 @@ class SettingEditForm(SettingEditForm):
         exclude = ['value',]
 
 
-class QuestionForm(bsforms.NewBootstrapForm):
+class QuestionForm(bootstrap.Form):
     question_queryset = Question.objects.filter(status=Question.APPROVED_STATUS)
     question_id = forms.ModelChoiceField(widget=forms.TextInput(), label="Question ID", queryset=question_queryset)
     questions_selected = forms.ModelMultipleChoiceField(widget=forms.MultipleHiddenInput(), queryset=question_queryset, required=False)
 
 
-class ConfirmQuestionSelectionForm(bsforms.NewBootstrapForm):
+class ConfirmQuestionSelectionForm(bootstrap.Form):
     question_id = forms.ModelMultipleChoiceField(queryset=Question.objects.all())
 
-class QuizTypeSelectionForm(bsforms.NewBootstrapForm):
-    quiz_type = forms.ChoiceField(choices=QuizAttempt.QUIZ_TYPE_CHOICES, widget=bsforms.ButtonGroup)
+class QuizTypeSelectionForm(bootstrap.Form):
+    quiz_type = forms.ChoiceField(choices=QuizAttempt.QUIZ_TYPE_CHOICES, widget=bootstrap.ButtonGroup)
 
 
-class CustomQuizSpecificationForm(bsforms.NewBootstrapForm):
+class CustomQuizSpecificationForm(bootstrap.Form):
     form_widget_width=2
 
     def __init__(self, *args, **kwargs):
@@ -380,7 +380,7 @@ class CustomQuizSpecificationForm(bsforms.NewBootstrapForm):
         return c
 
 
-class PresetQuizSpecificationForm(bsforms.NewBootstrapForm):
+class PresetQuizSpecificationForm(bootstrap.Form):
     quiz_specification = forms.ModelChoiceField(queryset=QuizSpecification.objects.all(), to_field_name="slug", widget=forms.HiddenInput())
 
 
@@ -389,10 +389,10 @@ BOOLEAN_CHOICES = (
     (False, 'No'),
 )
 
-class QuestionApprovalForm(bsforms.NewBootstrapModelForm):
-    exemplary_question = forms.TypedChoiceField(choices=BOOLEAN_CHOICES, coerce=lambda x: (x == "True"), widget=bsforms.ButtonGroup)
+class QuestionApprovalForm(bootstrap.ModelForm):
+    exemplary_question = forms.TypedChoiceField(choices=BOOLEAN_CHOICES, coerce=lambda x: (x == "True"), widget=bootstrap.ButtonGroup)
 
-    new_status = forms.TypedChoiceField(choices=Question.STATUS_TO_ACTION, widget=bsforms.ButtonGroup, coerce=int)
+    new_status = forms.TypedChoiceField(choices=Question.STATUS_TO_ACTION, widget=bootstrap.ButtonGroup, coerce=int)
 
     def __init__(self, *args, **kwargs):
         super(QuestionApprovalForm, self).__init__(*args, **kwargs)
@@ -413,11 +413,11 @@ class QuestionApprovalForm(bsforms.NewBootstrapModelForm):
         exclude = ('body', 'options', 'answer', 'explanation', 'date_created', 'creator', 'approver', 'teaching_activity_year', 'status', 'requires_special_formatting', 'date_assigned', 'date_completed', 'approver')
 
 
-class TeachingBlockActivityUploadForm(bsforms.NewBootstrapForm):
+class TeachingBlockActivityUploadForm(bootstrap.Form):
     upload_file = forms.FileField(label="Activity file")
 
 
-class AssignPreviousActivityForm(bsforms.NewBootstrapModelForm):
+class AssignPreviousActivityForm(bootstrap.ModelForm):
     previous_activity = forms.ModelChoiceField(to_field_name="reference_id", widget=forms.TextInput(), queryset=TeachingActivity.objects.all(), help_text="Type in the reference ID of the previous activity to assign it as the old version of the current activity.")
 
     class Meta:
@@ -425,8 +425,9 @@ class AssignPreviousActivityForm(bsforms.NewBootstrapModelForm):
         exclude = ('name', 'activity_type', 'reference_id')
 
 
-class TeachingBlockDownloadForm(bsforms.NewBootstrapForm):
-    form_widget_width = 3
+class TeachingBlockDownloadForm(bootstrap.Form):
+    form_widget_width = 4
+    form_label_width = 5
 
     QUESTION_TYPE = "question"
     ANSWER_TYPE = "answer"
@@ -438,8 +439,8 @@ class TeachingBlockDownloadForm(bsforms.NewBootstrapForm):
 
     YEAR_CHOICES = ((datetime.datetime.now().year, datetime.datetime.now().year),)
 
-    document_type = forms.ChoiceField(choices=DOCUMENT_CHOICES, widget=bsforms.ButtonGroup(), label="Do you want the document to include answers?")
-    years = forms.TypedMultipleChoiceField(coerce=lambda val: int(val), choices=YEAR_CHOICES, widget=bsforms.ButtonGroup(multiple=True, vertical=True), label="For which years do you want to download questions?")
+    document_type = forms.ChoiceField(choices=DOCUMENT_CHOICES, widget=bootstrap.ButtonGroup(), label="Do you want the document to include answers?")
+    years = forms.TypedMultipleChoiceField(coerce=lambda val: int(val), choices=YEAR_CHOICES, widget=bootstrap.ButtonGroup(multiple=True, vertical=True), label="For which years do you want to download questions?")
 
     def __init__(self, teaching_block=None, *args, **kwargs):
         if teaching_block is None: raise ValueError("A teaching block is required to initialise this form.")
@@ -448,3 +449,20 @@ class TeachingBlockDownloadForm(bsforms.NewBootstrapForm):
         
         years_available = teaching_block.released_years.values_list('year', flat=True).distinct().order_by("-year")
         self.fields['years'].choices = ((y, y) for y in years_available)
+
+class BlockFromYearChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, instance):
+        return "%s" % instance.year
+
+class YearSelectionForm(bootstrap.Form):
+    year = BlockFromYearChoiceField(queryset=TeachingBlockYear.objects.all(), to_field_name="year", empty_label=None)
+
+    def __init__(self, teaching_block=None, *args, **kwargs):
+        if not teaching_block or not isinstance(teaching_block, TeachingBlock):
+            raise ValueError("YearSelectionForm requires a valid teaching block.")
+
+        super(YearSelectionForm, self).__init__(*args, **kwargs)
+
+        self.fields['year'].queryset = teaching_block.years.order_by('-year')
+
+

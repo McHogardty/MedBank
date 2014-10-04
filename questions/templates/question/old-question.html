@@ -1,0 +1,45 @@
+{% extends "newbase_with_actions.html" %}
+
+{% block actions %}
+    <h3>Page actions</h3>
+    {% endif %}
+
+    {% if queerstion.teaching_activity_year.current_block.released %}<a class="action" href="{% url 'comment-new' pk=question.id ta_id=question.teaching_activity_year.id %}">Add a comment</a>{% endif %}
+    {% if perms.questions.can_approve %}
+        <a class="action" href="{% url 'question-attributes' ta_id=question.teaching_activity_year.id q_id=question.id %}{{ approval_query_string }}">Edit attributes</a>
+    {% endif %}
+{% endblock actions %}
+
+{% block maincontent %}
+
+    {% if perms.questions.can_approve %}
+        {% if question.requires_special_formatting %}
+            <p><strong>This question has been marked as requiring special formatting.</strong></p>
+        {% endif %}
+    {% endif %}
+
+
+    {% for c in question.principal_comments %}
+        {% if forloop.first %}
+            <h2>Comments</h2>
+        {% endif %}
+        <div class="week">
+            <div class="week-hea1ding comment-heading">
+                <h4 style="display:inline-block">By {{ c.creator }} on {{ c.date_created }}</h4>
+                {{ c.body|linebreaks }}
+                <p><span class="actions">{% if c.replies.count %}<span class="loading action">{{ c.replies.count }} {% if c.replies.count == 1 %}reply{% else %}replies{% endif %}</span><a class="collapse-trigger action" data-target="#replies-{{ c.id }}" style="cursor:pointer">Expand</a>{% endif %}<a class="action" href="{% url 'comment-reply' pk=question.id ta_id=question.teaching_activity_year.id comment_id=c.id %}">Reply</a></span></p>
+            </div>
+            <div class="week-activities collapse in" id="replies-{{ c.id}}">
+                {% for r in c.replies %}
+                    <div class="activity comment">
+                        <h4>Reply by {{ r.creator }} on {{ r.date_created }}</h4>
+                        {{ r.body|linebreaks }}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+{% endblock maincontent %}
+
+{% block javascript %}
+{% endblock javascript %}

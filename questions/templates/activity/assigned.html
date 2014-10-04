@@ -14,7 +14,7 @@
 {% for block_year in block_years %}
     <div class="week">
         <div class="week-heading collapse-trigger" data-target="#week-activities-{{ block_year.grouper.id }}">
-            <h3>{{ block_year.grouper }}</h3>
+            <span class="h3" style="display:inline-block;">{{ block_year.grouper }}</span>
             <i class="icon-angle-down"></i>
         </div>
         <div class="week-activities collapse" id="week-activities-{{ block_year.grouper.id }}">

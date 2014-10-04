@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from django.contrib.auth.decorators import login_required, permission_required
 from django.views.generic import View, DetailView, ListView, FormView
 from django.views.generic.base import RedirectView
@@ -7,11 +9,12 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.core.urlresolvers import reverse
 
-from .base import class_view_decorator, user_is_superuser
+from .base import class_view_decorator, user_is_superuser, GetObjectMixin
 
-from questions import models, forms, document
+import document
+from questions import models, forms
 
-import datetime, csv
+import datetime, csv, math
 
 
 @class_view_decorator(login_required)
@@ -63,11 +66,11 @@ class PendingBlocksForApprovalView(ListView):
     template_name = "approval/list.html"
 
     def get_queryset(self):
-        return models.TeachingBlockYear.objects.get_blocks_with_unassigned_pending_questions_for_stages(self.request.user.student.get_all_stages())
+        return models.TeachingBlockYear.objects.get_blocks_requiring_approval_for_student(self.request.user.student)
 
 
 @class_view_decorator(login_required)
-class BlockActivitiesView(DetailView):
+class BlockActivitiesView(GetObjectMixin, DetailView):
     model = models.TeachingBlockYear
     template_name = "block/activities.html"
 
@@ -79,12 +82,6 @@ class BlockActivitiesView(DetailView):
             return redirect("dashboard")
 
         return r
-
-    def get_object(self, *args, **kwargs):
-        try:
-            return models.TeachingBlockYear.objects.get_from_kwargs(**self.kwargs)
-        except models.TeachingBlockYear.DoesNotExist:
-            raise Http404
 
     def get_context_data(self, **kwargs):
         c = super(BlockActivitiesView, self).get_context_data(**kwargs)
@@ -128,7 +125,7 @@ class NewBlock(CreateView):
 
 
 @class_view_decorator(user_is_superuser)
-class EditBlock(UpdateView):
+class EditBlock(GetObjectMixin, UpdateView):
     model = models.TeachingBlockYear
     template_name = "block/new.html"
     form_class = forms.NewTeachingBlockYearForm
@@ -138,11 +135,8 @@ class EditBlock(UpdateView):
         c['heading'] = "block"
         return c
 
-    def get_object(self):
-        return models.TeachingBlockYear.objects.get_from_kwargs(**self.kwargs)
-
     def get_success_url(self):
-        return reverse('admin')
+        return self.object.get_admin_url()
 
 
 @class_view_decorator(user_is_superuser)
@@ -150,7 +144,7 @@ class ReleaseBlockView(RedirectView):
     permanent = False
     def get_redirect_url(self, code, year):
         try:
-            block =  models.TeachingBlockYear.objects.get(year=year, block__code=code)
+            block =  models.TeachingBlockYear.objects.get_from_kwargs(**{'year':year, 'code':code})
         except models.TeachingBlockYear.DoesNotExist:
             messages.error(self.request, "That block does not exist.")
         else:
@@ -196,17 +190,89 @@ class DownloadView(FormView):
         c['teaching_block_year'] = self.teaching_block_year
         return c
 
+    def build_answer_table(self, data, number_of_columns=3):
+        table_data = []
+        number_of_rows = int(math.ceil(len(data)/float(number_of_columns)))
+
+        for i in range(number_of_columns):
+            for j, d in enumerate(data[i*number_of_rows:(i+1)*number_of_rows]):
+                ll = []
+                try:
+                    ll = table_data[j]
+                except:
+                    table_data.insert(j, ll)
+
+                ll += [unicode(j + 1 + i*number_of_rows), d.answer]
+
+        header = []
+        for i in range(number_of_columns):
+            header += ["Question", "Answer"]
+        table_data.insert(0, header)
+        return table_data
+
     def form_valid(self, form):
         show_answers = form.cleaned_data['document_type'] == form.ANSWER_TYPE
         years = form.cleaned_data['years']
 
-        questions = models.Question.objects.get_approved_questions_for_block_and_years(self.teaching_block, years)
+        questions = list(models.Question.objects.get_approved_questions_for_block_and_years(self.teaching_block, years))
+        questions = sorted(questions, key=lambda x: x.body.strip()[:-1][::-1] if x.body.strip()[-1] in "?:." else x.body.strip()[::-1])
 
-        document_to_send = document.generate_document(None, show_answers, self.request, block=self.teaching_block, questions=questions)
+        doc = document.WordDocument()
+        doc.add_heading(self.teaching_block.name)
+        if show_answers:
+            doc.add_heading("Answer grid")
+            doc.add_table(self.build_answer_table(questions), has_heading_row=False)
+            doc.insert_pagebreak(break_type='page', orientation='portrait')
+            doc.add_heading("Questions and explanations")
 
-        response = HttpResponse(document_to_send.getvalue(), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        for question_number, question in enumerate(questions):
+            doc.add_paragraph("Question %s: %s" % (question_number + 1, question.body))
+            doc.add_list(question.options_list())
+
+            if show_answers:
+                doc.add_paragraph("Answer: %s" % question.answer)
+                doc.add_paragraph("The following explanations were provided:")
+                doc.add_list(question.explanation_list())
+                doc.add_paragraph("%s.%02d Lecture %d: %s" % (self.teaching_block.code, question.teaching_activity_year.week, question.teaching_activity_year.position, question.teaching_activity_year.name))
+
+                p = doc.add_paragraph("To view this question online, click ")
+                url = self.request.build_absolute_uri(question.get_absolute_url())
+                p.add_hyperlink("here", url)
+
+                doc.add_paragraph("")
+
+
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         response['Content-Disposition'] = 'attachment; filename=%sQuestions%s.docx' % (self.teaching_block.filename(), "Answers" if show_answers else "")
+        doc.save(response)
         return response
+
+
+@class_view_decorator(user_is_superuser)
+class ChangeAdminYear(FormView):
+    form_class = forms.YearSelectionForm
+    template_name = "block/change_year.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.teaching_block = models.TeachingBlock.objects.get_from_kwargs(**kwargs)
+        except models.TeachingBlock.DoesNotExist:
+            raise Http404
+
+        return super(ChangeAdminYear, self).dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super(ChangeAdminYear, self).get_form_kwargs()
+        kwargs['teaching_block'] = self.teaching_block
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        c = super(ChangeAdminYear, self).get_context_data(**kwargs)
+        c['teaching_block'] = self.teaching_block
+        return c
+
+    def form_valid(self, form):
+        return redirect(form.cleaned_data['year'].get_admin_url())
 
 
 @class_view_decorator(user_is_superuser)
@@ -276,9 +342,9 @@ class UploadForTeachingBlock(FormView):
 
         # Create a mapping from reference ID to teaching activity so that we can identify
         # teaching activities which already exist.
-        existing_teaching_activities = models.TeachingActivity.objects.filter(block_year__block=self.object.block)
+        existing_teaching_activities = models.TeachingActivity.objects.filter(years__block_year__block=self.teaching_block_year.block)
         existing_teaching_activities_by_referenceID = dict((activity.reference_id, activity) for activity in existing_teaching_activities)
-
+        print existing_teaching_activities_by_referenceID
         # Lists for the new teaching activity years.
         self.new_activity_years = {}
         new_activity_years_old_activity = self.new_activity_years.setdefault('old_activity', [])
@@ -287,6 +353,11 @@ class UploadForTeachingBlock(FormView):
         # Mappings to check for duplicated activity years.
         new_activity_years_by_position = {}
         new_activity_years_by_name = {}
+
+        for title, pretty_name in {'reference_id': "Reference ID", 'name': "Name", 'activity_type': "Activity type", 'week': "Week", 'position': "Position"}.items():
+            if title not in column_titles:
+                messages.error(self.request, 'That CSV file does not contain a column named "%s". Please try again.' % pretty_name)
+                return redirect(self.teaching_block_year.get_activity_upload_url())
 
         for row in content_rows:
             # Creates a mapping from column heading to row value for that particular column.
@@ -312,6 +383,7 @@ class UploadForTeachingBlock(FormView):
                 activity = existing_teaching_activities_by_referenceID[referenceID]
                 new_activity_year_list = new_activity_years_old_activity
             else:
+                print referenceID
                 data = {
                     'activity_type': activity_type,
                     'reference_id': referenceID,
@@ -322,6 +394,7 @@ class UploadForTeachingBlock(FormView):
                     activity = activity_form.save(commit=False)
                     new_activity_year_list = new_activity_years_new_activity
                 else:
+                    print activity_form.errors
                     bad_teaching_activity.append(column_to_value)
                     continue
 
@@ -371,7 +444,7 @@ class ConfirmUploadForTeachingBlock(View):
         except models.TeachingBlockYear.DoesNotExist:
             raise Http404
 
-        existing_teaching_activities = models.TeachingActivity.objects.filter(block_year__block=self.object.block)
+        existing_teaching_activities = models.TeachingActivity.objects.filter(years__block_year__block=self.teaching_block_year.block)
         existing_teaching_activities_by_referenceID = dict((activity.reference_id, activity) for activity in existing_teaching_activities)
 
         every_referenceID = post.getlist('reference_id')

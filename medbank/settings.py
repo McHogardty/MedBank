@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 # Django settings for medbank project.
 
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TPC

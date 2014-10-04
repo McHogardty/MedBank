@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from django.contrib.auth.decorators import permission_required
 from django.views.generic import DetailView, ListView, FormView, TemplateView
 from django.views.generic.base import RedirectView
@@ -8,7 +10,7 @@ from django.shortcuts import redirect
 from django.core.urlresolvers import reverse
 from django import db
 
-from .base import class_view_decorator
+from .base import class_view_decorator, GetObjectMixin, user_is_superuser
 
 from questions import models, forms
 
@@ -27,7 +29,7 @@ class ApprovalDashboardView(TemplateView):
         message_settings = list(models.ApprovalDashboardSetting.objects.filter(name__in=models.ApprovalDashboardSetting.ALL_SETTINGS))
         message_settings = dict((setting.name, setting) for setting in message_settings)
 
-        block_count = models.TeachingBlockYear.objects.get_blocks_with_unassigned_pending_questions_for_stages(self.request.user.student.get_all_stages()).count()
+        block_count = models.TeachingBlockYear.objects.get_blocks_requiring_approval_for_student(self.request.user.student).count()
 
         override = message_settings.get(models.ApprovalDashboardSetting.OVERRIDE_MESSAGE, None)
         setting_to_use = None
@@ -71,22 +73,31 @@ class ApprovalDashboardView(TemplateView):
         return c
 
 
+@class_view_decorator(user_is_superuser)
+class ApprovalDashboardAdmin(ListView):
+    model = models.ApprovalDashboardSetting
+    template_name = "general/dashboard_admin.html"
+
+    def get_context_data(self, **kwargs):
+        c = super(ApprovalDashboardAdmin, self).get_context_data(**kwargs)
+        c['dashboard_settings'] = self.object_list
+        return c
+
+
 @class_view_decorator(permission_required('questions.can_approve'))
-class AssignActivitiesForApprovalView(DetailView):
+class AssignActivitiesForApprovalView(GetObjectMixin, DetailView):
     template_name = "approval/assign.html"
+    model = models.TeachingBlockYear
 
     def dispatch(self, request, *args, **kwargs):
         r = super(AssignActivitiesForApprovalView, self).dispatch(request, *args, **kwargs)
 
-        # Approvers can only approve for blocks they have completed.
-        if not self.object.block.is_viewable_by(self.request.user.student):
-            messages.warning(self.request, "Unfortunately you are unable to view that block right now.")
+        # Approvers can only approve for blocks in previous stages.
+        if not self.object.block.can_be_approved_by(self.request.user.student):
+            messages.warning(self.request, "Unfortunately you are unable to approve questions for that block.")
             return redirect(models.TeachingBlockYear.get_approval_assign_block_list_url())
 
         return r
-
-    def get_object(self, *args, **kwargs):
-        return models.TeachingBlockYear.objects.get_from_kwargs(**self.kwargs)
 
     def get_context_data(self, **kwargs):
         c = super(AssignActivitiesForApprovalView, self).get_context_data(**kwargs)
@@ -120,9 +131,9 @@ class CompleteAssignedApprovalView(RedirectView):
 
         if previous_question_id:
             try:
-                previous_question = models.Question.objects.get(pk=previous_question_id)
+                previous_question = models.Question.objects.get_from_kwargs(pk=previous_question_id, allow_deleted=self.request.user.is_superuser)
             except models.Question.DoesNotExist:
-                messages.error(self.request, "That question was not found.")
+                messages.error(self.request, "An unexpected error occurred.")
                 return reverse('approve-home')
 
         # Get all questions which have not been completed and order them by those assigned first.
@@ -156,9 +167,13 @@ class AssignApproval(RedirectView):
     permanent = False
     def get_redirect_url(self, reference_id, year):
         try:
-            activity = models.TeachingActivityYear.objects.get(teaching_activity__reference_id=reference_id, block_year__year=year)
+            activity = models.TeachingActivityYear.objects.get_from_kwargs(**{'reference_id': reference_id, 'year': year})
         except models.TeachingActivityYear.DoesNotExist:
             messages.error(self.request, 'That teaching activity does not exist.')
+            return reverse('approve-home')
+
+        if not activity.block_year.block.can_be_approved_by(self.request.user.student):
+            messages.error(self.request, "Unfortunately you are unable to approve for that activity.")
             return reverse('approve-home')
 
         if activity.has_assigned_approver():
@@ -172,7 +187,6 @@ class AssignApproval(RedirectView):
 
 @class_view_decorator(permission_required("questions.can_approve"))
 class ViewQuestionApprovalHistory(DetailView):
-    model = models.Question
     template_name = "question/history.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -181,14 +195,23 @@ class ViewQuestionApprovalHistory(DetailView):
         if self.object.deleted and not self.request.user.is_superuser:
             raise Http404
 
+        if not self.object.teaching_activity_year.block_year.block.can_be_approved_by(request.user.student):
+            messages.warning(request, "Unfortunately you are unable to view the approval history for that particular question.")
+            return redirect('approve-home')
+
         return r
+
+    def get_object(self):
+        try:
+            return models.Question.objects.get_from_kwargs(allow_deleted=self.request.user.is_superuser, **self.kwargs)
+        except models.Question.DoesNotExist:
+            raise Http404
 
 
 @class_view_decorator(permission_required("questions.can_approve"))
 class QuestionApproval(UpdateView):
     template_name = "question/approve.html"
     form_class = forms.QuestionApprovalForm
-    model = models.Question
 
     def dispatch(self, request, *args, **kwargs):
         self.multiple_question_approval_mode = models.Question.request_is_in_multiple_approval_mode(request)
@@ -198,7 +221,17 @@ class QuestionApproval(UpdateView):
         if self.object.deleted and not self.request.user.is_superuser:
             raise Http404
 
+        if not self.object.teaching_activity_year.block_year.block.can_be_approved_by(request.user.student):
+            messages.warning(request, "Unfortunately you are unable to approve that question.")
+            return redirect('approve-home')
+
         return r
+
+    def get_object(self):
+        try:
+            return models.Question.objects.get_from_kwargs(allow_deleted=self.request.user.is_superuser, **self.kwargs)
+        except models.Question.DoesNotExist:
+            raise Http404
 
     def get_context_data(self, **kwargs):
         c = super(QuestionApproval, self).get_context_data(**kwargs)
@@ -278,10 +311,14 @@ class FlagQuestion(FormView):
         self.multiple_question_approval_mode = models.Question.request_is_in_multiple_approval_mode(request)
 
         try:
-            self.question = models.Question.objects.get(pk=self.kwargs['pk'])
+            self.question = models.Question.objects.get_from_kwargs(allow_deleted=request.user.is_superuser, **self.kwargs)
         except models.Question.DoesNotExist:
             messages.error(request, "That question does not exist.")
-            return redirect('home')
+            return redirect('approval-home')
+
+        if not self.question.teaching_activity_year.block_year.block.can_be_approved_by(self.request.user.student):
+            messages.warning(self.request, "Unfortunately you are unable to flag that question.")
+            return redirect('approval-home')
 
         return super(FlagQuestion, self).dispatch(request, *args, **kwargs)
 

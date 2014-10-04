@@ -8,7 +8,8 @@
 {% load custom_filters %}
 
 {% block actions %}
-	<h3>Page actions</h3>		
+{% if student_can_sign_up or student_can_unassign_from_activity or can_write_questions or user.is_superuser or can_view_blocks %}
+	<h3>Page actions</h3>
 {% if view_signup_status %}
 	{% if student_can_sign_up %}
 		<a class="action" href="{{activity.get_signup_url}}">Assign to me</a>
@@ -18,10 +19,13 @@
 {% endif %}{% if can_write_questions or user.is_superuser %}
     <a class="action" href="{{ activity.get_new_question_url }}">Write questions</a>
 {% endif %}
-	<a class="action" href="{{ activity.current_block_year.get_activity_display_url }}">Back to block</a>
+{% if can_view_block %}
+	<a class="action" href="{{ activity.current_block_year.get_activity_display_url }}">Back to block</a>	
+{% endif %}
 {% if user.is_superuser %}
 	<h3>Admin</h3>
 	<a class="action" href="{{ activity.get_previous_activity_assign_url }}">Assign previous activity</a>	
+{% endif %}
 {% endif %}
 {% endblock actions %}
 
@@ -55,9 +59,9 @@
 		{% for question_group in questions_by_year %}
 			<div class="week">
 		        <div class="week-heading collapse-trigger" data-target="#week-activities-{{ question_group.grouper }}">
-		            <h3>{{ question_group.grouper }}</h3>
+		            <span class="h3" style="display:inline-block">{{ question_group.grouper }}</span>
 		            <i class="icon-angle-down"></i>
-		            <h3 class="pull-right hidden-xs">{{ question_group.list|length }} {{ question_group.list|length|plural:"question" }}</h3>
+		            <span class="h3 pull-right hidden-xs" style="display:inline-block">{{ question_group.list|length }} {{ question_group.list|length|plural:"question" }}</span>
 		        </div>
 		        <div class="week-activities collapse" id="week-activities-{{ question_group.grouper }}">
 		            {% for question in question_group.list %}

@@ -2,7 +2,7 @@
 
 
 {% block content %}
-	<h1>Approval Dashboard</h1>
+	<h1>Approval Dashboard{% if user.is_superuser %} <small><a href="{% url 'approval-dashboard-admin' %}">Admin</a></small>{% endif %}</h1>
 	{% if main_feature_text or secondary_feature_text %}
 	<div class="row">
 		<div class="col-sm-12">
@@ -18,7 +18,11 @@
 			<div class="dashboard">
 				<h1>{{ block_count }}</h1>
 				<p class="lead">blocks with pending questions.</p>
+			{% if block_count %}
 				<a class="action" href="{{ block_list_for_assigning_activities_url }}">Assign questions to me</a>
+			{% else %}
+				<p class="action">Please try again later.</p>					
+			{% endif %}
 			</div>
 		</div>
 		<div class="col-sm-6">

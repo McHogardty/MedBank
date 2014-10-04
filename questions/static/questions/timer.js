@@ -87,7 +87,7 @@ var Questions = (function (questions_module, $) {
         };
 
         this.render_time = function (time) {
-            $h = $('.timer h1');
+            $h = $('.timer .time');
             time = Math.round(Math.floor(time/100)/10);
             minutes = Math.floor(time/60);
             s = "";

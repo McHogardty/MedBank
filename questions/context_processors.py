@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 def add_student(request):
 	student = {}
 	try:

@@ -1,0 +1,35 @@
+{% extends "newbase.html" %}
+{% load custom_filters %}
+
+{% block content %}
+	<h1>{{ teaching_block.block.name }} <small><a href="{{ teaching_block.get_edit_url }}">Edit</a></small></h1>
+    <p>You are viewing the details for {{ teaching_block.year }}. <a href="{{ teaching_block.block.get_admin_year_selection_url }}">Change to a different year</a></p>
+	<p>This block is {{ teaching_block.weeks }} {{ teaching_block.weeks|plural:"week" }} long with {{ number_activities_total }} {{ number_activities_total|plural:"activity" }} in total.</p>
+
+	<h2>Signup details</h2>
+{% if number_activities_assigned %}
+    <p><strong>Assigned activities:</strong> {{ number_activities_assigned }}</p>
+    <p><strong>Total users signed up:</strong> {{ number_assigned_users }}</p>    
+{% endif %}
+    <p><a href="{{ teaching_block.get_activity_upload_url }}">Click here</a> to upload{% if number_activities_assigned %} more{% endif %} activities for this block.</p>
+    <p><strong>Signup limit:</strong> {{ teaching_block.activity_capacity }} {{ teaching_block.activity_capacity|plural:"student" }} per activity.</p>
+    <p><strong>Signup start date:</strong> {{ teaching_block.start }}</p>
+    <p><strong>Signup end date:</strong> {{ teaching_block.end }}</p>
+
+    <h2>Question details</h2>
+    <p><strong>Number of questions written:</strong> {{ number_questions_written }}</p>
+    <p><strong>Question submission cutoff:</strong> {{ teaching_block.close }}</p>
+
+    <h2>Approval details</h2>
+    <p><strong>Number of questions pending:</strong> {{ number_questions_pending }}</p>
+    <p><strong>Number of questions approved:</strong> {{ number_questions_approved }}</p>
+    <p><strong>Number of questions flagged:</strong> {{ number_questions_flagged }}</p>
+    <p>You can <a href="{{ teaching_block.get_approval_statistics_url }}">view approval statistics</a> for this block.</p>
+
+    <h2>Releasing questions</h2>
+{% if teaching_block.released %}
+    <p>This block was released on {{ teaching_block.release_date }}. <a href="">Click here</a> to email the students.</p>
+{% else %}
+    <p>This block has not yet been released. {% if number_questions_pending %}<strong>This block can't be released until there are no more questions pending.</strong>{% else %}<a href="{{ teaching_block.get_release_url }}">Click here</a> to release this block.{% endif %}</p>
+{% endif %}
+{% endblock content %}

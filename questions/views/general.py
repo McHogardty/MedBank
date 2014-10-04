@@ -1,5 +1,7 @@
+from __future__ import unicode_literals
+
 from django.contrib.auth.decorators import login_required, permission_required
-from django.views.generic import FormView, TemplateView
+from django.views.generic import FormView, TemplateView, ListView
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.core.urlresolvers import reverse
@@ -31,6 +33,7 @@ class DashboardView(TemplateView):
         message_settings = list(models.StudentDashboardSetting.objects.filter(name__in=models.StudentDashboardSetting.ALL_SETTINGS))
         message_settings = dict((setting.name, setting) for setting in message_settings)
 
+        c['current_assigned_activities'] = list(models.TeachingActivityYear.objects.get_unreleased_activities_assigned_to(self.request.user.student))
         override = message_settings.get(models.StudentDashboardSetting.OVERRIDE_MESSAGE, None)
         setting_to_use = None
         main_feature_text = ""
@@ -79,13 +82,24 @@ class DashboardView(TemplateView):
 
 
 @class_view_decorator(user_is_superuser)
+class DashboardAdminView(ListView):
+    template_name = "general/dashboard_admin.html"
+    model = models.StudentDashboardSetting
+
+    def get_context_data(self, **kwargs):
+        c = super(DashboardAdminView, self).get_context_data(**kwargs)
+        c['dashboard_settings'] = self.object_list
+        return c
+
+
+@class_view_decorator(user_is_superuser)
 class EmailView(FormView):
     template_name = "admin/email.html"
     form_class = forms.EmailForm
 
     def dispatch(self, request, *args, **kwargs):
         try:
-            self.tb = models.TeachingBlockYear.objects.get(block__code=self.kwargs['code'], year=self.kwargs['year'])
+            self.tb = models.TeachingBlockYear.objects.get_from_kwargs(**self.kwargs)
         except models.TeachingBlockYear.DoesNotExist:
             messages.error(request, "That teaching block does not exist.")
             return redirect("admin")

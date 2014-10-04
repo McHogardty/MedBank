@@ -1,16 +1,20 @@
 {% extends "newbase.html" %}
 
 {% block head %}
-<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}medbank/datepicker3.css">
+<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}medbank/css/datepicker3.css">
 {% endblock head %}
 
 {% block content %}
-    <h1>Add a new teaching block</h1>
+    <h1>{% if object %}Edit a{% else %}Add a new{% endif %} teaching block</h1>
+{% if object %}
+    {% include "includes/form.html" with return_button_url=object.get_admin_url return_button_text="Back to admin" %}
+{% else %}
     {% include "includes/form.html" %}
+{% endif %}
 {% endblock content %}
 
 {% block javascript %}
-    <script type="text/javascript" src="{{ STATIC_URL }}medbank/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}medbank/js/bootstrap-datepicker.js"></script>
     <script type="text/javascript">
         function init() {
             $("input.date-input").datepicker({
@@ -20,8 +24,6 @@
             });
         }
 
-        $(document).ready(function () {
-            init()
-        })
+        $(document).ready(init);
     </script>
 {% endblock javascript %}

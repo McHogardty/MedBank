@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from django.contrib import messages
 from django.views.generic import TemplateView, DetailView, View, ListView, RedirectView, CreateView, FormView, UpdateView
 from django.shortcuts import redirect
@@ -5,7 +7,7 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse, Http404
 
 from questions import models, forms
-from .base import class_view_decorator, user_is_superuser
+from .base import class_view_decorator, user_is_superuser, GetObjectMixin
 from django.contrib.auth.decorators import login_required
 
 import datetime
@@ -58,8 +60,9 @@ class QuizHistory(ListView):
 
 
 @class_view_decorator(login_required)
-class QuizAttemptReport(DetailView):
+class QuizAttemptReport(GetObjectMixin, DetailView):
     template_name = "quiz/specific_history.html"
+    model = models.QuizAttempt
 
     def dispatch(self, request, *args, **kwargs):
         response = super(QuizAttemptReport, self).dispatch(request, *args, **kwargs)
@@ -67,9 +70,6 @@ class QuizAttemptReport(DetailView):
             messages.warning(request, "Unfortunately you are unable to view the history for that particular quiz attempt.")
             return redirect('quiz-home')
         return response
-
-    def get_object(self):
-        return models.QuizAttempt.objects.get_from_kwargs(**self.kwargs)
 
     def get_context_data(self, **kwargs):
         c = super(QuizAttemptReport, self).get_context_data(**kwargs)
@@ -201,8 +201,10 @@ class QuizView(TemplateView):
             for block in self.get_allowed_blocks():
                 number_of_questions = cleaned_data[block.name_for_form_fields()]
                 if number_of_questions:
-                    questions_for_block = models.Question.objects.filter(teaching_activity_year__block_year__block=block, status=models.Question.APPROVED_STATUS)
-                    question_list += random.sample(list(set(questions_for_block)), number_of_questions)
+                    questions_for_block = list(models.Question.objects.filter(teaching_activity_year__block_year__block=block, status=models.Question.APPROVED_STATUS).distinct())
+                    if len(questions_for_block) < number_of_questions:
+                        number_of_questions = len(questions_for_block)
+                    question_list += random.sample(questions_for_block, number_of_questions)
 
         random.seed()
         random.shuffle(question_list)
@@ -216,7 +218,9 @@ class QuizView(TemplateView):
 
 
 @class_view_decorator(login_required)
-class ResumeAttemptView(DetailView):
+class ResumeAttemptView(GetObjectMixin, DetailView):
+    model = models.QuizAttempt
+
     def get_template_names(self):
         modes_to_templates = {
             models.QuizAttempt.CLASSIC_QUIZ_TYPE: "quiz/preset_classic.html",
@@ -231,12 +235,6 @@ class ResumeAttemptView(DetailView):
             messages.warning(request, "Unfortunately you are unable to view that particular quiz attempt.")
             return redirect('quiz-home')
         return r
-
-    def get_object(self):
-        try:
-            return models.QuizAttempt.objects.get_from_kwargs(**self.kwargs)
-        except models.QuizAttempt.DoesNotExist:
-            raise Http404
 
     def get_context_data(self, **kwargs):
         c = super(ResumeAttemptView, self).get_context_data(**kwargs)
@@ -411,7 +409,7 @@ class AddQuizSpecificationQuestions(FormView):
 
     def dispatch(self, request, *args, **kwargs):
         try:
-            self.specification = models.QuizSpecification.objects.get(slug=kwargs['slug'])
+            self.specification = models.QuizSpecification.objects.get_from_kwargs(**kwargs)
         except models.QuizSpecification.DoesNotExist:
             messages.error("That quiz specification does not exist.")
             return redirect("admin")
@@ -446,7 +444,7 @@ class ConfirmQuizSpecificationQuestions(RedirectView):
     
     def get_redirect_url(self, slug):
         try:
-            specification = models.QuizSpecification.objects.get(slug=slug)
+            specification = models.QuizSpecification.objects.get_from_kwargs(**{'slug': slug})
         except models.QuizSpecification.DoesNotExist:
             messages.error(self.request, "That quiz specification does not exist.")
             return reverse('quiz-admin')

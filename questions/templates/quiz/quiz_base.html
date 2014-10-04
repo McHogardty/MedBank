@@ -64,8 +64,7 @@
             vertical-align:middle;
             z-index:1999;
         }
-        .timer h1 {
-            display:inline-block;
+        .timer .time {
             margin:0;
             margin-right:10px;
         }
@@ -211,11 +210,11 @@
 
 {% block before %}
     <div class="timer">
-        <h1 class="pull-left">00:00</h1> <button class="btn btn-default pull-right">Pause</button>
+        <span class="h1 pull-left time">00:00</span> <button class="btn btn-default pull-right">Pause</button>
     </div>
     <div class="nav-down">
         <button class="btn btn-default btn-previous" type="button">Previous question</button>
-        <h3 class="question-indicator">Question <span class="current-question-number">1</span> of <span class="total-question-number">-</span></h3>
+        <span class="h3 question-indicator">Question <span class="current-question-number">1</span> of <span class="total-question-number">-</span></span>
         <button class="btn btn-default btn-next" type="button">Next question</button>
         <button class="btn btn-default btn-finish" type="button">Start quiz</button>
     </div>
@@ -287,7 +286,7 @@
 {% for question in questions %}
     <div class="row section">
         <div class="col-xs-12 question-screen" data-question="{{ forloop.counter }}" >
-            <h1 style="display:inline-block;">Question {{ forloop.counter }}</h1>
+            <span class="h1" style="display:inline-block;">Question {{ forloop.counter }}</span>
             <p class="lead text-danger question-unanswered no-margin">You did not answer this question.</p>
             <form class="form-horizontal">
                 <div class="lead question-body"></div>
@@ -316,8 +315,8 @@
 
 
 {% block javascript %}
-    <script src="{{ STATIC_URL }}medbank/jquery.cookie.js"></script>
-    <script src="{{ STATIC_URL }}medbank/jquery-ui.min.js"></script>
+    <script src="{{ STATIC_URL }}medbank/js/jquery.cookie.js"></script>
+    <script src="{{ STATIC_URL }}medbank/js/jquery-ui.min.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}questions/csrf.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}questions/globals.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}questions/screen.js"></script>

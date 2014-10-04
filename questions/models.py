@@ -9,6 +9,7 @@ from django.utils.datastructures import SortedDict
 from django.core.urlresolvers import reverse
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
+from django.template.defaultfilters import linebreaksbr
 
 from medbank.models import Setting
 
@@ -35,7 +36,7 @@ def int_to_base(x, base, places=0):
         digits.append(digs[0])
 
     digits.reverse()
-    return u''.join(digits)
+    return ''.join(digits)
 
 
 def hex_to_base_26(hex):
@@ -66,7 +67,7 @@ class Stage(models.Model):
         ordering = ('number',)
 
     def __unicode__(self):
-        return u"Stage %s" % (self.number, )
+        return "Stage %s" % (self.number, )
 
     @classmethod
     def get_stage(self, n):
@@ -157,7 +158,7 @@ class Student(models.Model, ObjectCacheMixin):
         return count
 
     def future_block_count(self):
-        return TeachingBlockYear.objects.filter(close__gte=datetime.datetime.now(), activities__question_writers=self).count()
+        return TeachingBlockYear.objects.get_open_blocks_assigned_to_student(self).count()
 
     def latest_quiz_attempt(self):
         return self.quiz_attempts.latest('date_submitted')
@@ -181,7 +182,7 @@ def user_created(sender, **kwargs):
 
 class TeachingBlockManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(code=kwargs['code'])
+        return self.get_query_set().get(code=kwargs.get('code'))
 
     def get_block_for_activity(self, activity):
         return self.get_query_set().filter(years__activities__teaching_activity=activity).get()
@@ -217,6 +218,9 @@ class TeachingBlock(models.Model):
     def get_download_url(self):
         return reverse('block-download', kwargs=self.get_url_kwargs())
 
+    def get_admin_year_selection_url(self):
+        return reverse('block-admin-select', kwargs=self.get_url_kwargs())
+
     def get_released_years(self):
         return self.years.filter(release_date__lte=datetime.datetime.now())
     released_years = property(get_released_years)
@@ -224,7 +228,7 @@ class TeachingBlock(models.Model):
     def is_viewable_by(self, student):
         if student.user.is_superuser: return True
 
-        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage.id).exists():
+        if student.has_perm("questions.can_approve") and student.get_previous_stages().filter(id=self.stage.id).exists():
             return True
 
         block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
@@ -251,6 +255,14 @@ class TeachingBlock(models.Model):
         block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
         if self.years.filter(block_is_released_and_questions_written).exists():
             return True
+
+        return False
+
+    def can_be_approved_by(self, student):
+        if student.user.is_superuser: return True
+
+        if student.has_perm('questions.can_approve'):
+            return student.get_previous_stages().filter(id=self.stage.id).exists()
 
         return False
 
@@ -314,6 +326,19 @@ class TeachingBlockYearManager(models.Manager):
 
         return blocks.filter(activities__questions__in=student.questions_created.all()).distinct()
 
+    def get_unreleased_blocks_for_student(self, student):
+        current_date = datetime.datetime.now()
+        if student.has_perm("questions.can_approve"):
+            stages = student.get_all_stages()
+        else:
+            stages = student.get_current_stage()
+
+        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
+
+        release_date_null = models.Q(release_date__isnull=True)
+        release_date_too_early = models.Q(release_date__gt=current_date)
+        return all_blocks_for_stages.filter(release_date_null | release_date_too_early)
+
     def all_open_blocks(self):
         return self.get_query_set().filter(start__lte=datetime.datetime.now(), close__gte=datetime.datetime.now())
 
@@ -321,7 +346,7 @@ class TeachingBlockYearManager(models.Manager):
         all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
 
         # We want all blocks which were open in the specified year. This means that 
-        return all_blocks_for_stages.filter(year=year, end__gt=date, start__lte=date)
+        return all_blocks_for_stages.filter(year=year, end__gte=date, start__lte=date)
 
     def get_open_blocks_for_year_and_date_and_student(self, year, date, student):
         if student.user.is_superuser:
@@ -338,14 +363,21 @@ class TeachingBlockYearManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
         return self.get_query_set().select_related().get(block__code=kwargs.get("code"), year=kwargs.get("year"))
 
-    # def has_started(self):
-    #     return self.start <= datetime.datetime.now().date()
+    def get_open_blocks_assigned_to_student(self, student):
+        current_date = datetime.datetime.now()
+        open_blocks = self.get_open_blocks_for_year_and_date_and_student(current_date.year, current_date, student)
 
-    # def has_ended(self):
-    #     return self.end <= datetime.datetime.now().date()
+        return open_blocks.filter(activities__question_writers=student)
 
-    # def has_closed(self):
-    #     return self.close < datetime.datetime.now().date()
+    def get_blocks_requiring_approval_for_student(self, student):
+        if not student.has_perm('questions.can_approve'): return self.none()
+
+        blocks = self.get_query_set()
+        if not student.user.is_superuser:
+            blocks = self.get_all_blocks_for_stages(student.get_previous_stages())
+
+        return blocks.filter(activities__questions__in=Question.objects.get_unassigned_pending_questions()).distinct()
+
 
 
 class TeachingBlockYear(models.Model):
@@ -357,13 +389,13 @@ class TeachingBlockYear(models.Model):
         (WEEK_MODE, 'By week')
     )
     year = models.IntegerField()
-    start = models.DateField(verbose_name=u'Start date')
-    end = models.DateField(verbose_name=u'End date')
-    close = models.DateField(verbose_name=u'Close date')
-    release_date = models.DateField(verbose_name=u'Release date', blank=True, null=True)
-    activity_capacity = models.IntegerField(verbose_name=u'Maximum users per activity', default=2)
+    start = models.DateField(verbose_name='Start date')
+    end = models.DateField(verbose_name='End date')
+    close = models.DateField(verbose_name='Close date')
+    release_date = models.DateField(verbose_name='Release date', blank=True, null=True)
+    activity_capacity = models.IntegerField(verbose_name='Maximum users per activity', default=2)
     sign_up_mode = models.IntegerField(choices=MODE_CHOICES)
-    weeks = models.IntegerField(verbose_name=u'Number of weeks')
+    weeks = models.IntegerField(verbose_name='Number of weeks')
     block = models.ForeignKey(TeachingBlock, related_name="years")
 
     objects = TeachingBlockYearManager()
@@ -415,6 +447,12 @@ class TeachingBlockYear(models.Model):
 
     def get_admin_url(self):
         return reverse('block-admin', kwargs=self.get_url_kwargs())
+
+    def get_approval_statistics_url(self):
+        return reverse('block-approval-statistics', kwargs=self.get_url_kwargs())
+
+    def get_edit_url(self):
+        return reverse('block-edit', kwargs=self.get_url_kwargs())
 
     def get_download_url(self):
         return reverse('block-download', kwargs=self.get_url_kwargs())
@@ -547,6 +585,9 @@ class TeachingBlockYear(models.Model):
     def questions_flagged_count(self):
         return self.flagged_questions().count()
 
+    def total_questions_count(self):
+        return Question.objects.filter(teaching_activity_year__block_year=self).exclude(status=Question.DELETED_STATUS).count()
+
     def question_count_for_student(self, s):
         return Question.objects.filter(teaching_activity_year__block_year=self, creator=s).count()
 
@@ -636,8 +677,9 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
             raise ValueError("That activity type does not exist.")
 
     def is_viewable_by(self, student):
-        if student.user.is_superuser:
-            return True
+        if student.user.is_superuser: return True
+
+        if self.has_student(student): return True
 
         return self.current_block_year().block.is_viewable_by(student)
 
@@ -664,6 +706,7 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
     def approved_questions_are_viewable_by(self, student):
         if student.user.is_superuser: return True
 
+        if self.student_has_written_questions(student): return True
         return self.current_block_year().block.approved_questions_are_viewable_by(student)
 
     def questions_can_be_written_by(self, student):
@@ -746,8 +789,15 @@ class TeachingActivityYearManager(models.Manager):
     def get_activities_assigned_to(self, student):
         return self.get_query_set().filter(question_writers=student)
 
+    def get_unreleased_activities_assigned_to(self, student):
+        unreleased_blocks = TeachingBlockYear.objects.get_unreleased_blocks_for_student(student)
+        return self.get_activities_assigned_to(student).filter(block_year__in=unreleased_blocks)
+
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(reference_id=kwargs.pop("reference_id"))
+        activity = self.get_query_set().filter(teaching_activity__reference_id=kwargs.get('reference_id'))
+        if 'year' in kwargs:
+            activity = activity.filter(block_year__year=kwargs.get('year'))
+        return activity.get()
 
 
 class TeachingActivityYear(models.Model):
@@ -906,6 +956,16 @@ class TeachingActivityYear(models.Model):
 
 
 class QuestionManager(models.Manager):
+    def get_from_kwargs(self, **kwargs):
+        allow_deleted = kwargs.get('allow_deleted', False)
+        questions = self.get_query_set().filter(pk=kwargs.get('pk'))
+        if 'reference_id' in kwargs:
+            questions = questions.filter(teaching_activity_year__teaching_activity__reference_id=kwargs.get('reference_id'))
+        if not allow_deleted:
+            questions = questions.exclude(status=Question.DELETED_STATUS)
+
+        return questions.get()
+
     def get_unassigned_pending_questions(self):
         # Pending questions are unassigned if one of the two are satisfied:
         # 1. It was completed.
@@ -1134,7 +1194,7 @@ class Question(models.Model):
         label = options.keys()
         label.sort()
         options['labels'] = label
-        json_repr = {'id': self.id, 'body': self.body, 'options': options}
+        json_repr = {'id': self.id, 'body': linebreaksbr(self.body), 'options': options}
         if include_answer:
             json_repr['answer'] = self.answer
             explanation = self.explanation_dict()
@@ -1175,6 +1235,9 @@ class Question(models.Model):
 
     def correct_answer(self):
         return self.answer or self.answer_letter
+
+    def explanation_list(self):
+        return self.explanation_dict().values()
 
     def explanation_dict(self):
         if self.sorted_options:
@@ -1357,7 +1420,7 @@ class ApprovalRecord(models.Model):
 
 class QuizSpecificationManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(slug=kwargs['slug'])
+        return self.get_query_set().get(slug=kwargs.get('slug'))
 
     def get_allowed_specifications_for_student(self, student):
         stages = student.get_all_stages()
@@ -1550,7 +1613,7 @@ class QuizQuestionSpecification(models.Model):
 
 class QuizAttemptManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
-        return self.get_query_set().get(slug=kwargs['slug'])
+        return self.get_query_set().get(slug=kwargs.get('slug'))
 
     def get_latest_quiz_attempt_for_student(self, student):
         return self.get_quiz_attempts_for_student(student).latest("date_submitted")
@@ -1575,7 +1638,7 @@ class QuizAttempt(models.Model):
     objects = QuizAttemptManager()
 
     def __unicode__(self):
-        return u"Quiz attempt for %s" % self.student
+        return "Quiz attempt for %s" % self.student
 
     def get_url_kwargs(self):
         return {'slug': self.slug}

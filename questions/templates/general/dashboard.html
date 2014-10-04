@@ -1,9 +1,8 @@
 {% extends "newbase.html" %}
 {% load custom_filters %}
 
-
 {% block content %}
-	<h1>Dashboard</h1>
+	<h1>Dashboard{% if user.is_superuser %} <small><a href="{% url 'dashboard-admin' %}">Admin</a></small>{% endif %}</h1>
 	{% if main_feature_text or secondary_feature_text %}
 	<div class="row">
 		<div class="col-sm-12">
@@ -17,14 +16,14 @@
 	<div class="row">
 		<div class="col-sm-6">
 			<div class="dashboard">
-				<h1>{{ student.current_assigned_activities.count|default:0 }}</h1>
-				<p class="lead">{{ student.current_assigned_activities.count|plural:"activity" }} assigned to me</p>
-				{% if student.current_assigned_activities.count %}<a class="action" href="{% url "activity-mine" %}">View activities</a>{% else %}{% if block_count %}<a class="action">Choose from available blocks</a>{% else %}<p class="action">Please check back later</p>{% endif %}{% endif %}
+				<h1>{{ current_assigned_activities|length|default:0 }}</h1>
+				<p class="lead">open {{ current_assigned_activities|length|plural:"activity" }} assigned to me</p>
+				{% if current_assigned_activities %}<a class="action" href="{% url "activity-mine" %}">View activities</a>{% else %}{% if block_count %}<p class="action">View open blocks to the right.</p>{% else %}<p class="action">Please check back later</p>{% endif %}{% endif %}
 			</div>
 		</div>
 		<div class="col-sm-6">
 			<div class="dashboard">
-				<h1>{{ block_count}}</h1>
+				<h1>{{ block_count }}</h1>
 				<p class="lead">block{{ block_count|pluralize }} open for signups</p>
 				{% if block_count %}<a class="action" href="{{ open_block_view_url }}">All blocks</a>{% else %}<p class="action">Please check back later</p>{% endif %}
 			</div>

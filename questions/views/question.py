@@ -1,13 +1,11 @@
+from __future__ import unicode_literals
+
 from django.contrib.auth.decorators import login_required, permission_required
 from django.views.generic import DetailView, FormView, TemplateView
-from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.http import Http404
 from django.contrib import messages
 from django.shortcuts import redirect
-from django.core.urlresolvers import reverse
-from django.core.exceptions import PermissionDenied
-from django.template import loader
 
 from .base import class_view_decorator
 
@@ -39,20 +37,22 @@ class NewQuestion(CreateView):
 
     def get_initial(self):
         i = super(NewQuestion, self).get_initial().copy()
-        i.update({'teaching_activity_year': self.activity.current_activity_year(), 'creator': self.request.user.student})
+        i['teaching_activity_year'] = self.activity.current_activity_year()
+        i['creator'] = self.request.user.student
         return i
+
+    def get_form_kwargs(self):
+        kwargs = super(NewQuestion, self).get_form_kwargs()
+        kwargs['change_student'] = self.request.user.is_superuser
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, "Thanks, your question has been submitted!") # You'll get an email when it's approved.")
-        return super(NewQuestion, self).form_valid(form)
-
-    def get_success_url(self):
-        return self.object.get_absolute_url()
+        return redirect(self.object)
 
 
 @class_view_decorator(login_required)
 class UpdateQuestion(UpdateView):
-    model = models.Question
     form_class = forms.NewQuestionForm
     template_name = "question/new.html"
 
@@ -67,26 +67,22 @@ class UpdateQuestion(UpdateView):
 
         return r
 
-    def get_queryset(self):
-        return models.Question.objects.filter(teaching_activity_year__teaching_activity__reference_id=self.kwargs['reference_id'])
-
     def get_object(self):
-        o = super(UpdateQuestion, self).get_object()
-
-        if o.creator != self.request.user.student and not self.request.user.has_perm('questions.can_approve'):
-            raise PermissionDenied
-
-        return o
+        try:
+            return models.Question.objects.get_from_kwargs(allow_deleted=self.request.user.is_superuser, **self.kwargs)
+        except models.Question.DoesNotExist:
+            raise Http404
 
     def get_form_kwargs(self):
         k = super(UpdateView, self).get_form_kwargs()
-        if self.request.user.has_perm("questions.can_approve") and self.get_object().creator != self.request.user:
+        if self.request.user.has_perm("questions.can_approve") and self.object.creator != self.request.user.student:
             k.update({'admin': True})
+        k['change_student'] = self.request.user.is_superuser
         return k
 
     def form_valid(self, form):
-        o = self.get_object()
-        if self.request.user.has_perm("questions.can_approve") and o.creator != self.request.user:
+        o = self.object
+        if self.request.user.has_perm("questions.can_approve") and o.creator != self.request.user.student:
             c = form.cleaned_data
             if c['reason']:
                 r = models.Reason()
@@ -119,13 +115,13 @@ class AddComment(CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         try:
-            self.q = models.Question.objects.get(pk=self.kwargs['pk'])
+            self.q = models.Question.objects.get_from_kwargs(allow_deleted=self.request.user.is_superuser, **self.kwargs)
         except models.Question.DoesNotExist:
             messages.error(self.request, "That question does not exist")
             return redirect('dashboard')
         if 'comment_id' in self.kwargs:
             try:
-                self.c = models.Comment.objects.get(pk=self.kwargs['comment_id'])
+                self.c = models.Comment.objects.get_from_kwargs(**self.kwargs)
             except models.Comment.DoesNotExist:
                 messages.error(self.request, "That comment does not exist")
                 return redirect('dashboard')
@@ -163,7 +159,6 @@ class AddComment(CreateView):
 
 @class_view_decorator(login_required)
 class ViewQuestion(DetailView):
-    model = models.Question
     template_name = "question/view.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -177,6 +172,12 @@ class ViewQuestion(DetailView):
 
         return r
 
+    def get_object(self):
+        try:
+            return models.Question.objects.get_from_kwargs(allow_deleted=self.request.user.is_superuser, **self.kwargs)
+        except models.Question.DoesNotExist:
+            raise Http404
+
     def get_context_data(self, **kwargs):
         c = super(ViewQuestion, self).get_context_data(**kwargs)
 
@@ -188,8 +189,6 @@ class ViewQuestion(DetailView):
         return c
 
 
-
-
 @class_view_decorator(permission_required('questions.can_approve'))
 class QuestionAttributes(FormView):
     form_class = forms.QuestionAttributesForm
@@ -197,7 +196,7 @@ class QuestionAttributes(FormView):
 
     def dispatch(self, request, *args, **kwargs):
         try:
-            self.question = models.Question.objects.get(id=self.kwargs['pk'])
+            self.question = models.Question.objects.get_from_kwargs(allow_deleted=self.request.user.is_superuser, **kwargs)
         except models.Question.DoesNotExist:
             messages.error(request, "That question does not exist.")
             return redirect('home')

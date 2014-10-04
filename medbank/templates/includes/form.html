@@ -1,10 +1,13 @@
 <form class="form-horizontal" method="post" role="form"{% if form.needs_multipart %} enctype="multipart/form-data"{% endif %}{% if form_submit_url %} action="{{ form_submit_url }}"{% endif %}>
     {% csrf_token %}
     {{ form.as_bootstrap }}
-{% if hide_submit_button %}
+{% if not hide_submit_button %}
     <div class="form-group">
         <div class="col-md-offset-{{ form.form_label_width }} col-md-{{ form.form_widget_width }}">
             <button type="submit" class="btn btn-primary">{{ submit_button_text|default:"Submit" }}</button>
+        {% if return_button_url %}
+        	<a class="btn btn-default" href="{{ return_button_url }}">{{ return_button_text|default:"Return"}}</a>
+        {% endif %}
         </div>
     </div>
 {% endif %}

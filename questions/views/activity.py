@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from django.contrib.auth.decorators import login_required
 from django.views.generic import DetailView, ListView
 from django.views.generic.base import RedirectView
@@ -5,8 +7,9 @@ from django.views.generic.edit import UpdateView
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.core.urlresolvers import reverse
+from django.http import Http404
 
-from .base import class_view_decorator, user_is_superuser
+from .base import class_view_decorator, user_is_superuser, GetObjectMixin
 
 from questions import models, forms
 
@@ -17,7 +20,7 @@ class MyActivitiesView(ListView):
     template_name = "activity/assigned.html"
 
     def get_queryset(self):
-        return models.TeachingActivityYear.objects.get_activities_assigned_to(self.request.user.student)
+        return models.TeachingActivityYear.objects.get_unreleased_activities_assigned_to(self.request.user.student)
 
     def get_context_data(self, **kwargs):
         c = super(MyActivitiesView, self).get_context_data(**kwargs)
@@ -26,8 +29,9 @@ class MyActivitiesView(ListView):
 
 
 @class_view_decorator(login_required)
-class ViewActivity(DetailView):
+class ViewActivity(GetObjectMixin, DetailView):
     template_name="activity/view.html"
+    model = models.TeachingActivity
 
     def dispatch(self, request, *args, **kwargs):
         r = super(ViewActivity, self).dispatch(request, *args, **kwargs)
@@ -38,9 +42,6 @@ class ViewActivity(DetailView):
 
         return r
 
-    def get_object(self):
-        return models.TeachingActivity.objects.get_from_kwargs(**self.kwargs)
-
     def get_context_data(self, **kwargs):
         c = super(ViewActivity, self).get_context_data(**kwargs)
         c['question_list'] = []
@@ -49,6 +50,7 @@ class ViewActivity(DetailView):
         c['current_question_writer_count'] = self.object.current_question_writer_count()
         # The user can see questions written for this activity if they have written questions for this block at some point.
         c['can_view_questions'] = self.object.approved_questions_are_viewable_by(self.request.user.student)
+        c['can_view_block'] = self.object.current_block_year().block.is_viewable_by(self.request.user.student)
         if c['can_view_questions']:
             c['question_list'] += self.object.questions_for(self.request.user.student)
 
@@ -70,18 +72,15 @@ class ViewActivity(DetailView):
 
 
 @class_view_decorator(user_is_superuser)
-class AssignPreviousActivity(UpdateView):
+class AssignPreviousActivity(GetObjectMixin, UpdateView):
     form_class = forms.AssignPreviousActivityForm
     template_name = "activity/assign_previous_activity.html"
-
-    def get_object(self, *args, **kwargs):
-        return models.TeachingActivity.objects.get_from_kwargs(**self.kwargs)
+    model = models.TeachingActivity
 
     def get_context_data(self, **kwargs):
         c = super(AssignPreviousActivity, self).get_context_data(**kwargs)
         c['teaching_activity'] = self.object
         return c
-
 
     def get_success_url(self):
         return self.object.get_absolute_url()
@@ -93,7 +92,7 @@ class SignupView(RedirectView):
     def get_redirect_url(self, reference_id):
         print "Getting to view."
         try:
-            activity = models.TeachingActivity.objects.get(reference_id=reference_id)
+            activity = models.TeachingActivity.objects.get_from_kwargs(**{'reference_id': reference_id})
         except models.TeachingActivity.DoesNotExist:
             messages.error(self.request, "That teaching activity was not found.")
             return reverse('dashboard')
@@ -120,7 +119,7 @@ class UnassignView(RedirectView):
 
     def get_redirect_url(self, reference_id):
         try:
-            activity = models.TeachingActivity.objects.get(reference_id=reference_id)
+            activity = models.TeachingActivity.objects.get_from_kwargs(reference_id=reference_id)
         except models.TeachingActivity.DoesNotExist:
             messages.error(self.request, "That teaching activity does not exist.")
             return reverse('dashboard')

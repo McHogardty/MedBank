@@ -1,0 +1,13 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Edit dashboard settings</h1>
+    <p>Click on a setting name to view it or change it.</p>
+    {% for setting in dashboard_settings %}
+        <h4><a href="{% url 'admin-settings-view' pk=setting.pk %}">{{ setting.verbose_name }}</a> <span class="{% if setting.main_text or setting.secondary_text %}text-success{% else %}loading{% endif %}">{% if setting.main_text or setting.secondary_text %}Set{% else %}Empty{% endif %}</h4>
+        <p>{{ setting.description|default:"" }}</p>
+    {% empty %}
+        <p>There are no settings in the database yet.</p>
+    {% endfor %}
+
+{% endblock content %}
