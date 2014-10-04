@@ -48,7 +48,7 @@ class NewQuestion(CreateView):
 
     def form_valid(self, form):
         messages.success(self.request, "Thanks, your question has been submitted!") # You'll get an email when it's approved.")
-        return redirect(self.object)
+        return redirect(form.save())
 
 
 @class_view_decorator(login_required)

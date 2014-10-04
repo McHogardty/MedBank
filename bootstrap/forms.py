@@ -96,7 +96,7 @@ class BootstrapFormMixin(object):
             for k, c in f.field.choices:
                 if f.value() == unicode(k):
                     return c
-        model_get_FOO_display_method.__name__ = "get_%s_display" % (f.name,)
+        model_get_FOO_display_method.__name__ = b"get_%s_display" % (f.name,)
         setattr(self, model_get_FOO_display_method.__name__, model_get_FOO_display_method)
 
     def __str__(self):
