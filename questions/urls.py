@@ -71,6 +71,7 @@ specific_activity_urls = [
     url(r'^signup/$', activity.SignupView.as_view(), name="activity-signup"),
     url(r'^year/(?P<year>\d+)/assign/$', approval.AssignApproval.as_view(), name='activity-approval-assign'),
     url(r'^unassign/$', activity.UnassignView.as_view(), name='activity-unassign'),
+    url(r'^assign/$', activity.AssignStudent.as_view(), name="activity-assign"),
     url(r'^previous/$', activity.AssignPreviousActivity.as_view(), name='activity-assign-previous'),
     url(r'^question/', include(question_urls))
 ]

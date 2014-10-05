@@ -174,6 +174,7 @@ MESSAGE_TAGS = {
 }
 
 FORMAT_MODULE_PATH = 'medbank.formats'
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 STAGE_SELECTION_VIEW = 'medbank.views.pick_stage'
 

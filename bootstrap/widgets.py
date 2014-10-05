@@ -8,7 +8,7 @@ from django.utils.encoding import force_text
 from django.utils import datetime_safe, formats
 
 
-__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup")
+__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup", "Typeahead")
 
 
 class StaticControl(forms.Widget):
@@ -178,3 +178,10 @@ class ButtonGroup(forms.RadioSelect):
         if self.multiple and isinstance(data, (MultiValueDict, MergeDict)):
             return data.getlist(name)
         return data.get(name, None)
+
+class Typeahead(forms.TextInput):
+    def render(self, name, value, attrs=None):
+        class_attr = attrs.get("class", "").split()
+        class_attr.append("typeahead")
+        attrs['class'] = " ".join(class_attr)
+        return super(Typeahead, self).render(name, value, attrs=attrs)

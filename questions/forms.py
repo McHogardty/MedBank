@@ -463,3 +463,7 @@ class YearSelectionForm(bootstrap.Form):
         self.fields['year'].queryset = teaching_block.years.order_by('-year')
 
 
+class StudentSelectionForm(bootstrap.Form):
+    activity = forms.ModelChoiceField(queryset=TeachingActivity.objects.all(), widget=forms.HiddenInput())
+    user = forms.ModelChoiceField(queryset=User.objects.select_related().order_by("username"), to_field_name="username", widget=forms.TextInput(), label="Unikey")
+

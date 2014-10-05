@@ -647,6 +647,9 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
     def get_unassign_url(self):
         return reverse('activity-unassign', kwargs=self.get_url_kwargs())
 
+    def get_assign_student_url(self):
+        return reverse('activity-assign', kwargs=self.get_url_kwargs())
+
     def get_new_question_url(self):
         return reverse('question-new', kwargs=self.get_url_kwargs())
 

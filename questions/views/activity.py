@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 from django.contrib.auth.decorators import login_required
 from django.views.generic import DetailView, ListView
 from django.views.generic.base import RedirectView
-from django.views.generic.edit import UpdateView
+from django.views.generic.edit import UpdateView, FormView
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.core.urlresolvers import reverse
@@ -90,7 +90,6 @@ class AssignPreviousActivity(GetObjectMixin, UpdateView):
 class SignupView(RedirectView):
     permanent = False
     def get_redirect_url(self, reference_id):
-        print "Getting to view."
         try:
             activity = models.TeachingActivity.objects.get_from_kwargs(**{'reference_id': reference_id})
         except models.TeachingActivity.DoesNotExist:
@@ -140,3 +139,25 @@ class UnassignView(RedirectView):
         return activity.get_absolute_url()
 
 
+@class_view_decorator(user_is_superuser)
+class AssignStudent(GetObjectMixin, FormView):
+    permanent = False
+    form_class = forms.StudentSelectionForm
+    template_name = "activity/assign_student.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.activity = models.TeachingActivity.objects.get_from_kwargs(**kwargs)
+
+        return super(AssignStudent, self).dispatch(request, *args, **kwargs)
+
+    def get_initial(self, *args, **kwargs):
+        i = super(AssignStudent, self).get_initial(*args, **kwargs)
+        i['activity'] = self.activity
+        return i
+
+    def form_valid(self, form):
+        student = form.cleaned_data['user'].student
+        self.activity.add_student(student)
+        # Use the user to prevent extra queries.
+        messages.success(self.request, "The student %s was successfully added to this activity." % form.cleaned_data['user'].username)
+        return redirect(self.activity)
