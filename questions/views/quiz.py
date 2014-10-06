@@ -118,6 +118,7 @@ class QuizView(TemplateView):
 
         if cls == self.get_custom_form_class():
             kwargs.update({'blocks': self.allowed_blocks})
+            kwargs.update({'initial': {'repeat_questions': True }})
 
         return kwargs
 
@@ -191,12 +192,20 @@ class QuizView(TemplateView):
             question_list = list(quiz_specification.get_questions())
         else:
             cleaned_data = self.current_form.cleaned_data
+            unique_questions_only = not cleaned_data['repeat_questions']
+            total_questions = sum(cleaned_data[x] or 0 for x in self.current_form.block_fields)
+            if total_questions > 80:
+                messages.warning(self.request, "Unfortunately you can only choose up to 80 questions at a time. Please try again.")
+                return redirect("quiz-choose")
 
             random.seed()
             for block in self.get_allowed_blocks():
                 number_of_questions = cleaned_data[block.name_for_form_fields()]
                 if number_of_questions:
-                    questions_for_block = list(models.Question.objects.filter(teaching_activity_year__block_year__block=block, status=models.Question.APPROVED_STATUS).distinct())
+                    questions_for_block = models.Question.objects.filter(teaching_activity_year__block_year__block=block, status=models.Question.APPROVED_STATUS).distinct()
+                    if unique_questions_only:
+                        questions_for_block = questions_for_block.exclude(attempts__quiz_attempt__student=self.request.user.student)
+                    questions_for_block = list(questions_for_block)
                     if len(questions_for_block) < number_of_questions:
                         number_of_questions = len(questions_for_block)
                     question_list += random.sample(questions_for_block, number_of_questions)

@@ -356,6 +356,11 @@ class QuizTypeSelectionForm(bootstrap.Form):
     quiz_type = forms.ChoiceField(choices=QuizAttempt.QUIZ_TYPE_CHOICES, widget=bootstrap.ButtonGroup)
 
 
+BOOLEAN_CHOICES = (
+    (True, 'Yes'),
+    (False, 'No'),
+)
+
 class CustomQuizSpecificationForm(bootstrap.Form):
     form_widget_width=2
 
@@ -366,6 +371,8 @@ class CustomQuizSpecificationForm(bootstrap.Form):
         for block in blocks:
             self.fields[block.name_for_form_fields()] = forms.IntegerField(label=block.name, required=False, min_value=0, localize=True)
             self.block_fields.append(block.name_for_form_fields())
+
+        self.fields['repeat_questions'] = forms.TypedChoiceField(choices=BOOLEAN_CHOICES, coerce=lambda x: (x == "True"), widget=bootstrap.ButtonGroup, label="Do you want to see questions you've already answered?")
 
     def clean(self):
         c = self.cleaned_data
@@ -379,12 +386,6 @@ class CustomQuizSpecificationForm(bootstrap.Form):
 
 class PresetQuizSpecificationForm(bootstrap.Form):
     quiz_specification = forms.ModelChoiceField(queryset=QuizSpecification.objects.all(), to_field_name="slug", widget=forms.HiddenInput())
-
-
-BOOLEAN_CHOICES = (
-    (True, 'Yes'),
-    (False, 'No'),
-)
 
 class QuestionApprovalForm(bootstrap.ModelForm):
     exemplary_question = forms.TypedChoiceField(choices=BOOLEAN_CHOICES, coerce=lambda x: (x == "True"), widget=bootstrap.ButtonGroup)
