@@ -394,7 +394,6 @@ class QuestionApprovalForm(bootstrap.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(QuestionApprovalForm, self).__init__(*args, **kwargs)
-        print self.fields
         question_status = self.instance.status
 
         NEW_STATUS_TO_ACTION = []
@@ -417,6 +416,11 @@ class TeachingBlockActivityUploadForm(bootstrap.Form):
 
 class AssignPreviousActivityForm(bootstrap.ModelForm):
     previous_activity = forms.ModelChoiceField(to_field_name="reference_id", widget=forms.TextInput(), queryset=TeachingActivity.objects.all(), help_text="Type in the reference ID of the previous activity to assign it as the old version of the current activity.")
+
+    def __init__(self, activity_queryset=None, activity_url=None, *args, **kwargs):
+        super(AssignPreviousActivityForm, self).__init__(*args, **kwargs)
+        if activity_queryset:
+            self.fields['previous_activity'].queryset = activity_queryset
 
     class Meta:
         model = TeachingActivity
@@ -453,7 +457,7 @@ class BlockFromYearChoiceField(forms.ModelChoiceField):
         return "%s" % instance.year
 
 class YearSelectionForm(bootstrap.Form):
-    year = BlockFromYearChoiceField(queryset=TeachingBlockYear.objects.all(), to_field_name="year", empty_label=None)
+    year = BlockFromYearChoiceField(queryset=TeachingBlockYear.objects.all(), to_field_name="year", empty_label=None, widget=bootstrap.ButtonGroup(multiple=False, vertical=True))
 
     def __init__(self, teaching_block=None, *args, **kwargs):
         if not teaching_block or not isinstance(teaching_block, TeachingBlock):

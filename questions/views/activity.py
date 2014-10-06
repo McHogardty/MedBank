@@ -82,6 +82,11 @@ class AssignPreviousActivity(GetObjectMixin, UpdateView):
         c['teaching_activity'] = self.object
         return c
 
+    def get_form_kwargs(self, **kwargs):
+        k = super(AssignPreviousActivity, self).get_form_kwargs(**kwargs)
+        k['activity_queryset'] = models.TeachingActivity.objects.filter(years__block_year__block=self.object.current_activity_year().block_year.block).distinct()
+        return k
+
     def get_success_url(self):
         return self.object.get_absolute_url()
 

@@ -33,10 +33,14 @@ function setup_typeahead() {
 }
 
 function setup_datepicker() {
-    $("input.datepicker-input").datepicker({
-        format: "dd/mm/yyyy",
-        autoclose: true,
-        todayHighlight: true,
+    $("input.datepicker-input").each(function (i, el) {
+        $element = $(el);
+
+        $element.datepicker({
+            format: "dd/mm/yyyy",
+            autoclose: true,
+            todayHighlight: true,
+        });
     });
 }
 
