@@ -7,17 +7,12 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse, Http404
 
 from questions import models, forms
-from .base import class_view_decorator, user_is_superuser, GetObjectMixin
+from .base import class_view_decorator, user_is_superuser, GetObjectMixin, JsonResponseMixin
 from django.contrib.auth.decorators import login_required
 
 import datetime
 import json
 import random
-
-class JsonResponseMixin(object):
-    def render_to_json_response(self, data, **response_kwargs):
-        return HttpResponse(json.dumps(data), content_type="application/json", **response_kwargs)
-
 
 @class_view_decorator(login_required)
 class QuizDashboard(TemplateView):

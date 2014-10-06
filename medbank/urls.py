@@ -9,7 +9,7 @@ import forms
 from django.contrib import admin
 admin.autodiscover()
 
-from medbank.views import ResetPasswordRequest, ResetPassword, FeedbackView
+from medbank.views import ResetPasswordRequest, ResetPassword, FeedbackView, UserList
 from django.views.generic import TemplateView
 
 urlpatterns = patterns(
@@ -19,6 +19,7 @@ urlpatterns = patterns(
     url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', {'authentication_form': forms.BootstrapAuthenticationForm}, name="login"),
     url(r'^logout/$', 'medbank.views.logout_view', name="logout"),
     url(r'^user/new/$', 'medbank.views.create_user', name="create_user"),
+    url(r'^user/$', UserList.as_view(), name="user-list"),
     url(r'^password/reset/sent/$', TemplateView.as_view(template_name="password/reset_email_success.html"), name="reset_password_sent"),
     url(r'^password/reset/success/$', TemplateView.as_view(template_name="password/reset_success.html"), name="reset_password_success"),
     url(r'^password/reset/(?P<token>[\w:-]+)/$', ResetPassword.as_view(), name="reset_password"),

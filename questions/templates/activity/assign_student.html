@@ -1,9 +1,15 @@
 {% extends "newbase.html" %}
 
+{% block head %}
+	{{ form.media.css }}
+{% endblock head %}
+
 {% block content %}
 	<h1>Assign a student to a teaching activity</h1>
 	<p>You can use this page to assign a student as a question writer for a particular teaching activity. <strong>Note that this page does not check whether or not a student has permission to write questions for that activity (e.g. that they are in the correct Stage and the block is still open) so make sure you check this before assigning them.</strong></p>
-
 	{% include "includes/form.html" %}
-
 {% endblock content %}
+
+{% block javascript %}
+    {{ form.media.js }}
+{% endblock javascript %}

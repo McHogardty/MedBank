@@ -7,7 +7,7 @@ from django.contrib.auth import login, authenticate
 from django.http import HttpResponseServerError
 from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
-from django.views.generic import ListView, DetailView, FormView, TemplateView
+from django.views.generic import View, ListView, DetailView, FormView, TemplateView
 from django.views.generic.base import RedirectView
 from django.views.generic.edit import CreateView, UpdateView
 from django.core import signing
@@ -20,6 +20,7 @@ from django.core.mail import send_mail
 
 import forms
 from questions import models
+from questions.views.base import user_is_superuser, JsonResponseMixin
 
 
 def class_view_decorator(function_decorator):
@@ -91,7 +92,7 @@ def logout_view(request):
 
     return redirect('medbank.views.home')
 
-RESET_SALT = "asaltforpasswordrecovery123456789"
+RESET_SALT = "asaltforpasswordrecovery123644789"
 
 class ResetPassword(FormView):
     time_to_reset = 3600 * 24 * 2
@@ -162,3 +163,15 @@ class FeedbackView(FormView):
         send_mail(subject, body, from_email, recipient)
         messages.success(self.request, "Your email has been sent successfully.")
         return redirect('medbank.views.home')
+
+
+@class_view_decorator(user_is_superuser)
+class UserList(JsonResponseMixin, View):
+    def get(self, request, *args, **kwargs):
+        user_list = []
+
+        users = User.objects.order_by("username")
+        for user in users:
+            user_list.append(user.username)
+
+        return self.render_to_json_response(user_list)

@@ -1,7 +1,7 @@
 {% extends "newbase.html" %}
 
 {% block head %}
-<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}medbank/css/datepicker3.css">
+    {{ form.media.css}}
 {% endblock head %}
 
 {% block content %}
@@ -14,16 +14,5 @@
 {% endblock content %}
 
 {% block javascript %}
-    <script type="text/javascript" src="{{ STATIC_URL }}medbank/js/bootstrap-datepicker.js"></script>
-    <script type="text/javascript">
-        function init() {
-            $("input.date-input").datepicker({
-                format: "dd/mm/yyyy",
-                autoclose: true,
-                todayHighlight: true,
-            });
-        }
-
-        $(document).ready(init);
-    </script>
+    {{ form.media.js }}
 {% endblock javascript %}

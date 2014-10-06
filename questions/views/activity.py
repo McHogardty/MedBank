@@ -150,6 +150,11 @@ class AssignStudent(GetObjectMixin, FormView):
 
         return super(AssignStudent, self).dispatch(request, *args, **kwargs)
 
+    def get_form_kwargs(self, **kwargs):
+        k = super(AssignStudent, self).get_form_kwargs(**kwargs)
+        k['user_url'] = reverse("user-list")
+        return k
+
     def get_initial(self, *args, **kwargs):
         i = super(AssignStudent, self).get_initial(*args, **kwargs)
         i['activity'] = self.activity

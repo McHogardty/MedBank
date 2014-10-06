@@ -8,7 +8,7 @@ from django.utils.encoding import force_text
 from django.utils import datetime_safe, formats
 
 
-__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup", "Typeahead")
+__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup", "Typeahead", "DatepickerInput")
 
 
 class StaticControl(forms.Widget):
@@ -180,8 +180,37 @@ class ButtonGroup(forms.RadioSelect):
         return data.get(name, None)
 
 class Typeahead(forms.TextInput):
+    def __init__(self, prefetch_url="", *args, **kwargs):
+        self.prefetch_url = prefetch_url
+
+        super(Typeahead, self).__init__(*args, **kwargs)
+
     def render(self, name, value, attrs=None):
         class_attr = attrs.get("class", "").split()
         class_attr.append("typeahead")
         attrs['class'] = " ".join(class_attr)
+        if self.prefetch_url:
+            attrs['data-prefetch'] = self.prefetch_url
         return super(Typeahead, self).render(name, value, attrs=attrs)
+
+    class Media:
+        css = {
+            'all': ('medbank/css/typeahead.custom.css', )
+        }
+        js = ('medbank/js/typeahead.bundle.min.js', 'medbank/js/widgets.js')
+
+
+class DatepickerInput(forms.DateInput):
+    def render(self, name, value, attrs=None):
+        class_attr = attrs.get("class", "").split()
+        class_attr.append("datepicker-input")
+        attrs['class'] = " ".join(class_attr)
+        return super(DatepickerInput, self).render(name, value, attrs=attrs)
+
+    class Media:
+        css = {
+            'all': ('medbank/css/datepicker3.css', )
+        }
+        js = ('medbank/js/bootstrap-datepicker.js', 'medbank/js/widgets.js')
+
+

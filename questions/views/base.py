@@ -4,6 +4,9 @@ from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import user_passes_test
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 from django.http import Http404
+from django.http import HttpResponse, Http404
+
+import json
 
 
 def class_view_decorator(function_decorator):
@@ -38,3 +41,8 @@ class GetObjectMixin(object):
             return self.model.objects.get_from_kwargs(**self.kwargs)
         except ObjectDoesNotExist:
             raise Http404
+
+
+class JsonResponseMixin(object):
+    def render_to_json_response(self, data, **response_kwargs):
+        return HttpResponse(json.dumps(data), content_type="application/json", **response_kwargs)

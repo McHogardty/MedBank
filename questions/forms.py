@@ -222,9 +222,9 @@ class NewTeachingBlockYearForm(bootstrap.ModelForm):
     # Localise=True is a cheating way of using a TextInput instead of a number input.
     block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage__number', 'code'))
     year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bootstrap.StaticControl())
-    start = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
-    end = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
-    close = forms.DateField(widget=forms.DateInput(attrs={"class": "date-input"}), help_text="The last day that students can write questions for activities in this block.", label="Close date")
+    start = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
+    end = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
+    close = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can write questions for activities in this block.", label="Close date")
     release_date = forms.CharField(required=False, max_length=10, widget=bootstrap.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
     sign_up_mode = forms.TypedChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES, coerce=int)
     activity_capacity = forms.IntegerField(localize=True)
@@ -467,3 +467,7 @@ class StudentSelectionForm(bootstrap.Form):
     activity = forms.ModelChoiceField(queryset=TeachingActivity.objects.all(), widget=forms.HiddenInput())
     user = forms.ModelChoiceField(queryset=User.objects.select_related().order_by("username"), to_field_name="username", widget=forms.TextInput(), label="Unikey")
 
+    def __init__(self, user_url="", *args, **kwargs):
+        super(StudentSelectionForm, self).__init__(*args, **kwargs)
+        if user_url:
+            self.fields['user'].widget = bootstrap.Typeahead(prefetch_url=user_url)
