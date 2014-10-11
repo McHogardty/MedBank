@@ -23,11 +23,11 @@ def sync():
 def deploy():
 	# First, sync the files with the production server.
 	sync()
-	
+
 	with cd(REMOTE_DIRECTORY):
 		with hide("stderr", "stdout"):
 			run("git merge v1")
-			run('rsync -r ./ %s --exclude ".git*"' % PRODUCTION_DIRECTORY)
+			run('rsync -r --delete ./ %s --exclude ".git*" --exclude "local_settings.py"' % PRODUCTION_DIRECTORY)
 
 	with cd(PRODUCTION_DIRECTORY):
 		with hide("stderr", "stdout"):
