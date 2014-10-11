@@ -8,7 +8,7 @@ WSGI_LOCATION = "/home4/sydneym2/public_html/medbank/mysite.fcgi"
 
 env.hosts = [REMOTE_URL, ]
 
-def deploy():
+def sync():
 	# Check first that we have a production location to push to. If not, add one.
 	with hide("running"): 
 		result = local("git remote", capture=True).split("\n")
@@ -19,6 +19,11 @@ def deploy():
 	with hide("stderr", "stdout"):
 		local("git push %s master:v1" % REMOTE_NAME)
 
+
+def deploy():
+	# First, sync the files with the production server.
+	sync()
+	
 	with cd(REMOTE_DIRECTORY):
 		with hide("stderr", "stdout"):
 			run("git merge v1")
