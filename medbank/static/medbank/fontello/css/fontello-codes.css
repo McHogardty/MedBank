@@ -1,0 +1,5 @@
+
+.icon-angle-left:before { content: '\e803'; } /* '' */
+.icon-angle-right:before { content: '\e802'; } /* '' */
+.icon-angle-up:before { content: '\e801'; } /* '' */
+.icon-angle-down:before { content: '\e800'; } /* '' */
