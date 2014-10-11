@@ -344,7 +344,6 @@ class UploadForTeachingBlock(FormView):
         # teaching activities which already exist.
         existing_teaching_activities = models.TeachingActivity.objects.filter(years__block_year__block=self.teaching_block_year.block)
         existing_teaching_activities_by_referenceID = dict((activity.reference_id, activity) for activity in existing_teaching_activities)
-        print existing_teaching_activities_by_referenceID
         # Lists for the new teaching activity years.
         self.new_activity_years = {}
         new_activity_years_old_activity = self.new_activity_years.setdefault('old_activity', [])
@@ -383,7 +382,6 @@ class UploadForTeachingBlock(FormView):
                 activity = existing_teaching_activities_by_referenceID[referenceID]
                 new_activity_year_list = new_activity_years_old_activity
             else:
-                print referenceID
                 data = {
                     'activity_type': activity_type,
                     'reference_id': referenceID,
@@ -394,7 +392,6 @@ class UploadForTeachingBlock(FormView):
                     activity = activity_form.save(commit=False)
                     new_activity_year_list = new_activity_years_new_activity
                 else:
-                    print activity_form.errors
                     bad_teaching_activity.append(column_to_value)
                     continue
 

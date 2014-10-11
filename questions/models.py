@@ -654,7 +654,6 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
         return reverse('question-new', kwargs=self.get_url_kwargs())
 
     def get_previous_activity_assign_url(self):
-        print reverse('activity-assign-previous', kwargs=self.get_url_kwargs())
         return reverse('activity-assign-previous', kwargs=self.get_url_kwargs())
 
     def get_reference_url(self):
@@ -1260,7 +1259,7 @@ class Question(models.Model):
                         explanation[option] = self.explanation
                     else:
                         explanation[option] = ""
-                print explanation
+                # print explanation
             keys = explanation.keys()
             keys.sort()
             for key in keys:

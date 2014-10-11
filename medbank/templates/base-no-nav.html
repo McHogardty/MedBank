@@ -46,12 +46,13 @@
       {% endblock content %}
     </div><!-- /.container -->
 
+    {% block footer %}{% endblock footer %}
 
     <!-- Bootstrap core JavaScript
     ================================================== -->
     <!-- Placed at the end of the document so the pages load faster -->
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script type="text/javascript" src="{{ STATIC_URL }}medbank/js/jquery-1.10.0.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="{{ STATIC_URL }}medbank/js/bootstrap.min.js"></script>
     <!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
