@@ -6,7 +6,7 @@
 {% endblock head %}
 
 {% block content %}
-	<h1>View student: {{ student.user.username }} <small><a href="{% url "student-lookup" %}">Choose another</a></small></h1>
+	<h1>View student: {{ object.user.username }} <small><a href="{% url "student-lookup" %}">Choose another</a></small></h1>
 	<p>This student has written {{ number_questions_written }} {{ number_questions_written|pluralize:"questions" }}.</p>
 
 {% for teaching_block_year, questions in blocks_with_questions.items %}
