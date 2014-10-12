@@ -102,6 +102,7 @@ MIDDLEWARE_CLASSES = (
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'questions.middleware.CurrentStageMiddleware',
+    'impersonate.middleware.ImpersonateMiddleware',
 )
 
 ROOT_URLCONF = 'medbank.urls'
@@ -130,7 +131,8 @@ INSTALLED_APPS = (
     'questions',
     # 'south',
     # 'tastypie',
-    # 'debug_toolbar'
+    # 'debug_toolbar',
+    'impersonate',
 )
 
 # A sample logging configuration. The only tangible logging
@@ -167,6 +169,7 @@ TEMPLATE_CONTEXT_PROCESSORS = TPC + (
     'medbank.context_processors.add_next_url',
     'questions.context_processors.add_student',
     'questions.context_processors.add_query_string',
+    'medbank.context_processors.add_impersonator',
 )
 
 MESSAGE_TAGS = {
@@ -180,6 +183,9 @@ STAGE_SELECTION_VIEW = 'medbank.views.pick_stage'
 
 QUESTIONS_PER_USER = 3
 USERS_PER_ACTIVITY = 2
+
+IMPERSONATE_REDIRECT_URL = "/questions/"
+IMPERSONATE_REQUIRE_SUPERUSER = True
 
 try:
     from .local_settings import *

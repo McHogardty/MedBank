@@ -48,10 +48,13 @@
             {% if user.is_superuser %}<li><a href="{% url 'admin' %}">Admin</a></li>{% endif %}
             {% if perms.questions.can_approve %}<li><a href="{% url 'approve-home' %}">Approve</a></li>{% endif %}
             <li><a href="{% url 'logout' %}">Logout</a></li>
+            {% if user.is_impersonate %}
+            <li><a href="{% url 'impersonate-stop' %}">Stop impersonating</a></li>              
+            {% endif %}
           {% endif %}
           </ul>
           {% if not user.is_anonymous %}
-            <p class="navbar-text pull-right hidden-xs">Welcome, {{ user.username }} {% if user.student.get_current_stage %}({{ user.student.get_current_stage }}){% endif %}</p>
+            <p class="navbar-text pull-right hidden-xs">Welcome, {{ user.username }} {% if user.student.get_current_stage %}({{ user.student.get_current_stage }}){% if user.is_impersonate %} (actually {{ impersonator }}){% endif %}{% endif %}</p>
           {% endif %}
         </div><!--/.nav-collapse -->
       </div>

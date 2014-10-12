@@ -27,6 +27,7 @@ urlpatterns = patterns(
     url(r'^stage/change/$', settings.STAGE_SELECTION_VIEW, name="pick_stage"),
     url(r'^feedback/$', FeedbackView.as_view(), name="feedback"),
     url(r'^questions/', include('questions.urls')),
+    url(r'^impersonate/', include('impersonate.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
     # url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
