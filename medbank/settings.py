@@ -186,6 +186,7 @@ USERS_PER_ACTIVITY = 2
 
 IMPERSONATE_REDIRECT_URL = "/questions/"
 IMPERSONATE_REQUIRE_SUPERUSER = True
+IMPERSONATE_ALLOW_SUPERUSER = True
 
 try:
     from .local_settings import *
