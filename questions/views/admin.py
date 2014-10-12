@@ -2,9 +2,10 @@ from __future__ import unicode_literals
 
 from django.views.generic import DetailView, TemplateView
 from django.views.generic.base import RedirectView
-from django.views.generic.edit import UpdateView
+from django.views.generic.edit import UpdateView, FormView
 from django.core.urlresolvers import reverse
 from django.conf import settings
+from django.shortcuts import redirect
 
 from .base import class_view_decorator, user_is_superuser, GetObjectMixin
 
@@ -128,3 +129,36 @@ class ApprovalStatisticsView(GetObjectMixin, DetailView):
         else:
             params += ["%s=%s" % (k, self.request.GET[k]) for k in g if k in allowed_with_parameters]
         return "?%s" % ("&".join(params))
+
+@class_view_decorator(user_is_superuser)
+class StudentLookup(FormView):
+    form_class = forms.StudentLookupForm
+    template_name = "admin/student_lookup.html"
+
+    def get_form_kwargs(self, **kwargs):
+        k = super(StudentLookup, self).get_form_kwargs(**kwargs)
+        k['user_url'] = reverse("user-list")
+        return k
+
+    def form_valid(self, form):
+        return redirect(form.cleaned_data['user'].student)
+
+
+@class_view_decorator(user_is_superuser)
+class ViewStudent(GetObjectMixin, DetailView):
+    model = models.Student
+    template_name = "admin/student_info.html"
+
+    def get_context_data(self, **kwargs):
+        c = super(ViewStudent, self).get_context_data(**kwargs)
+        c['student'] = self.object
+
+        questions_written = list(self.object.questions_created.all())
+        c['number_questions_written'] = len(questions_written)
+
+        blocks_with_questions = {}
+        for question in questions_written:
+            questions_for_block =  blocks_with_questions.setdefault(question.teaching_activity_year.block_year, [])
+            questions_for_block.append(question)
+        c['blocks_with_questions'] = blocks_with_questions
+        return c

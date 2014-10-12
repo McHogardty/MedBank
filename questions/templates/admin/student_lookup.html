@@ -1,0 +1,15 @@
+{% extends "newbase.html" %}
+
+{% block head %}
+	{{ form.media.css }}
+{% endblock head %}
+
+{% block content %}
+	<h1>Look up a student</h1>
+	<p>Type a student's username into the form below to view more information about a particular student.</p>
+	{% include "includes/form.html" %}
+{% endblock content %}
+
+{% block javascript %}
+	{{ form.media.js }}
+{% endblock javascript %}

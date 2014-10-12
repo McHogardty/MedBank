@@ -476,3 +476,11 @@ class StudentSelectionForm(bootstrap.Form):
         super(StudentSelectionForm, self).__init__(*args, **kwargs)
         if user_url:
             self.fields['user'].widget = bootstrap.Typeahead(prefetch_url=user_url)
+
+class StudentLookupForm(bootstrap.Form):
+    user = forms.ModelChoiceField(queryset=User.objects.select_related().order_by("username"), to_field_name="username", widget=forms.TextInput(), label="Unikey")
+
+    def __init__(self, user_url="", *args, **kwargs):
+        super(StudentLookupForm, self).__init__(*args, **kwargs)
+        if user_url:
+            self.fields['user'].widget = bootstrap.Typeahead(prefetch_url=user_url)

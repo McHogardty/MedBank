@@ -40,10 +40,13 @@
             </div>
         {% endif %}
     {% empty %}
-        <h3>Step 1: Add a block</h3>
+        <h3>Add a block</h3>
         <p>Before you can add any teaching activities, you need to set up a teaching block.</p>
         <p>You can add a new block using the action on the right.</p>
     {% endfor %}
+
+    <h2>Student administration</h2>
+    <p>Look up <a href="{% url 'student-lookup' %}">information about a particular student.</a></p>
 
     <h2>Settings <small><a class="action" href="{% url 'admin-settings-create' %}">Create missing settings</a></small></h2>
     <h3>Student dashboard settings</h3>

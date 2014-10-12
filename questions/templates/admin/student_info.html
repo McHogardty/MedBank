@@ -1,0 +1,31 @@
+{% extends "newbase.html" %}
+{% load custom_filters %}
+
+{% block head %}
+	{% include "block/display_week_css.html" %}
+{% endblock head %}
+
+{% block content %}
+	<h1>View student: {{ student.user.username }} <small><a href="{% url "student-lookup" %}">Choose another</a></small></h1>
+	<p>This student has written {{ number_questions_written }} {{ number_questions_written|pluralize:"questions" }}.</p>
+
+{% for teaching_block_year, questions in blocks_with_questions.items %}
+	<div class="week">
+		<div class="week-heading collapse-trigger" data-week="{{ teaching_block_year.block.code }}.{{ teaching_block_year.year }}">
+			<span class="h3" style="display:inline-block;">{{ teaching_block_year }}</span>
+			<i class="icon-angle-down"></i>
+		</div>
+		<div class="week-activities collapse" data-week="{{ teaching_block_year.block.code }}.{{ teaching_block_year.year }}">
+			{% for question in questions %}
+				<div class="activity">
+					<a class="ellipsis-overflow"  href="">{{ question.body }}</a>
+				</div>
+			{% endfor %}
+		</div>
+	</div>		
+{% endfor %}
+{% endblock content %}
+
+{% block javascript %}
+	{% include "block/display_week_javascript.html" %}
+{% endblock javascript %}

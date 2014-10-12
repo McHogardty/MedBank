@@ -36,6 +36,15 @@ block_urls = [
     url(r'^(?P<code>[a-z\d]{1,10})/', include(specific_block_urls)),
 ]
 
+specific_student_urls = [
+    url(r'^$', admin.ViewStudent.as_view(), name='student-view'),
+]
+
+student_urls = [
+    url(r'^$', admin.StudentLookup.as_view(), name='student-lookup'),
+    url(r'^(?P<username>[a-z\d]+)/', include(specific_student_urls)),
+]
+
 admin_urls = [
     url(r'^$', admin.AdminView.as_view(), name='admin'),
     url(r'^email/(?P<code>[a-z\d]{1,10})/(?P<year>\d{4})/$', general.EmailView.as_view(), name='email'),
@@ -44,6 +53,7 @@ admin_urls = [
     url(r'^settings/create/$', admin.CreateMissingSettingsView.as_view(), name='admin-settings-create'),
     url(r'^settings/(?P<pk>\d+)/view/$', admin.SettingView.as_view(), name='admin-settings-view'),
     url(r'^settings/(?P<pk>\d+)/edit/$', admin.EditSettingView.as_view(), name='admin-settings-edit'),
+    url(r'^student/', include(student_urls)),
 ]
 
 comment_urls = [

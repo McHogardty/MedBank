@@ -106,12 +106,25 @@ class Year(models.Model):
         return "%s: %s, %d" % (self.student, self.stage, self.year)
 
 
+class StudentManager(models.Manager):
+    def get_from_kwargs(self, **kwargs):
+        return self.get_queryset().select_related('user').get(user__username=kwargs.get('username'))
+
+
 class Student(models.Model, ObjectCacheMixin):
     user = models.OneToOneField(User)
     stages = models.ManyToManyField(Stage, through='questions.Year')
 
+    objects = StudentManager()
+
     def __unicode__(self):
         return self.user.username
+
+    def get_url_kwargs(self):
+        return {'username': self.user.username, }
+
+    def get_absolute_url(self):
+        return reverse('student-view', kwargs=self.get_url_kwargs())
 
     def has_perm(self, *args, **kwargs):
         return self.user.has_perm(*args, **kwargs)
