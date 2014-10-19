@@ -10,6 +10,7 @@ from django.core.urlresolvers import reverse
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.template.defaultfilters import linebreaksbr
+from django.utils import timezone
 
 from medbank.models import Setting
 
@@ -201,9 +202,8 @@ class TeachingBlockManager(models.Manager):
         return self.get_queryset().filter(years__activities__teaching_activity=activity).get()
 
     def get_released_blocks_for_student(self, student):
-        date = datetime.datetime.now()
-        block_years = TeachingBlockYear.objects.get_released_blocks_for_year_and_date_and_student(date.year, date, student)
-
+        # Get the latest block year for each block.
+        block_years = TeachingBlockYear.objects.get_released_block_years_for_student(student)
         return self.get_queryset().filter(years__in=block_years).distinct()
 
 
@@ -337,7 +337,34 @@ class TeachingBlockYearManager(models.Manager):
         if student.user.is_superuser or student.has_perm("questions.can_approve"):
             return blocks
 
-        return blocks.filter(activities__questions__in=student.questions_created.all()).distinct()
+        return blocks.filter(activities__questions__creator=student).distinct()
+
+    def get_released_block_years_for_student(self, student):
+        # The following conditions apply:
+        # 1. A student must have written questions for a block to be able to see all of its questions.
+        # 2. A student may not see the previous questions for a block until the questions are released
+        #    for the year to which they have contributed.
+        # 3. If the block year to which a student has contributed is released, they may see up to the
+        #    latest block year released for that block.
+
+        # First we get all of block_years containing questions written by the student.
+        block_years = self.get_queryset().filter(activities__questions__creator=student).distinct()
+
+        # Next we calculate the latest year of release for each block year the student has written questions for.
+        # A stupid workaround we need to do because django's annotate doesn't let you annotate over subsets of a queryset.
+        block_years = block_years.extra(select=collections.OrderedDict([
+                ('latest_release_year', 'SELECT MAX(tby1.year) FROM questions_teachingblockyear tby1 WHERE tby1.block_id = questions_teachingblockyear.block_id AND tby1.release_date IS NOT NULL AND tby1.release_date <= %s'),
+            ]), select_params=(timezone.now(),))
+
+        released_block_year_conditions = models.Q()
+
+        # If the year they have written questions for is already released, they may see up to the latest year of release.
+        for block_year in block_years:
+            if block_year.year <= block_year.latest_release_year:
+                released_block_year_conditions |= models.Q(block=block_year.block, year=block_year.latest_release_year)
+
+        # released_block_years_conditions restricts the block years only to those which satisfy the conditions above.
+        return self.get_queryset().filter(released_block_year_conditions)
 
     def get_unreleased_blocks_for_student(self, student):
         current_date = datetime.datetime.now()

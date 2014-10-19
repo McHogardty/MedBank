@@ -56,9 +56,7 @@ class ReleasedBlocksView(ListView):
     template_name = "block/list.html"
 
     def get_queryset(self):
-        blocks = models.TeachingBlockYear.objects.get_released_blocks_for_year_and_date_and_student(datetime.datetime.now().year, datetime.datetime.now(), self.request.user.student)
-
-        return blocks
+        return models.TeachingBlockYear.objects.get_released_block_years_for_student(self.request.user.student)
 
 
 @class_view_decorator(permission_required("questions.can_approve"))
