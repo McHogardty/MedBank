@@ -663,7 +663,7 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
         (SEMINAR_TYPE, 'Seminar'),
         (WEEK_TYPE, 'Week'),
     )
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=150)
     activity_type = models.IntegerField(choices=TYPE_CHOICES)
     reference_id = models.IntegerField(unique=True)
     previous_activity = models.OneToOneField('self', null=True, blank=True)
