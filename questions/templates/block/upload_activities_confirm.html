@@ -4,10 +4,14 @@
 	<p>Please confirm the upload details below before submitting.</p>
     <form method="post" action="{{ teaching_block_year.get_activity_upload_confirm_url }}">
         {% csrf_token %}
+    {% if new_activity_years.old_activity %}
         <h2>Teaching activities which previously existed in MedBank with the same reference ID</h2>
-        {% include "block/upload_activities_confirm_table.html" with activity_year_list=new_activity_years.old_activity %}
+        {% include "block/upload_activities_confirm_table.html" with activity_year_list=new_activity_years.old_activity %}            
+    {% endif %}
+    {% if new_activity_years.new_activity %}
         <h2>Teaching activities which don't already exist in MedBank</h2>
-        {% include "block/upload_activities_confirm_table.html" with activity_year_list=new_activity_years.new_activity %}
+        {% include "block/upload_activities_confirm_table.html" with activity_year_list=new_activity_years.new_activity %}        
+    {% endif %}
         <p>Only click submit below if you are sure this information is correct.</p>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Save</button>

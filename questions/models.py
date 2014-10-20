@@ -211,11 +211,12 @@ class TeachingBlock(models.Model):
     name = models.CharField(max_length=50)
     stage = models.ForeignKey(Stage)
     code = models.CharField(max_length=10)
+    sort_index = models.IntegerField(db_index=True)
 
     objects = TeachingBlockManager()
 
     class Meta:
-        ordering = ('stage', 'code')
+        ordering = ('sort_index',)
 
     def __unicode__(self):
         return self.name
@@ -295,19 +296,19 @@ class TeachingBlockYearManager(models.Manager):
 
         blocks = all_blocks_for_stages.filter(activities__questions__status=Question.PENDING_STATUS)
 
-        return blocks.distinct().order_by("year", "block__code")
+        return blocks.distinct().order_by("year", "block")
 
     def get_blocks_with_unassigned_pending_questions_for_stages(self, stages):
         all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
 
         blocks = all_blocks_for_stages.filter(activities__questions__in=Question.objects.get_unassigned_pending_questions())
 
-        return blocks.distinct().order_by("year", "block__code")
+        return blocks.distinct().order_by("year", "block")
 
     def get_blocks_with_flagged_questions_for_stages(self, stages):
         all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
 
-        return all_blocks_for_stages.filter(activities__questions__status=Question.FLAGGED_STATUS).distinct().order_by("year", "block__code")
+        return all_blocks_for_stages.filter(activities__questions__status=Question.FLAGGED_STATUS).distinct().order_by("year", "block")
 
     def get_all_blocks_for_year_and_stages(self, year, stages):
         # Returns all of the blocks for the supplied year which were
@@ -442,7 +443,7 @@ class TeachingBlockYear(models.Model):
 
     class Meta:
         unique_together = ('year', 'block')
-        ordering = ('year', 'block__code')
+        ordering = ('year', 'block__sort_index')
 
     def __unicode__(self):
         return "%s, %d" % (self.block, self.year)
@@ -1516,7 +1517,7 @@ class QuizSpecification(models.Model):
         return questions_to_return
 
     def get_questions_in_order(self):
-        return self.get_questions().order_by('teaching_activity_year__block_year__block__stage', 'teaching_activity_year__block_year__block__code')
+        return self.get_questions().order_by('teaching_activity_year__block_year')
 
     def number_of_questions(self):
         return self.get_questions().count()

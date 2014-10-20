@@ -36,7 +36,7 @@ class AllBlocksView(ListView):
         else:
             block_years = models.TeachingBlockYear.objects.get_open_blocks_for_year_and_date_and_stages(datetime.datetime.now().year, datetime.datetime.now(), stages)
 
-        return block_years.order_by('year', 'block__code')
+        return block_years.order_by('year', 'block')
 
     def get_context_data(self, **kwargs):
         c = super(AllBlocksView, self).get_context_data(**kwargs)

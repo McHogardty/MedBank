@@ -19,7 +19,8 @@ class AdminView(TemplateView):
 
     def get_context_data(self, **kwargs):
         c = super(AdminView, self).get_context_data(**kwargs)
-        tb = models.TeachingBlockYear.objects.order_by('block__stage', 'block__code')
+        tb = models.TeachingBlockYear.objects.all()
+        print tb.query
         c.update({'blocks': tb,})
         c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
         c.update({'quiz_specifications': models.QuizSpecification.objects.order_by('stage')})
