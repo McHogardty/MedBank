@@ -77,7 +77,7 @@ class UpdateQuestion(UpdateView):
         k = super(UpdateView, self).get_form_kwargs()
         if self.request.user.has_perm("questions.can_approve") and self.object.creator != self.request.user.student:
             k.update({'admin': True})
-        k['change_student'] = self.request.user.is_superuser
+        k['change_student'] = self.request.user.is_superuser and not self.multiple_question_approval_mode
         return k
 
     def form_valid(self, form):

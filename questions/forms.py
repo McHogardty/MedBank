@@ -148,7 +148,7 @@ class QuestionOptionField(forms.MultiValueField):
     def compress(self, values):
         return {'text': values[0], 'explanation': values[1]}
 
-ANSWER_CHOICES = ((x, x) for x in string.ascii_uppercase[:5])
+ANSWER_CHOICES = list((x, x) for x in string.ascii_uppercase[:5])
 
 
 class NewQuestionForm(bootstrap.ModelForm):
@@ -159,7 +159,7 @@ class NewQuestionForm(bootstrap.ModelForm):
     answer = forms.ChoiceField(choices=ANSWER_CHOICES, widget=forms.Select())
     #explanation = forms.CharField(widget=forms.Textarea())
     #explanation = forms.CharField(widget=bsforms.RichTextarea())
-    explanation = QuestionOptionsField(required=False, help_text="Please explain why the answer is correct. You can also explain why the other answers are incorrect.")
+    explanation = QuestionOptionsField(required=False, help_text="Please explain why the answer is correct, or why all of the other options are incorrect.")
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     teaching_activity_year = forms.ModelChoiceField(queryset=TeachingActivityYear.objects.all(), widget=forms.HiddenInput())
 
@@ -174,9 +174,9 @@ class NewQuestionForm(bootstrap.ModelForm):
         answer = self.cleaned_data['answer']
         if answer and 'explanation' in self.cleaned_data:
             explanations = json.loads(self.cleaned_data['explanation'])
-            if not explanations[answer]:
-                extra = "also " if any(v for k, v in explanations.iteritems() if k != answer) else ""
-                self._errors['explanation'] = self.error_class(["You must %swrite an explanation for the answer, %s." % (extra, answer)])
+            if not explanations[answer] and not all(explanations[x] for x, y in ANSWER_CHOICES if x != answer):
+                # The user needs to complete the answer explanation, or all of the incorrect option explanations.
+                self._errors['explanation'] = self.error_class(["You must complete the explanation.",])
         return super(NewQuestionForm, self).clean()
 
     class Meta:
