@@ -1091,7 +1091,7 @@ class Question(models.Model):
                 if option == decoded_options["answer"]:
                     self.answer_letter = letter
 
-        if "{" not in self.explanation:
+        if self.explanation and "{" not in self.explanation:
             explanation = self.options_dict()
             for option, label in explanation.items():
                 if option == self.answer:
