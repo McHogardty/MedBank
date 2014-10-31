@@ -1091,6 +1091,16 @@ class Question(models.Model):
                 if option == decoded_options["answer"]:
                     self.answer_letter = letter
 
+        if "{" not in self.explanation:
+            explanation = self.options_dict()
+            for option, label in explanation.items():
+                if option == self.answer:
+                    explanation[option] = self.explanation
+                else:
+                    explanation[option] = ""
+
+            self.explanation = json.dumps(explanation)
+
     def __str__(self):
         return "%s" % (self.id,)
 
