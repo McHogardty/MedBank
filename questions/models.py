@@ -22,6 +22,8 @@ import markdown2
 import html2text
 import hashlib
 import collections
+from HTMLParser import HTMLParser
+from htmlentitydefs import name2codepoint
 
 def int_to_base(x, base, places=0):
     """ A method which converts any base 10 integer (x) into its representation in a base using the lowercase alphabet in a fixed number of characters (places)."""
@@ -349,7 +351,9 @@ class TeachingBlockYearManager(models.Manager):
         #    latest block year released for that block.
 
         # First we get all of block_years containing questions written by the student.
-        block_years = self.get_queryset().filter(activities__questions__creator=student).distinct()
+        block_years = self.get_queryset()
+        if not student.user.is_superuser:
+            block_years = block_years.filter(activities__questions__creator=student).distinct()
 
         # Next we calculate the latest year of release for each block year the student has written questions for.
         # A stupid workaround we need to do because django's annotate doesn't let you annotate over subsets of a queryset.
@@ -1023,6 +1027,30 @@ class QuestionManager(models.Manager):
                                    .filter(status=Question.APPROVED_STATUS)
 
 
+class QuestionParser(HTMLParser):
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.parsed_string = ""
+
+    def parse_string(self, s):
+        self.parsed_string = ""
+        self.feed(s)
+        return self.parsed_string
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "sup":
+            self.parsed_string += "^"
+        if tag == "sub":
+            self.parsed_string += "_"
+
+    def handle_data(self, data):
+        self.parsed_string += data
+
+    def handle_entityref(self, name):
+        c = unichr(name2codepoint[name])
+        self.parsed_string += c  
+
+
 class Question(models.Model):
     APPROVED_STATUS = 0
     PENDING_STATUS = 1
@@ -1062,6 +1090,7 @@ class Question(models.Model):
     reasons = generic.GenericRelation('questions.Reason', content_type_field="related_object_content_type", object_id_field="related_object_id")
 
     objects = QuestionManager()
+    parser = QuestionParser()
 
     class Meta:
         permissions = (
@@ -1258,6 +1287,19 @@ class Question(models.Model):
             json_repr['url'] = self.get_absolute_url()
 
         return json_repr
+
+    def unicode_body(self):
+        return self.parser.parse_string(self.body)
+
+    def unicode_options_list(self):
+        ol = self.options_list()
+
+        return [self.parser.parse_string(o) for o in ol]
+
+    def unicode_explanation_list(self):
+        el = self.explanation_list()
+
+        return [self.parser.parse_string(e) for e in el]
 
     def options_dict(self):
         if self.sorted_options:
@@ -1478,6 +1520,7 @@ class QuizSpecificationManager(models.Manager):
     def get_allowed_specifications_for_student(self, student):
         stages = student.get_all_stages()
         allowed_blocks = TeachingBlock.objects.get_released_blocks_for_student(student)
+        print "Allowed blocks is %s" % allowed_blocks
         block_permission_needed = models.Q(block__in=allowed_blocks)
         no_permission_needed = models.Q(block__isnull=True)
         return self.get_queryset().filter(stage__in=stages, active=True).filter(block_permission_needed | no_permission_needed)

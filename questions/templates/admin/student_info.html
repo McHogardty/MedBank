@@ -19,7 +19,7 @@
 		<div class="week-activities collapse" data-week="{{ teaching_block_year.block.code }}.{{ teaching_block_year.year }}">
 			{% for question in questions %}
 				<div class="activity">
-					<a class="ellipsis-overflow"  href="">{{ question.body }}</a>
+					<a class="ellipsis-overflow"  href="">{{ question.body|safe }}</a>
 				</div>
 			{% endfor %}
 		</div>

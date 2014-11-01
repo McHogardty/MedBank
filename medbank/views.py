@@ -39,7 +39,6 @@ def class_view_decorator(function_decorator):
 
 
 def home(request):
-    print request.body
     return render_to_response("base-no-nav.html", context_instance=RequestContext(request))
 
 

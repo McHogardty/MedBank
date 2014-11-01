@@ -186,6 +186,7 @@ class ViewQuestion(DetailView):
         if self.request.user.has_perm('questions.can_approve'):
             c['associated_reasons'] = self.object.associated_reasons()
 
+        print self.object.unicode_body()
         return c
 
 

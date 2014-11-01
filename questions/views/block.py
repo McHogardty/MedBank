@@ -213,7 +213,7 @@ class DownloadView(FormView):
         years = form.cleaned_data['years']
 
         questions = list(models.Question.objects.get_approved_questions_for_block_and_years(self.teaching_block, years))
-        questions = sorted(questions, key=lambda x: x.body.strip()[:-1][::-1] if x.body.strip()[-1] in "?:." else x.body.strip()[::-1])
+        questions = sorted(questions, key=lambda x: x.unicode_body().strip()[:-1][::-1] if x.unicode_body().strip()[-1] in "?:." else x.unicode_body().strip()[::-1])
 
         doc = document.WordDocument()
         doc.add_heading(self.teaching_block.name)
@@ -224,13 +224,13 @@ class DownloadView(FormView):
             doc.add_heading("Questions and explanations")
 
         for question_number, question in enumerate(questions):
-            doc.add_paragraph("Question %s: %s" % (question_number + 1, question.body))
-            doc.add_list(question.options_list())
+            doc.add_paragraph("Question %s: %s" % (question_number + 1, question.unicode_body()))
+            doc.add_list(question.unicode_options_list())
 
             if show_answers:
                 doc.add_paragraph("Answer: %s" % question.answer)
                 doc.add_paragraph("The following explanations were provided:")
-                doc.add_list(question.explanation_list())
+                doc.add_list(question.unicode_explanation_list())
                 doc.add_paragraph("%s.%02d Lecture %d: %s" % (self.teaching_block.code, question.teaching_activity_year.week, question.teaching_activity_year.position, question.teaching_activity_year.name))
 
                 p = doc.add_paragraph("To view this question online, click ")

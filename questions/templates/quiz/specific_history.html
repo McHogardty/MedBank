@@ -16,20 +16,20 @@
 	<p>Click the question number to view it's individual question page on MedBank.</p>
 {% for question_attempt in quiz_attempt.questions_in_order %}
 	<h3>{% if question_attempt.date_completed %}<a href="{{ question_attempt.question.get_absolute_url }}">Question {{ forloop.counter }}</a>{% else %}Question {{ forloop.counter }}{% endif %} <small>{% if not question_attempt.date_completed %}<span class="loading">Incomplete</span>{% elif question_attempt.score %}<span class="text-success">Correct</span>{% elif not question_attempt.answer %}<span class="text-warning">Unanswered</span>{% else %}<span class="text-warning">Incorrect</span>{% endif %}</small></h3>
-	<p class="lead">{{ question_attempt.question.body|linebreaksbr }}</p>
+	<p class="lead">{{ question_attempt.question.body|safe|linebreaksbr }}</p>
 {% if question_attempt.date_completed %}
 	<p>
 		<strong>Your answer:</strong>
 	{% if question_attempt.student_choice %}
-		{{ question_attempt.student_choice.option }}. {{ question_attempt.student_choice.value}}
+		{{ question_attempt.student_choice.option }}. {{ question_attempt.student_choice.value|safe }}
 	{% else %}
 		You did not answer this question.
 	{% endif %}
 	</p>
-	{% if question_attempt.student_choice %}{{ question_attempt.student_choice.explanation }}{% endif %}
+	{% if question_attempt.student_choice and question_attempt.student_choice.explanation %}{{ question_attempt.student_choice.explanation|safe }}{% endif %}
 	{% if not question_attempt.score %}
-	<p><strong>Correct answer:</strong> {{ question_attempt.correct_answer.option }}. {{ question_attempt.correct_answer.value}}</p>
-	{{ question_attempt.correct_answer.explanation }}
+	<p><strong>Correct answer:</strong> {{ question_attempt.correct_answer.option }}. {{ question_attempt.correct_answer.value|safe }}</p>
+	{{ question_attempt.correct_answer.explanation|safe }}
 	{% endif %}
 {% endif %}
 {% endfor %}

@@ -25,7 +25,7 @@
 		<tr>
 			<td class="stage">{{ question.teaching_activity_year.block_year.stage }}</td>
 			<td class="block">Block {{ question.teaching_activity_year.block_year.code }}</td>
-			<td class="question"><a href="{{ question.get_absolute_url }}">{{ question.body }}</a></td>
+			<td class="question"><a href="{{ question.get_absolute_url }}">{{ question.body|safe }}</a></td>
 		</tr>
 	{% if forloop.last %}
 	</table>

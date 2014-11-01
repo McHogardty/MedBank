@@ -68,7 +68,7 @@
 		            {% for question in question_group.list %}
 		                <div class="activity">
 		                	<div class="row">
-		                		<div class="col-sm-10"><a class="ellipsis-overflow" href="{{ question.get_absolute_url }}">{{ question.body }}</a></div>
+		                		<div class="col-sm-10"><a class="ellipsis-overflow" href="{{ question.get_absolute_url }}">{{ question.body|safe }}</a></div>
 		                		<div class="col-sm-2 hidden-xs">{% include "question/display_status.html" %}</div>
 		                	</div>
 		                </div>
