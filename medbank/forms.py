@@ -13,7 +13,7 @@ from questions import models
 
 
 class BootstrapAuthenticationForm(bootstrap.Form, AuthenticationForm):
-    username = forms.CharField(max_length=254, widget=forms.TextInput(attrs={'class':'input-lg', 'placeholder':'Unikey'}))
+    username = forms.CharField(max_length=254, widget=bootstrap.TextInputWithAddon(attrs={'class':'input-lg', 'placeholder':'Unikey'}, post_add_on="@uni.sydney.edu.au"))
     password = forms.CharField(label=_("Password"), widget=forms.PasswordInput(attrs={'class':'input-lg', 'placeholder':'Password'}))
     def __init__(self, *args, **kwargs):
         super(BootstrapAuthenticationForm, self).__init__(*args, **kwargs)
