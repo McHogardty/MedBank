@@ -295,7 +295,7 @@ class EmailForm(bootstrap.Form):
     from_address = forms.CharField(widget=bootstrap.StaticControl())
     subject = forms.CharField(widget=bootstrap.TextInputWithAddon(add_on="[MedBank]", attrs={'class': 'span6'}))
     email = forms.CharField(widget=forms.Textarea(attrs={'class': 'span6'}))
-    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.all(), widget=forms.HiddenInput())
+    block = forms.ModelChoiceField(queryset=TeachingBlockYear.objects.all(), widget=forms.HiddenInput())
 
 
 class CommentForm(bootstrap.ModelForm):
