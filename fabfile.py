@@ -4,7 +4,8 @@ REMOTE_NAME = "prod"
 REMOTE_URL = "sydneym2@sydneymedsoc.org.au"
 REMOTE_DIRECTORY = "/home4/sydneym2/repo/medbank"
 PRODUCTION_DIRECTORY = "/home4/sydneym2/django_sites/medbank"
-WSGI_LOCATION = "/home4/sydneym2/public_html/medbank/mysite.fcgi"
+WSGI_FILE = "mysite.fcgi"
+WSGI_LOCATION = "/home4/sydneym2/public_html/medbank/%s" % WSGI_FILE
 
 env.hosts = [REMOTE_URL, ]
 
@@ -35,3 +36,4 @@ def deploy():
 			run('python manage.py collectstatic --noinput')
 			run('find . -name "*.pyc" -exec rm -f {} \;')
 			run('touch %s' % WSGI_LOCATION)
+			run('killall %s' % WSGI_FILE)
