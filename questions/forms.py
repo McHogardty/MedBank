@@ -332,7 +332,6 @@ class QuestionAttributesForm(bootstrap.ModelForm):
 class SettingEditForm(SettingEditForm):
     main_text = forms.CharField(required=False)
     secondary_text = forms.CharField(required=False)
-    image = forms.ImageField(required=False)
 
     def __init__(self, *args, **kwargs):
         setting_instance = kwargs["instance"]

@@ -133,6 +133,7 @@ INSTALLED_APPS = (
     # 'tastypie',
     # 'debug_toolbar',
     'impersonate',
+    # 'django_extensions',
 )
 
 # A sample logging configuration. The only tangible logging
