@@ -155,7 +155,7 @@ class ReleaseBlockView(RedirectView):
                     messages.error(self.request, "Students are still able to write questions for %s. This block needs to be closed before you can release questions to students." % (block.name, ))
             else:
                 messages.error(self.request, "The block %s still has questions pending, so it cannot be released to students." % (block.name, ))
-        return reverse('block-admin', kwargs={'year': year, 'code': code})
+        return reverse('block-admin', kwargs={'code': code, })
 
 
 @class_view_decorator(login_required)
@@ -271,6 +271,48 @@ class ChangeAdminYear(FormView):
 
     def form_valid(self, form):
         return redirect(form.cleaned_data['year'].get_admin_url())
+
+
+@class_view_decorator(user_is_superuser)
+class CreateQuestionWritingPeriod(CreateView):
+    model = models.QuestionWritingPeriod
+    template_name = "block/new_writing_period.html"
+    form_class = forms.NewQuestionWritingPeriodForm
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.teaching_block_year = models.TeachingBlockYear.objects.get_from_kwargs(**kwargs)
+        except models.TeachingBlockYear.DoesNotExist:
+            raise Http404
+
+        return super(CreateQuestionWritingPeriod, self).dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super(CreateQuestionWritingPeriod, self).get_form_kwargs()
+        kwargs['block_year'] = self.teaching_block_year
+        return kwargs
+
+    def form_valid(self, form):
+        writing_period = form.save(commit=False)
+        writing_period.block_year = self.teaching_block_year
+        writing_period.save()
+        return redirect('block-admin', code=self.teaching_block_year.block.code, year=self.teaching_block_year.year)
+
+
+@class_view_decorator(user_is_superuser)
+class DeleteQuestionWritingPeriod(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, **kwargs):
+        try:
+            writing_period = models.QuestionWritingPeriod.objects.get_from_kwargs(**kwargs)
+        except models.QuestionWritingPeriod.DoesNotExist:
+            raise Http404
+
+        writing_period.delete()
+
+        messages.success(self.request, "The question writing period for %s was removed successfully." % writing_period.stage)
+        return writing_period.block_year.get_admin_url()
 
 
 @class_view_decorator(user_is_superuser)

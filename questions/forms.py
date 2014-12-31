@@ -4,6 +4,7 @@ from django import forms
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html, format_html_join
 from django.utils.encoding import force_text
+from django.conf import settings
 
 import bootstrap
 from medbank.forms import SettingEditForm
@@ -220,7 +221,7 @@ class BootstrapRadioFieldRenderer(forms.widgets.RadioFieldRenderer):
 
 class NewTeachingBlockYearForm(bootstrap.ModelForm):
     # Localise=True is a cheating way of using a TextInput instead of a number input.
-    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage__number', 'code'))
+    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage', 'code'))
     year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bootstrap.StaticControl())
     start = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
     end = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
@@ -266,6 +267,48 @@ class NewTeachingBlockYearForm(bootstrap.ModelForm):
 
     def clean_release_date(self):
         return
+
+
+class NewQuestionWritingPeriodForm(bootstrap.ModelForm):
+    block = forms.CharField(max_length=200, widget=bootstrap.StaticControl())
+    activity_capacity = forms.IntegerField(localize=True, label="Maximum users per activity", initial=settings.USERS_PER_ACTIVITY)
+    start = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
+    end = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
+    close = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can write questions for activities in this block.", label="Close date")
+    release_date = forms.CharField(required=False, max_length=10, widget=bootstrap.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
+
+    class Meta:
+        model = QuestionWritingPeriod
+        fields = ('block', 'stage', 'activity_capacity', 'start', 'end', 'close', 'release_date')
+
+    def __init__(self, *args, **kwargs):
+        if 'block_year' in kwargs:
+            initial = kwargs.setdefault('initial', {})
+            initial['block'] = str(kwargs.pop('block_year'))
+
+        super(NewQuestionWritingPeriodForm, self).__init__(*args, **kwargs)
+
+    def clean(self):
+        c = super(NewQuestionWritingPeriodForm, self).clean()
+        del c['release_date']
+        start = c.get('start')
+        end = c.get('end')
+        close = c.get('close')
+
+        if start and end and start > end:
+            self._errors["end"] = self.error_class(["The end date should not be earlier than the start date."])
+        if start and close and start > close:
+            self._errors["close"] = self.error_class(["The close date should not be earlier than the start date."])
+        if end and close and end > close:
+            self._errors["close"] = self.error_class(["The close date should not be earlier than the end date."])
+
+        if self.instance and self.instance.release_date:
+            if end >= self.instance.release_date:
+                self._errors["end"] = self.error_class(["The release date should not occur on or after the release date."])
+            if start >= self.instance.release_date:
+                self._errors["start"] = self.error_class(["The start date should not occur on or after the release date."])
+
+        return c
 
 
 class NewTeachingBlockDetailsForm(bootstrap.ModelForm):

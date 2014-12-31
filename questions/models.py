@@ -62,39 +62,15 @@ class ObjectCacheMixin(object):
 
 
 class Stage(models.Model):
-    stage_cache = {}
-
     number = models.IntegerField()
+    name = models.CharField(max_length=100)
+    sort_index = models.IntegerField()
 
     class Meta:
-        ordering = ('number',)
+        ordering = ('sort_index',)
 
     def __unicode__(self):
-        return "Stage %s" % (self.number, )
-
-    @classmethod
-    def get_stage(self, n):
-        if n in self.stage_cache:
-            return self.stage_cache[n]
-        else:
-            s = self.objects.get(number=n)
-            self.stage_cache[n] = s
-            return s
-
-    @classmethod
-    def stage_one(self):
-        return self.get_stage(1)
-    STAGE_ONE = classproperty(stage_one)
-
-    @classmethod
-    def stage_two(self):
-        return self.get_stage(2)
-    STAGE_TWO = classproperty(stage_two)
-
-    @classmethod
-    def stage_three(self):
-        return self.get_stage(3)
-    STAGE_THREE = classproperty(stage_three)
+        return self.name
 
 
 class Year(models.Model):
@@ -161,10 +137,10 @@ class Student(models.Model, ObjectCacheMixin):
         return self._cached_stage
 
     def get_all_stages(self):
-        return Stage.objects.filter(number__lte=self.get_current_stage().number)
+        return self.stages.distinct()
 
     def get_previous_stages(self):
-        return Stage.objects.filter(number__lt=self.get_current_stage().number)
+        return self.stages.filter(sort_index__lt=self.get_current_stage().sort_index)
 
     def current_assigned_activities(self):
         return self.assigned_activities.filter(models.Q(block_year__release_date__year=datetime.datetime.now().year) | models.Q(block_year__start__year=datetime.datetime.now().year))
@@ -188,10 +164,7 @@ def user_created(sender, **kwargs):
         s.save()
         y = Year()
         y.student = s
-        if kwargs['instance'].username == 'michael':
-            y.stage = Stage.STAGE_ONE
-        else:
-            y.stage = kwargs['instance']._stage
+        y.stage = kwargs['instance']._stage
         y.year = datetime.datetime.now().year
         y.save()
 
@@ -240,6 +213,9 @@ class TeachingBlock(models.Model):
     def get_released_years(self):
         return self.years.filter(release_date__lte=datetime.datetime.now())
     released_years = property(get_released_years)
+
+    def get_latest_year(self):
+        return self.years.latest("year")
 
     def is_viewable_by(self, student):
         if student.user.is_superuser: return True
@@ -533,6 +509,9 @@ class TeachingBlockYear(models.Model):
         return self.block.code
     code = property(code)
 
+    def total_weeks(self):
+        return self.activities.aggregate(models.Max('week'))['week__max']
+
     def name_for_form_fields(self):
         return self.block.name_for_form_fields()
 
@@ -647,6 +626,52 @@ class TeachingBlockYear(models.Model):
             .filter(status=ApprovalRecord.APPROVED_STATUS)
 
         return approval_records.order_by("approver__user__username").select_related("approver", "approver__user")
+
+
+class QuestionWritingPeriodManager(models.Manager):
+    def get_from_kwargs(self, **kwargs):
+        queryset = super(QuestionWritingPeriodManager, self).get_queryset().select_related()
+
+        if 'code' and 'year' in kwargs:
+            queryset = self.get_queryset().filter(block_year__block__code=kwargs.get("code"), block_year__year=kwargs.get("year"))
+
+        return queryset.get(id=kwargs.get('id'))
+
+
+class QuestionWritingPeriod(models.Model):
+    block_year = models.ForeignKey(TeachingBlockYear, related_name='writing_periods')
+    stage = models.ForeignKey(Stage, related_name='writing_periods')
+    activity_capacity = models.IntegerField(verbose_name='Maximum users per activity', default=2)
+    start = models.DateField(verbose_name='Start date')
+    end = models.DateField(verbose_name='End date')
+    close = models.DateField(verbose_name='Close date')
+    release_date = models.DateField(verbose_name='Release date', blank=True, null=True)
+
+    objects = QuestionWritingPeriodManager()
+
+    def has_started(self):
+        return self.start <= datetime.datetime.now().date()
+
+    def has_ended(self):
+        return self.end <= datetime.datetime.now().date()
+
+    def has_closed(self):
+        return self.close < datetime.datetime.now().date()
+
+    def can_write_questions(self):
+        return self.start <= datetime.datetime.now().date() <= self.close
+    can_write_questions = property(can_write_questions)
+
+    def released(self):
+        return self.release_date and self.release_date <= datetime.datetime.now().date()
+    released = property(released)
+
+    def can_access(self):
+        return self.can_write_questions or self.released
+
+    def can_sign_up(self):
+        return self.start <= datetime.datetime.now().date() <= self.end
+    can_sign_up = property(can_sign_up)
 
 
 class TeachingActivityManager(models.Manager):

@@ -15,16 +15,22 @@ teaching_block_year_urls = [
     url(r'^activity/all/$', block.BlockActivitiesView.as_view(), name='block-activities'),
     url(r'^release/$', block.ReleaseBlockView.as_view(), name='block-release'),
     url(r'^download/$', block.DownloadView.as_view(), name="block-download"),
-    url(r'^admin/$', admin.BlockAdminView.as_view(), name='block-admin'),
     url(r'^admin/approval/statistics/$', admin.ApprovalStatisticsView.as_view(), name='block-approval-statistics'),
     url(r'^admin/upload/confirm/$', block.ConfirmUploadForTeachingBlock.as_view(), name='block-activity-upload-confirm'),
     url(r'^admin/upload/submit/$', block.UploadForTeachingBlock.as_view(), name='block-activity-upload-submit'),
     url(r'^admin/upload/start/$', block.StartUploadForTeachingBlock.as_view(), name='block-activity-upload'),
 ]
 
+specific_block_admin_urls = [
+    url(r'^$', admin.BlockAdminView.as_view(), name='block-admin'),
+    url(r'^period/new/$', block.CreateQuestionWritingPeriod.as_view(), name="block-admin-period-new"),
+    url(r'^period/(?P<id>\d+)/remove/$', block.DeleteQuestionWritingPeriod.as_view(), name="block-admin-period-remove"),
+]
+
 specific_block_urls = [
     # url(r'^download/$', block.DownloadView.as_view(), name="block-download"),
     url(r'^(?P<year>\d{4})/', include(teaching_block_year_urls)),
+    url(r'^admin/(?P<year>\d{4})/', include(specific_block_admin_urls)),
     url(r'^admin/select/$', block.ChangeAdminYear.as_view(), name="block-admin-select"),
 ]
 

@@ -1,0 +1,14 @@
+{% extends "newbase.html" %}
+
+{% block head %}
+    {{ form.media.css}}
+{% endblock head %}
+
+{% block content %}
+    <h1>{% if object %}Edit a{% else %}Add a new{% endif %} question writing period</h1>
+    {% include "includes/form.html" %}
+{% endblock content %}
+
+{% block javascript %}
+    {{ form.media.js }}
+{% endblock javascript %}

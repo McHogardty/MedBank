@@ -101,14 +101,15 @@ class BlockAdminView(GetObjectMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         c = super(BlockAdminView, self).get_context_data(**kwargs)
-        c['teaching_block'] = self.object
+        c['teaching_block'] = self.object.block
+        c['current_year'] = self.object
         c['number_activities_total'] = self.object.total_activities_count()
         c['number_activities_assigned'] = self.object.assigned_activities_count()
         c['number_assigned_users'] = self.object.assigned_users_count()
-        c['number_questions_written'] = self.object.total_questions_count()
-        c['number_questions_pending'] = self.object.questions_pending_count()
-        c['number_questions_approved'] = self.object.questions_approved_count()
-        c['number_questions_flagged'] = self.object.questions_flagged_count()
+        # c['number_questions_written'] = self.object.total_questions_count()
+        # c['number_questions_pending'] = self.object.questions_pending_count()
+        # c['number_questions_approved'] = self.object.questions_approved_count()
+        # c['number_questions_flagged'] = self.object.questions_flagged_count()
         return c
 
 
