@@ -13,5 +13,6 @@ python-mimeparse==0.1.4
 django-tastypie==0.11.0
 django-post_office
 django-impersonate==0.9.0
+django-reversion==1.8.5
 premailer
 beautifulsoup4
