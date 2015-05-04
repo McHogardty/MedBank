@@ -1,13 +1,15 @@
 from fabric.api import *
 
 REMOTE_NAME = "prod"
-REMOTE_URL = "sydneym2@sydneymedsoc.org.au"
-REMOTE_DIRECTORY = "/home4/sydneym2/repo/medbank"
-PRODUCTION_DIRECTORY = "/home4/sydneym2/django_sites/medbank"
-WSGI_FILE = "mysite.fcgi"
-WSGI_LOCATION = "/home4/sydneym2/public_html/medbank/%s" % WSGI_FILE
+REMOTE_URL = "webmaster@www.sydneymedsoc.org.au"
+REMOTE_DIRECTORY = "/home/webmaster/repo/medbank"
+PRODUCTION_DIRECTORY = "/var/www/medbank"
+KEY_FILE = "/Users/michael/.ssh/sums-webmaster-rsa"
+# WSGI_FILE = "mysite.fcgi"
+# WSGI_LOCATION = "/home4/sydneym2/public_html/medbank/%s" % WSGI_FILE
 
 env.hosts = [REMOTE_URL, ]
+env.key_filename = '/Users/michael/.ssh/sums-webmaster-rsa'
 
 def sync():
 	# Check first that we have a production location to push to. If not, add one.
@@ -30,10 +32,10 @@ def deploy():
 			run("git merge v1")
 			run('rsync -r --delete ./ %s --exclude ".git*" --exclude "local_settings.py"' % PRODUCTION_DIRECTORY)
 
-	with cd(PRODUCTION_DIRECTORY):
-		with hide("stderr", "stdout"):
-			run('python manage.py migrate')
-			run('python manage.py collectstatic --noinput')
-			run('find . -name "*.pyc" -exec rm -f {} \;')
-			run('touch %s' % WSGI_LOCATION)
-			run('killall %s' % WSGI_FILE)
+	# with cd(PRODUCTION_DIRECTORY):
+	# 	with hide("stderr", "stdout"):
+	# 		run('python manage.py migrate')
+	# 		run('python manage.py collectstatic --noinput')
+	# 		run('find . -name "*.pyc" -exec rm -f {} \;')
+	# 		run('touch %s' % WSGI_LOCATION)
+	# 		run('killall %s' % WSGI_FILE)
