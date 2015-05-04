@@ -6,7 +6,7 @@
     {% for b in object_list %}
         <div class="week">
             <div class="week-heading">
-                <span class="h3" style="display:inline-block;"><a href="{{ b.get_approval_assign_url }}">{{ b.name }}</a></span>
+                <span class="h3" style="display:inline-block;"><a href="{{ b.get_approval_assign_url }}">{{ b.block.name }}</a></span>
             </div>
         </div>
     {% empty %}

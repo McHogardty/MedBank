@@ -1,6 +1,7 @@
 {% extends "newbase.html" %}
 
 {% block head %}
+<link href="{{ STATIC_URL }}medbank/css/summernote.css" rel="stylesheet" media="screen">
 <style type="text/css">
     .options_table.col-md-6 {
         margin-left:0;
@@ -24,17 +25,133 @@
     .options-group .input-group-addon {
         width:36px;
     }
+
+    .btn-toolbar {
+        margin-bottom: 10px;
+    }
+
+    .greek-letter {
+        margin-right:10px;
+    }
+
+    #symbol-toolbar {
+        margin-bottom: 10px;
+    }
+
+    .note-toolbar {
+        background-color:transparent!important;
+        border:none!important;
+        padding:0;
+        margin-bottom:10px;
+    }
+
+    .note-editor {
+        border:none!important;
+    }
+
+    .dropdown-menu a {
+        cursor:pointer;
+    }
+
+    .summernote-textarea {
+        display: block;
+        width: 100%;
+        height: 200px;
+        padding: 6px 12px !important;
+        font-size: 14px;
+        line-height: 1.42857143;
+        color: #555;
+        background-color: #fff;
+        background-image: none;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+        box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+        -webkit-transition: border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;
+        -o-transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
+        transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;  
+    }
+
+    .input-group .summernote-textinput {
+        display: table-cell;
+        position:relative;
+        z-index: 2;
+        float: left;
+        width: 100%;
+        height: 34px;
+        padding: 6px 12px;
+        font-size: 14px;
+        line-height: 1.42857143;
+        color: #555;
+        background-color:#fff;
+        background-image: none;
+        margin-bottom: 0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+        box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+        -webkit-transition: border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;
+        -o-transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
+        transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;  
+    }
+
+    .has-error .summernote-textinput {
+        border-color: #a94442;
+        -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+        box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+    }
+
+    .summernote-textarea:focus, .summernote-textinput:focus {
+        border-color: #66afe9;
+        outline: 0;
+        -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(102,175,233,.6);
+        box-shadow: inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(102,175,233,.6);
+    }
+
+    .input-group .summernote-textinput:last-child {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
 </style>
 {% endblock head %}
 
 {% block content %}
 {% if question %}
-    <h1>Edit an existing question</h1>
+    <h1>Change an existing question</h1>
 {% else %}
     <h1>Add a new question</h1>
 {% endif %}
     <p class="lead">We've written a guide for you on how to write questions. It would be great if you could give it a read. You can view the guide by <a href="{% url 'question-guide' %}" target="_blank">clicking here</a>.</p>
-    <form class="form-horizontal" method="post" role="form">
+    <p class="lead">To change formatting, highlight the text you would like to change and select the formatting from the menu which appears.</p>
+    <div class="row">
+    <div class="col-md-offset-2 col-md-6" id="symbol-toolbar">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false" id="greek-letters">
+            Greek <span class="caret"></span></button>
+            <ul class="dropdown-menu" role="menu" aria-labelledby="greek-letters">
+               <li><a data-event="insertSymbol" data-value="α"><span class="greek-letter">&alpha;</span> alpha</a></li>
+               <li><a data-event="insertSymbol" data-value="β"><span class="greek-letter">&beta;</span> beta</a></li>
+               <li><a data-event="insertSymbol" data-value="γ"><span class="greek-letter">&gamma;</span> gamma</a></li>
+               <li><a data-event="insertSymbol" data-value="δ"><span class="greek-letter">&delta;</span> delta</a></li>
+               <li><a data-event="insertSymbol" data-value="ε"><span class="greek-letter">&epsilon;</span> epsilon</a></li>
+               <li><a data-event="insertSymbol" data-value="θ"><span class="greek-letter">&theta;</span> theta</a></li>
+               <li><a data-event="insertSymbol" data-value="κ"><span class="greek-letter">&kappa;</span> kappa</a></li>
+               <li><a data-event="insertSymbol" data-value="μ"><span class="greek-letter">&mu;</span> mu</a></li>
+            </ul>
+        </div>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false" id="symbols">
+                Symbols <span class="caret"></span></button>
+            <ul class="dropdown-menu" role="menu" aria-labelledby="symbols">
+               <li><a data-event="insertSymbol" data-value="×"><span class="greek-letter">&times;</span> times</a></li>
+               <li><a data-event="insertSymbol" data-value="≤"><span class="greek-letter">&le;</span> greater than/equal to</a></li>
+               <li><a data-event="insertSymbol" data-value="≥"><span class="greek-letter">&ge;</span> less than/equal to</a></li>
+            </ul>
+        </div>
+    </div>
+    </div>
+    <form class="form-horizontal" method="post" role="form" id="new-question-form">
         {% csrf_token %}
         {{ form.as_bootstrap }}
         <div class="form-group">
@@ -47,3 +164,83 @@
         </div>
     </form>
 {% endblock content %}
+
+{% block javascript %}
+    <script src="{{ STATIC_URL }}medbank/js/summernote.min.js"></script>
+    <script type="text/javascript">
+        var widget = null;
+        var lastField;
+        summernoteEditor = null;
+
+        $(document).ready(function () {
+            var widget = $("#medium-editor");
+            var $symbolToolbar = $("#symbol-toolbar");
+
+            $symbolToolbar.find('.dropdown-menu a[data-value]').mousedown(function (e) {
+                if (lastField) {
+                    var was_empty = lastField.code() === "<br>" || lastField.code() === "" || lastField.code() === "<p><br></p>";
+                    console.log(lastField.code());
+                    lastField.summernote("editor.insertText", $(this).attr("data-value"));
+                    if (was_empty) {
+                        var original_code = $(lastField.code());
+                        if(original_code.first().children().first().is('br')) {
+                            original_code.first().children().first().remove();
+                            lastField.code(original_code.prop('outerHTML'));
+                        }
+                    }
+                    lastField.summernote("editor.focus");
+                    lastField = null;
+                    e.preventDefault();
+                }
+            });
+            $.summernote.addPlugin({
+                name: "medbank",
+                buttons: {
+                    medbankBold: function () { return '<button type="button" class="btn btn-default" title="Bold" data-event="bold"><span class="fa fa-bold"></span></button>'; },
+                    medbankItalic: function () { return '<button type="button" class="btn btn-default" title="Italic" data-event="italic"><span class="fa fa-italic"></span></button>'; },
+                    medbankSuperscript: function () { return '<button type="button" class="btn btn-default" title="Superscript" data-event="superscript"><span class="fa fa-superscript"></span></button>'},
+                    medbankSubscript: function () { return '<button type="button" class="btn btn-default" title="Subscript" data-event="subscript"><span class="fa fa-subscript"></span></button>'},
+                    medbankClear: function () { return '<button type="button" class="btn btn-default" title="Clear formatting" data-event="removeFormat"><span class="fa fa-ban"></span></button>'}
+                }
+            });
+
+            $(".summernote").summernote({
+                styleWithSpan: false,
+                airPopover: [
+                    ['medbankStyle', ['medbankBold', 'medbankItalic']],
+                    ['medbankScripts', ['medbankSuperscript', 'medbankSubscript']],
+                    ['medbankClear', ['medbankClear']]
+                ],
+                airMode: true
+            });
+            $(".summernote").blur(function () { lastField = $(this); });
+            setTimeout(function () {
+                $(".summernote-textinput").off('keydown');
+                $(".summernote-textinput").on('keydown', function (e) {
+                    if (e.which == 13) {
+                        e.preventDefault();
+                        $(this).parents("form").submit();
+                    }
+                });
+            }, 0);
+            $("#new-question-form").submit(function (e) {
+                $(".summernote[data-field]").each(function () {
+                    var $formField = $('[name="' + $(this).attr("data-field") + '"]');
+                    var code = $(this).code();
+                    if (code.substr(0,3) === "<p>" && $(this).is('.summernote-textinput')) {
+                        var $code = $(code);
+                        $formField.val($code.html());
+                    } else if (code.substr(0,3) !== "<p>" && $(this).is('.summernote-textarea')) {
+                        $formField.val("<p>" + code + "</p>");
+                    } else {
+                        $formField.val(code);
+                    }
+                });
+            });
+            $(".summernote[data-field]").each(function () {
+                var $formField = $('[name="' + $(this).attr("data-field") + '"]');
+                $(this).code($formField.val());
+            });
+        });
+    </script>
+{% endblock javascript %}

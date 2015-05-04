@@ -12,6 +12,7 @@ from .base import class_view_decorator, user_is_superuser, GetObjectMixin
 from questions import models, forms
 
 import json
+import datetime
 
 @class_view_decorator(user_is_superuser)
 class AdminView(TemplateView):
@@ -19,13 +20,12 @@ class AdminView(TemplateView):
 
     def get_context_data(self, **kwargs):
         c = super(AdminView, self).get_context_data(**kwargs)
-        tb = models.TeachingBlockYear.objects.all()
-        print tb.query
-        c.update({'blocks': tb,})
+        c.update({'blocks': models.TeachingBlock.objects.all(),})
         c.update({'debug_mode': settings.DEBUG, 'maintenance_mode': settings.MAINTENANCE_MODE, })
         c.update({'quiz_specifications': models.QuizSpecification.objects.order_by('stage')})
         c.update({'student_dashboard_settings': models.StudentDashboardSetting.objects.all()})
         c.update({'approval_dashboard_settings': models.ApprovalDashboardSetting.objects.all()})
+        c['block_creation_url'] = models.TeachingBlock.get_block_creation_url()
         return c
 
 
@@ -96,17 +96,30 @@ class CreateMissingSettingsView(RedirectView):
 
 @class_view_decorator(user_is_superuser)
 class BlockAdminView(GetObjectMixin, DetailView):
-    model = models.TeachingBlockYear
+    model = models.TeachingBlock
     template_name = "block/admin.html"
 
     def get_context_data(self, **kwargs):
         c = super(BlockAdminView, self).get_context_data(**kwargs)
-        c['teaching_block'] = self.object.block
-        c['current_year'] = self.object
-        c['number_activities_total'] = self.object.total_activities_count()
-        c['number_activities_assigned'] = self.object.assigned_activities_count()
-        c['number_assigned_users'] = self.object.assigned_users_count()
-        # c['number_questions_written'] = self.object.total_questions_count()
+        c['teaching_block'] = self.object
+        c['new_year_required'] = not self.object.years.filter(year=datetime.datetime.now().year).exists()
+
+        year = self.request.GET.get("year", None)
+        current_year = None
+
+        if year:
+            try:
+                current_year = self.object.years.get(year=year)
+            except models.TeachingBlockYear.DoesNotExist:
+                current_year = None
+
+        if current_year is None:
+            try:
+                current_year = self.object.get_latest_year()
+            except models.TeachingBlockYear.DoesNotExist:
+                current_year = None
+
+        c['current_year'] = current_year
         # c['number_questions_pending'] = self.object.questions_pending_count()
         # c['number_questions_approved'] = self.object.questions_approved_count()
         # c['number_questions_flagged'] = self.object.questions_flagged_count()
@@ -160,7 +173,7 @@ class ViewStudent(GetObjectMixin, DetailView):
 
         blocks_with_questions = {}
         for question in questions_written:
-            questions_for_block =  blocks_with_questions.setdefault(question.teaching_activity_year.block_year, [])
+            questions_for_block =  blocks_with_questions.setdefault(question.teaching_activity_year.block_week.writing_period.block_year, [])
             questions_for_block.append(question)
         c['blocks_with_questions'] = blocks_with_questions
         return c

@@ -10,7 +10,7 @@
 	<h1>Your assigned teaching activities</h1>
 	<p>Below is a list of all the teaching activities which you have been assigned to for writing questions. {% include "includes/display_in_context.html" with xs_text="Tap" default_text="Click" %} on a block to view the assigned activities for that particular block. {% include "includes/display_in_context.html" with xs_text="Tap" default_text="Click" %} on the name of an activity to view more information about it and write questions for it.</p>
 
-{% regroup assigned_activities by block_year as block_years %}
+{% regroup assigned_activities by block_week.writing_period.block_year as block_years %}
 {% for block_year in block_years %}
     <div class="week">
         <div class="week-heading collapse-trigger" data-target="#week-activities-{{ block_year.grouper.id }}">
@@ -20,7 +20,7 @@
         <div class="week-activities collapse" id="week-activities-{{ block_year.grouper.id }}">
         {% for activity in block_year.list %}
             <div class="activity">
-                <a href="{{ activity.teaching_activity.get_absolute_url }}">{{ activity }}</a>
+                <a href="{{ activity.teaching_activity.get_absolute_url }}{% if user.is_superuser %}?writing_period={{ activity.block_week.writing_period.id }}{% endif %}">{{ activity }}</a>
             </div>                
         {% endfor %}
         </div>

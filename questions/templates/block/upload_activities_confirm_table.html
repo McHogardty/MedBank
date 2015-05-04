@@ -19,11 +19,10 @@
             <td>
                 {{ teaching_activity.name }}{% if teaching_activity.id %} <span class="text-success">(Already exists)</span>{% endif %}
                 <input type="hidden" value="{{ teaching_activity.name }}" name="name_{{ teaching_activity.reference_id}}" />
-                <input type="hidden" value="{{ teaching_activity.id }}">
             </td>
             <td>
-                {{ teaching_activity_year.week }}
-                <input type="hidden" value="{{ teaching_activity_year.week }}" name="week_{{ teaching_activity.reference_id }}" />
+                {{ teaching_activity_year.block_week.name }}
+                <input type="hidden" value="{{ teaching_activity_year.block_week.name }}" name="week_{{ teaching_activity.reference_id }}" />
             </td>
             <td>
                 {{ teaching_activity_year.position }}

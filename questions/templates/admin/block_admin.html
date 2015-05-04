@@ -44,7 +44,7 @@
             <div class="dashboard">
                 <h1>{{ block.questions_approved_count }}</h1>
                 <p class="lead">question{{ block.questions_approved_count|pluralize }} approved</p>
-                <a class="action" href="{% url 'block-approval-statistics' code=block.code year=block.year %}">View statistics</a>
+                <a class="action" href="{{ block.get_approval_statistics_url }}">View statistics</a>
             </div>
         </div>
         <div class="col-sm-4">
@@ -65,14 +65,14 @@
             <div class="dashboard">
                 <p class="lead">This block start{% if now < block.start %}s{% else %}ed{% endif %} on</p>
                 <h1>{{ block.start|date:"SHORT_DATE_FORMAT" }}</h1>
-                <a class="action" href="{% url "block-edit" year=block.year code=block.code %}">Change</a>
+                <a class="action" href="{{ block.get_edit_url }}">Change</a>
             </div>
         </div>
         <div class="col-md-6">
             <div class="dashboard">
                 <p class="lead">This block end{% if now < block.end %}s{% else %}ed{% endif %} on</p>
                 <h1>{{ block.end|date:"SHORT_DATE_FORMAT" }}</h1>
-                <a class="action" href="{% url "block-edit" year=block.year code=block.code %}">Change</a>
+                <a class="action" href="{{ block.get_edit_url }}">Change</a>
             </div>
         </div>
     </div>
@@ -81,14 +81,14 @@
             <div class="dashboard">
                 <p class="lead">This block close{% if now < block.close %}s{% else %}d{% endif %} on</p>
                 <h1>{{ block.close|date:"SHORT_DATE_FORMAT" }}</h1>
-                <a class="action" href="{% url "block-edit" year=block.year code=block.code %}">Change</a>
+                <a class="action" href="{{ block.get_edit_url }}">Change</a>
             </div>
         </div>
         <div class="col-md-6">
             <div class="dashboard">
                 <p class="lead">Release status</p>
                 {% if block.released %}<h1 class="text-success">Released</h1>{% else %}<h1 class="text-danger">Not released</h1>{% endif %}
-                {% if block.released %}<a class="action" href="{% url 'email' code=block.code year=block.year %}?document">Email questions</a>{% else %}<a class="action" href="{{ block.get_release_url }}">Release now</a>{% endif %}
+                {% if block.released %}<a class="action" href="{% url 'email' code=block.block.code year=block.year %}?document">Email questions</a>{% else %}<a class="action" href="{{ block.get_release_url }}">Release now</a>{% endif %}
             </div>
         </div>
     </div>

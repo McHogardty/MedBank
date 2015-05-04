@@ -1,0 +1,58 @@
+{% extends "newbase.html" %}
+{% load custom_filters %}
+
+
+{% block head %}
+{% include "block/display_week_css.html" %}
+{% endblock head %}
+
+{% block content %}
+	<h1>Block {{ teaching_block.code }}: {{ teaching_block }}{% if user.is_superuser %} <small><a href="{{ teaching_block_year.get_admin_url }}">Admin</a>{% endif %}</h1>
+
+    {% if user.is_superuser %}
+    <p><strong>Available stages for {{ teaching_block_year.year }}:</strong> {% for writing_period in teaching_block_year.writing_periods.all %}{% if not forloop.first %} | {% endif %}{% if writing_period != current_writing_period %}<a href="?stage={{ writing_period.stage.id }}">{% endif %}{{ writing_period.stage }}{% if writing_period != current_writing_period %}</a>{% endif %}{% endfor %}</p>
+    {% endif %}
+    <p class="lead">You can sign up for activities in this block from {{ current_writing_period.start }} until {{ current_writing_period.end }}.</p>
+    <p class="lead">You will be able to write questions for activities until {{ current_writing_period.close }}.</p>
+    {% if can_view_questions %}
+    <p class="lead">You can <a href="{{ teaching_block_year.get_download_url }}">click here</a> to download the questions.</p>
+    {% else %}
+    <p class="lead">Once you have written {% if questions_remaining %}{{ questions_remaining }} more {{ questions_remaining|plural:"question" }}{% else %}{{ questions_required }} {{ questions_required|plural:"question" }}{% endif %} for this block, you will be able to view all the questions written for this block by other users.</p>
+    {% endif %}
+
+    <p><span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a week below to see the classes available for that week. <span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a class to view more information, and to sign up to write questions for that activity.</p>
+
+{% for week in current_writing_period.weeks.all %}
+	<div class="week">
+		<div class="week-heading collapse-trigger" data-week="{{ week.id }}">
+			<span class="h3" style="display:inline-block;">{{ week.name }}</span>
+			<i class="icon-angle-down"></i>
+		</div>
+		<div class="week-activities collapse" data-week="{{ week.id }}">
+			{% for teaching_activity_year in week.activities.all %}
+			{% with teaching_activity_year.teaching_activity as teaching_activity %}
+				<div class="activity">
+				{% block activity_detail %}
+					<div class="activity-info pull-left">
+						<span class="loading">{{ teaching_activity.get_activity_type_display.0 }}</span>
+						<a href="{{ teaching_activity.get_absolute_url }}{% if current_writing_period and user.is_superuser %}?writing_period={{ current_writing_period.id }}{% endif %}">{{ teaching_activity.name|safe }}</a>
+					</div>
+					<div class="pull-right">
+		                {% include "activity/display_activity_availability.html" %}
+					</div>
+					<div class="clearfix"></div>
+				{% endblock activity_detail %}
+				</div>
+			{% endwith %}
+			{% endfor %}
+		</div>
+	</div>
+{% empty %}
+	<p>This block does not yet have any activities in MedBank.</p>
+{% endfor %}
+{% endblock content %}
+
+
+{% block javascript %}
+{% include "block/display_week_javascript.html" %}
+{% endblock javascript %}

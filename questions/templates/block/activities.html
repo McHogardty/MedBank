@@ -5,17 +5,22 @@
 {% endblock head %}
 
 {% block content %}
-	<h1>Block {{ teaching_block.code }}: {{ teaching_block }} <small><a href="{{ teaching_block_year.get_admin_url }}">Admin</a></h1>
-	{% if teaching_block_year.released %}
+	<h1>Block {{ teaching_block.code }}: {{ teaching_block }}{% if user.is_superuser %} <small><a href="{{ teaching_block_year.get_admin_url }}">Admin</a>{% endif %}</h1>
+    {% if user.is_superuser %}
+    <p><strong>Available stages for {{ teaching_block_year.year }}:</strong> {% for writing_period in teaching_block_year.writing_periods.all %}{% if not forloop.first %} | {% endif %}{% if writing_period != current_writing_period %}<a href="?stage={{ writing_period.stage.id }}">{% endif %}{{ writing_period.stage }}{% if writing_period != current_writing_period %}</a>{% endif %}{% endfor %}</p>
+    {% endif %}
+	{% if current_writing_period.released %}
     <p class="lead">The question documents for this block have been released.</p>
     <p class="lead">You can <a href="{{ teaching_block_year.get_download_url }}">click here</a> to download the questions.</p>
 	{% else %}
-    <p class="lead">You can sign up for activities in this block from {{ teaching_block_year.start }} until {{ teaching_block_year.end }}.</p>
-    <p class="lead">You will be able to write questions for activities until {{ teaching_block_year.close }}.</p>
+    <p class="lead">You can sign up for activities in this block from {{ current_writing_period.start }} until {{ current_writing_period.end }}.</p>
+    <p class="lead">You will be able to write questions for activities until {{ current_writing_period.close }}.</p>
     <p class="lead">The question documents for this block have not been released yet.</p>
 	{% endif %}
 
     <p><span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a week below to see the classes available for that week. <span class="visible-xs-inline">Tap</span><span class="hidden-xs">Click</span> on a class to view more information, and to sign up to write questions for that activity.</p>
+
+    {{ current_writing_period }}
 
     {% for week in weeks %}
     {% include "block/display_week.html" %}

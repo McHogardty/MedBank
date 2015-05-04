@@ -5,6 +5,7 @@ import docx
 import cStringIO as StringIO
 import zipfile
 import os
+import bs4
 
 CURRENT_PATH = os.path.dirname(os.path.realpath(__file__ ))
 
@@ -214,34 +215,92 @@ class Heading(DocumentElement):
 		return [docx.heading(self.text, self.level), ]
 
 
+class RunProperties(DocumentElement):
+	def __init__(self, properties):
+		self.properties = properties
+
+	def as_element(self):
+		run_element = docx.makeelement('rPr')
+		for k, v in self.properties.items():
+			if v:
+				property_element = docx.makeelement(k, attributes={'val': v})
+			else:
+				property_element = docx.makeelement(k)
+			run_element.append(property_element)
+		print etree.tostring(run_element)
+
+		return run_element
+
+
 class Paragraph(DocumentElement):
 	DEFAULT_STYLE = "BodyText"
 
-	def __init__(self, text, style=DEFAULT_STYLE, *args, **kwargs):
-		self.text = text
+	def __init__(self, text=None, style=DEFAULT_STYLE, num_level=None, num_id=None, *args, **kwargs):
+		# self.text = text
 		self.style = style
 		self.hyperlink_text = ""
 		self.hyperlink_uri = ""
+		self.num_level = num_level
+		self.num_id = num_id
+
+		self.elements = []
+
+		if text is not None: self.elements.append((text, None))
 
 		super(Paragraph, self).__init__(*args, **kwargs)
 
-	def get_elements(self):
-		paragraph_element = docx.paragraph(self.text, self.style)
-		if self.hyperlink_text:
-			r_element = paragraph_element.find(self.namespace_string("r"))
-			t_element = r_element.find(self.namespace_string("t"))
-			t_element.attrib["{http://www.w3.org/XML/1998/namespace}space"] = "preserve"
-			hyperlink_element = docx.makeelement('hyperlink', attributes={'id': 'rId%s' % self.hyperlinkId}, attrnsprefix='r')
-			rPr_element = docx.makeelement('rPr')
-			rStyle_element = docx.makeelement('rStyle', attributes={'val': 'Hyperlink'})
-			r_element = docx.makeelement('r')
-			t_element = docx.makeelement('t', tagtext=self.hyperlink_text)
-			rPr_element.append(rStyle_element)
-			r_element.append(rPr_element)
-			r_element.append(t_element)
-			hyperlink_element.append(r_element)
+	def add_text(self, text, italic=False, bold=False, superscript=False, subscript=False):
+		props = {}
+		if italic: props['i'] = None
+		if bold: props['b'] = None
+		if superscript: props['vertAlign'] = 'superscript'
+		if subscript: props['vertAlign'] = 'subscript'
+		if props:
+			self.elements.append((text, RunProperties(props)))
+		else:
+			self.elements.append((text, None))
 
-			paragraph_element.append(hyperlink_element)
+	def get_elements(self):
+		if not self.elements:
+			paragraph_element = docx.paragraph(self.text, self.style)
+			if self.hyperlink_text:
+				r_element = paragraph_element.find(self.namespace_string("r"))
+				t_element = r_element.find(self.namespace_string("t"))
+				t_element.attrib["{http://www.w3.org/XML/1998/namespace}space"] = "preserve"
+				hyperlink_element = docx.makeelement('hyperlink', attributes={'id': 'rId%s' % self.hyperlinkId}, attrnsprefix='r')
+				rPr_element = docx.makeelement('rPr')
+				rStyle_element = docx.makeelement('rStyle', attributes={'val': 'Hyperlink'})
+				r_element = docx.makeelement('r')
+				t_element = docx.makeelement('t', tagtext=self.hyperlink_text)
+				rPr_element.append(rStyle_element)
+				r_element.append(rPr_element)
+				r_element.append(t_element)
+				hyperlink_element.append(r_element)
+
+				paragraph_element.append(hyperlink_element)
+		else:
+			paragraph_element = docx.makeelement('p')
+			pPr_element = docx.makeelement('pPr')
+			pStyle_element = docx.makeelement('pStyle', attributes={'val': self.style})
+			pPr_element.append(pStyle_element)
+			if self.num_level is not None and self.num_id is not None:
+				numPr_element = docx.makeelement('numPr')
+				ilvl_element = docx.makeelement("ilvl", attributes={'val': str(self.num_level)})
+				numId_element = docx.makeelement("numId", attributes={'val': str(self.num_id)})
+				numPr_element.append(ilvl_element)
+				numPr_element.append(numId_element)
+				pPr_element.append(numPr_element)
+			paragraph_element.append(pPr_element)
+
+			for text, properties in self.elements:
+				r_element = docx.makeelement('r')
+				if properties:
+					r_element.append(properties.as_element())
+				t_element = docx.makeelement('t', tagtext=text)
+				if text.strip() != text:
+					t_element.attrib["{http://www.w3.org/XML/1998/namespace}space"] = "preserve"
+				r_element.append(t_element)
+				paragraph_element.append(r_element)
 
 		return [paragraph_element, ]
 
@@ -256,16 +315,32 @@ class List(DocumentElement):
 	LIST_LETTER_STYLE = "ListUpperLetter"
 	DEFAULT_STYLE = LIST_LETTER_STYLE
 
-	def __init__(self, list_items, style=DEFAULT_STYLE, *args, **kwargs):
+	def __init__(self, list_items, style=DEFAULT_STYLE, as_html=False, *args, **kwargs):
 		self.items = list_items
 		self.style = style
+		self.num_id = -1
+		self.as_html = as_html
 		super(List, self).__init__(*args, **kwargs)
+
+	def _parse_formatting(self, html_element, paragraph, formatting={}):
+		formatting_tags = {'i': 'italic', 'b': 'bold', 'sup': 'superscript', 'sub': 'subscript'}
+		formatting = formatting.copy()
+		if isinstance(html_element, bs4.NavigableString):
+			paragraph.add_text(html_element.string, **formatting)
+			return [(html_element.string, {}),]
+		elif isinstance(html_element, bs4.Tag):
+			if html_element.name in formatting_tags:
+				formatting[formatting_tags[html_element.name]] = True
+				for subelement in html_element.contents:
+					self._parse_formatting(subelement, paragraph, formatting=formatting)
+
 
 	def add_styles(self, style_tree, numbering_tree, abstractNum=None):
 		# Add a num element to the numbering.xml file.
 		num_element = Num(abstractNum=abstractNum, document=self.document)
 		num_element.as_element(numbering_tree)
 
+		self.num_id = num_element.id
 		self.style = "%s%s" % (self.style, num_element.id)
 
 		# Add a style element to the style.xml file
@@ -278,10 +353,28 @@ class List(DocumentElement):
 		numId_element.attrib[self.namespace_string('val')] = str(num_element.id)
 		etree.SubElement(pPr_element, self.namespace_string("contextualSpacing"))
 
+			# if element.name == "p":
+			# 	p = Paragraph(document=self)
+			# 	for subelement in element.contents:
+			# 		self._parse_formatting(subelement, p)
+			# 	self.add_element(p)
+			# else:
+			# 	continue
+
 	def get_elements(self):
 		to_return = []
-		for item in self.items:
-			to_return += Paragraph(item, style=self.style).get_elements()
+		if self.as_html:
+			for item in self.items:
+				soup = bs4.BeautifulSoup(item)
+				for element in soup.body.contents:
+					if element.name == "p":
+						p = Paragraph(document=self, style=self.style, num_level=0, num_id=self.num_id)
+						for subelement in element.contents:
+							self.document._parse_formatting(subelement, p)
+						to_return += p.get_elements()
+		else:
+			for item in self.items:
+				to_return += Paragraph(text=item, style=self.style, num_level=0, num_id=self.num_id).get_elements()
 		return to_return
 
 
@@ -359,12 +452,40 @@ class WordDocument(object):
 		self.add_element(Table(table_data, has_heading_row=has_heading_row, borders=borders, document=self))
 		return self.last_element()
 
-	def add_list(self, list_items, style=List.DEFAULT_STYLE):
-		self.add_element(List(list_items, style=style, document=self))
+	def add_list(self, list_items, style=List.DEFAULT_STYLE, as_html=False):
+		self.add_element(List(list_items, style=style, document=self, as_html=as_html))
 		return self.last_element()
 
+	def add_list_html(self, list_items, style=List.DEFAULT_STYLE):
+		return self.add_list(list_items, style=style, as_html=True)
+
 	def add_paragraph(self, text, style=Paragraph.DEFAULT_STYLE):
-		self.add_element(Paragraph(text, style=style, document=self))
+		self.add_element(Paragraph(text=text, style=style, document=self))
+		return self.last_element()
+
+	def _parse_formatting(self, html_element, paragraph, formatting={}):
+		formatting_tags = {'i': 'italic', 'b': 'bold', 'sup': 'superscript', 'sub': 'subscript'}
+		formatting = formatting.copy()
+		if isinstance(html_element, bs4.NavigableString):
+			paragraph.add_text(html_element.string, **formatting)
+			return [(html_element.string, {}),]
+		elif isinstance(html_element, bs4.Tag):
+			if html_element.name in formatting_tags:
+				formatting[formatting_tags[html_element.name]] = True
+				for subelement in html_element.contents:
+					self._parse_formatting(subelement, paragraph, formatting=formatting)
+
+	def add_html(self, html):
+		soup = bs4.BeautifulSoup(html)
+		for element in soup.body.contents:
+			if element.name == "p":
+				p = Paragraph(document=self)
+				for subelement in element.contents:
+					self._parse_formatting(subelement, p)
+				self.add_element(p)
+			else:
+				continue
+
 		return self.last_element()
 
 	def namespace_string(self, tag):

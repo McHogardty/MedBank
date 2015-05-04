@@ -111,7 +111,7 @@ class QuizView(TemplateView):
         return forms.QuizTypeSelectionForm
 
     def get_allowed_blocks(self):
-        return models.TeachingBlock.objects.get_released_blocks_for_student(self.request.user.student)
+        return models.TeachingBlock.objects.get_visible_blocks_for_student(self.request.user.student)
 
     def get_kwargs_from_class(self, cls):
         kwargs = {'prefix': self.get_prefix_from_class(cls), }
@@ -202,7 +202,7 @@ class QuizView(TemplateView):
             for block in self.get_allowed_blocks():
                 number_of_questions = cleaned_data[block.name_for_form_fields()]
                 if number_of_questions:
-                    questions_for_block = models.Question.objects.filter(teaching_activity_year__block_year__block=block, status=models.Question.APPROVED_STATUS).distinct()
+                    questions_for_block = models.Question.objects.filter(teaching_activity_year__block_week__writing_period__block_year__block=block, status=models.Question.APPROVED_STATUS).distinct()
                     if unique_questions_only:
                         questions_for_block = questions_for_block.exclude(attempts__quiz_attempt__student=self.request.user.student)
                     questions_for_block = list(questions_for_block)
@@ -337,12 +337,18 @@ class SubmitAnswerView(JsonResponseMixin, View):
 
         if not attempt.is_viewable_by(self.request.user.student):
             data = {'status': 'error', 'message': 'Permission denied.'}
+            return self.render_to_json_response(data)
 
         if 'question_id' not in request.POST:
             data = {"status": "error", "message": "Question ID not provided."}
             return self.render_to_json_response(data)
 
-        question_attempt = attempt.get_question_attempt_by_question(request.POST['question_id'])
+        try:
+            question_attempt = attempt.get_question_attempt_by_question(request.POST['question_id'])
+        except models.QuestionAttempt.DoesNotExist:
+            data = {"status": "error", "message": "Question not found."}
+            return self.render_to_json_response(data)
+            
         if question_attempt.date_completed:
             data = {"status": "error", "message": "Question already answered for this quiz."}
             return self.render_to_json_response(data)

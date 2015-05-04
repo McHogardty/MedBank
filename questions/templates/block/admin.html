@@ -2,50 +2,31 @@
 {% load custom_filters %}
 
 {% block content %}
-	<h1><a href="{{ current_year.get_activity_display_url }}">{{ teaching_block.name }}</a></h1>
-    <p><strong>Available years:</strong> {% for block_year in teaching_block.years.all %}{% if not forloop.first %} | {% endif %}{% if not block_year == current_year %}<a href="{% url 'block-admin' code=block_year.block.code year=block_year.year %}">{% endif %}{{ block_year.year }}{% if not block_year == current_year %}</a>{% endif %}{% endfor %}</p>
+{% if current_year %}
+    <h1><a href="{{ current_year.get_activity_display_url }}">{{ current_year }}</a></h1>
+{% else %}
+    <h1>{{ teaching_block.name }}</h1>
+{% endif %}
+    <p><strong>Available years:</strong> {% for block_year in teaching_block.years.all %}{% if not forloop.first %} | {% endif %}{% if not block_year == current_year %}<a href="{{ block_year.get_admin_url }}">{% endif %}{{ block_year.year }}{% if not block_year == current_year %}</a>{% endif %}{% endfor %}{% if new_year_required %}{% if teaching_block.years.all %} | {% endif %} <a href="{{ teaching_block.get_new_year_creation_url }}">Create for {% now "Y" %}</a>{% endif %}</p>
 
+{% if current_year %}
     <h2>Writing periods</h2>
-{% for writing_period in current_year.writing_periods.all %}
-{% if forloop.first %}
-    <p>Below is a list of all of the stages which have access to {{ teaching_block.name }} for {{ current_year.year }}. You can edit the details, or remove the access so the students no longer have access to this block for {{ current_year.year }}.</p>
-    <table class="table">
-        <tr>
-            <th>Stage</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Close</th>
-            <th>Release date</th>
-            <th>Signup limit</th>
-            <th colspan="2">Actions</th>
-        </tr>            
-{% endif %}
-        <tr>
-            <td>{{ writing_period.stage }}</td>
-            <td>{{ writing_period.start }}</td>
-            <td>{{ writing_period.end }}</td>
-            <td>{{ writing_period.close }}</td>
-            <td>{{ writing_period.release_date|default:"Not released" }}</td>
-            <td>{{ writing_period.activity_capacity }} per activity</td>
-            <td><a href="">Edit</a></td>
-            <td>{% if not writing_period.has_started %}<a href="{% url 'block-admin-period-remove' code=writing_period.block_year.block.code year=writing_period.block_year.year id=writing_period.id %}">{% endif %}Remove{% if not writing_period.has_started %}</a>{% endif %}</td>
-        </tr>
-
-{% if forloop.last %}
-    </table>
-{% endif %}
-{% empty %}
-    <p>No students have access to this block for {{ current_year.year }}</p>
-{% endfor %}
-
+    <p>Displayed below are the details for all of the stages which have access to {{ teaching_block.name }} for {{ current_year.year }}. You can edit the details, or remove the access so the students no longer have access to this block for {{ current_year.year }}.</p>
     <p><a href="{% url 'block-admin-period-new' code=teaching_block.code year=current_year.year %}">Add a new question writing period</a></p>
 
-    <h2>Question writing statistics</h2>
-    <p><strong>Number of weeks:</strong> {{ current_year.total_weeks }}</p>
-    <p><strong>Assigned activities:</strong> {{ number_activities_assigned }}/{{ number_activities_total }}</p>
-    <p><strong>Total users signed up:</strong> {{ number_assigned_users }}</p>
-    <p><a href="{{ current_year.get_activity_upload_url }}">Click here</a> to upload{% if number_activities_assigned %} more{% endif %} activities for this block.</p>
+{% for writing_period in current_year.writing_periods.all %}
+    <h3>{{ writing_period.stage }}</h3>
+    <p><a href="{{ writing_period.get_edit_url }}">Edit this writing period</a></p>
+    <p><a href="{{ writing_period.get_activity_upload_url }}">Click here</a> to upload{% if number_activities_assigned %} more{% endif %} activities for this writing period.</p>
+    <p><strong>Signup period:</strong> {{ writing_period.start }} to {{ writing_period.end }}</p>
+    <p><strong>Signup limit:</strong> {{ writing_period.activity_capacity }} {{ writing_period.activity_capacity|plural:"student" }} per activity.</p>
+    <p><strong>Question writing deadline:</strong> {{ writing_period.close }}</p>
 
-    <p><strong>Number of questions written:</strong> {{ number_questions_written }}</p>
-
+    <p><strong>Assigned activities:</strong> {{ writing_period.assigned_activities_count }}/{{ writing_period.total_activities_count }}</p>
+    <p><strong>Total users signed up:</strong> {{ writing_period.assigned_users_count }}</p>
+    <p><strong>Number of questions written:</strong> {{ writing_period.total_questions_count }}</p>
+{% endfor %}
+{% else %}
+    <p>This block has not run in any years. You can create it for {% now "Y" %} by clicking the link above.</p>
+{% endif %}
 {% endblock content %}

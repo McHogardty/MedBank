@@ -159,7 +159,7 @@ class CompleteAssignedApprovalView(RedirectView):
             messages.success(self.request, "All of your assigned questions have been approved.")
             return reverse('approve-home')
 
-        return current_question.get_approval_url(multiple_approval_mode=True)
+        return current_question.get_approval_url()
 
 
 @class_view_decorator(permission_required('questions.can_approve'))
@@ -172,7 +172,7 @@ class AssignApproval(RedirectView):
             messages.error(self.request, 'That teaching activity does not exist.')
             return reverse('approve-home')
 
-        if not activity.block_year.block.can_be_approved_by(self.request.user.student):
+        if not activity.block_week.writing_period.block_year.block.can_be_approved_by(self.request.user.student):
             messages.error(self.request, "Unfortunately you are unable to approve for that activity.")
             return reverse('approve-home')
 
@@ -182,7 +182,7 @@ class AssignApproval(RedirectView):
             activity.assign_pending_questions_to_student(self.request.user.student)
 
             messages.success(self.request, 'You have been assigned to approve the activity %s.' % (activity, ))
-        return activity.block_year.get_approval_assign_url()
+        return activity.block_week.writing_period.block_year.get_approval_assign_url()
 
 
 @class_view_decorator(permission_required("questions.can_approve"))
@@ -195,7 +195,7 @@ class ViewQuestionApprovalHistory(DetailView):
         if self.object.deleted and not self.request.user.is_superuser:
             raise Http404
 
-        if not self.object.teaching_activity_year.block_year.block.can_be_approved_by(request.user.student):
+        if not self.object.teaching_activity_year.block_week.writing_period.block_year.block.can_be_approved_by(request.user.student):
             messages.warning(request, "Unfortunately you are unable to view the approval history for that particular question.")
             return redirect('approve-home')
 
@@ -214,14 +214,13 @@ class QuestionApproval(UpdateView):
     form_class = forms.QuestionApprovalForm
 
     def dispatch(self, request, *args, **kwargs):
-        self.multiple_question_approval_mode = models.Question.request_is_in_multiple_approval_mode(request)
         r = super(QuestionApproval, self).dispatch(request, *args, **kwargs)
 
         # If the question is deleted, then nobody should be able to see it except the superusers.
         if self.object.deleted and not self.request.user.is_superuser:
             raise Http404
 
-        if not self.object.teaching_activity_year.block_year.block.can_be_approved_by(request.user.student):
+        if not self.object.teaching_activity_year.block_week.writing_period.block_year.block.can_be_approved_by(request.user.student):
             messages.warning(request, "Unfortunately you are unable to approve that question.")
             return redirect('approve-home')
 
@@ -236,54 +235,12 @@ class QuestionApproval(UpdateView):
     def get_context_data(self, **kwargs):
         c = super(QuestionApproval, self).get_context_data(**kwargs)
         c['question'] = self.object
-        c['multiple_question_approval_mode'] = self.multiple_question_approval_mode
-
-        if self.multiple_question_approval_mode:
-            c["multiple_question_approval_mode_edit_url"] = self.object.get_edit_url(multiple_approval_mode=True)
-            # Add a progress bar to the top of the page. We will consider the progress bar 'reset' if they had no questions left to approve
-            # when they last assigned some questions to themselves.
-            # We will only consider questions which were assigned from the approval dashboard. This means any questions which were
-            # 'manually' created (have identical assign and completion dates) should be excluded.
-            all_questions = self.request.user.student.assigned_questions.exclude(date_completed=db.models.F('date_assigned'))
-            completed_questions = []
-            incomplete_questions = []
-            for question in all_questions:
-                if question.date_completed:
-                    completed_questions.append(question)
-                else:
-                    incomplete_questions.append(question)
-
-            incomplete_questions.sort(key=lambda q: q.date_assigned)
-            completed_questions.sort(key=lambda q: q.date_completed)
-
-            # If the incomplete question was assigned before the last completion date, it counts as part of that group.
-            total = 0
-            for index, question in enumerate(completed_questions):
-                # Is the earliest assigned incomplete question before this complete question?
-
-                if incomplete_questions[0].date_assigned <= question.date_completed:
-                    # Then the complete question counts as part of this group of assigned questions.
-                    # All the questions after this particular question will also count because they
-                    # were completed after this particular question.
-                    total = len(incomplete_questions) + len(completed_questions[index:])
-                    break
-
-            if not total:
-                # If we don't break out of the loop, or if there are no complete questions then the earliest
-                # incomplete question was assigned after all of the complete questions were completed. We
-                # start counting again from the beginning.
-                total = len(incomplete_questions)
-
-            c['assigned_approvals_total'] = total
-            c['assigned_approvals_remaining'] = len(incomplete_questions)
-            c['assigned_approvals_completed'] = total - len(incomplete_questions)
-
         return c
 
     def form_valid(self, form):
         new_status = form.cleaned_data["new_status"]
         if new_status == models.Question.FLAGGED_STATUS:
-            return redirect(self.object.get_flag_url(multiple_approval_mode=self.multiple_question_approval_mode))
+            return redirect(self.object.get_flag_url())
 
         # Don't change the exemplary_question marker unless we're sure that the
         # change of status worked.
@@ -292,9 +249,6 @@ class QuestionApproval(UpdateView):
         question = form.save(commit=False)
         question.change_status(new_status, self.request.user.student)
         question.save()
-
-        if self.multiple_question_approval_mode:
-            return redirect(question.get_next_approval_url())
 
         messages.success(self.request, "The status for this question has successfully been changed.")
         if new_status == models.Question.DELETED_STATUS:
@@ -308,15 +262,13 @@ class FlagQuestion(FormView):
     template_name = "approval/flag.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.multiple_question_approval_mode = models.Question.request_is_in_multiple_approval_mode(request)
-
         try:
             self.question = models.Question.objects.get_from_kwargs(allow_deleted=request.user.is_superuser, **self.kwargs)
         except models.Question.DoesNotExist:
             messages.error(request, "That question does not exist.")
             return redirect('approval-home')
 
-        if not self.question.teaching_activity_year.block_year.block.can_be_approved_by(self.request.user.student):
+        if not self.question.teaching_activity_year.block_week.writing_period.block_year.block.can_be_approved_by(self.request.user.student):
             messages.warning(self.request, "Unfortunately you are unable to flag that question.")
             return redirect('approval-home')
 
@@ -335,9 +287,6 @@ class FlagQuestion(FormView):
         reason = form.save(commit=False)
         reason.related_object = q
         reason.save()
-
-        if self.multiple_question_approval_mode:
-            return redirect(q.get_next_approval_url())
 
         return redirect(q)
 

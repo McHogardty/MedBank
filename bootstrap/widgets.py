@@ -8,7 +8,7 @@ from django.utils.encoding import force_text
 from django.utils import datetime_safe, formats
 
 
-__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup", "Typeahead", "DatepickerInput")
+__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup", "Typeahead", "DatepickerInput", "RichTextarea", "RichTextInputWithAddon")
 
 
 class StaticControl(forms.Widget):
@@ -31,29 +31,48 @@ class StaticControl(forms.Widget):
 
 class RichTextarea(forms.Textarea):
     def render(self, name, value, attrs=None):
-        area = super(RichTextarea, self).render(name, value, attrs)
+        i = forms.HiddenInput().render(name, value, attrs)
+        classes = attrs.get('class', [])
+        if classes:
+            classes = classes.split()
+        classes.append("summernote")
+        classes.append("summernote-textarea")
+        attrs['class'] = " ".join(classes)
+        return format_html('<div class="{0}" data-field="{2}"></div>{1}', attrs['class'], i, name)
 
-        toolbar = """
-        <div class="btn-toolbar" style="margin-bottom:10px;">
-            <div class="btn-group">
-                <button type="button" class="btn btn-default" data-event="bold">
-                    <i class="fa fa-bold"></i>
-                </button>
-                <button type="button" class="btn btn-default" data-event="italic">
-                    <i class="fa fa-italic"></i>
-                </button>
-            </div>
-            <div class="btn-group note-style">
-                <button type="button" class="btn btn-default" data-event="insertUnorderedList">
-                    <i class="fa fa-list-ul"></i>
-                </button>
-                <button type="button" class="btn btn-default" data-event="insertOrderedList">
-                    <i class="fa fa-list-ol"></i>
-                </button>
-            </div>
-        </div><div class="form-control" style="resize:both;overflow:auto;height:200px;" contenteditable="true"></div>{0}"""
 
-        return format_html(toolbar, area)
+class RichTextInput(forms.TextInput):
+    def render(self, name, value, attrs=None):
+        i = forms.HiddenInput().render(name, value, attrs)
+        attrs = attrs.copy()
+        classes = attrs.get('class', [])
+        if classes:
+            classes = classes.split()
+        classes.append("summernote")
+        classes.append("summernote-textinput")
+        attrs['class'] = " ".join(classes)
+        return format_html('<div class="{0}" data-field="{2}"></div>{1}', attrs['class'], i, name)
+
+
+class RichTextInputWithAddon(RichTextInput):
+    def __init__(self, add_on=None, post_add_on=None, group_class="", **kwargs):
+        self.add_on = add_on
+        self.post_add_on = post_add_on
+        self.group_class = ""
+        super(RichTextInputWithAddon, self).__init__(**kwargs)
+
+    def render(self, name, value, attrs=None):
+        classes = ['input-group', ]
+        if self.group_class:
+            classes += self.group_class.split()
+
+        i = super(RichTextInputWithAddon, self).render(name, value, attrs)
+        input_group_attrs = {'class': " ".join(classes)}
+        if self.add_on and not self.post_add_on:
+            i = format_html('<div{0}><span class="input-group-addon">{1}</span>{2}</div>', flatatt(input_group_attrs), self.add_on, i)
+        if self.post_add_on and not self.add_on:
+            i = format_html('<div{0}>{1}<span class="input-group-addon">{2}</span></div>', flatatt(input_group_attrs), i, self.post_add_on)
+        return i
 
 
 class TextInputWithAddon(forms.TextInput):

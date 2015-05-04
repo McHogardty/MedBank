@@ -5,7 +5,7 @@ from django.contrib import admin
 from .models import (Question, TeachingActivity, TeachingActivityYear, TeachingBlock,
 	TeachingBlockYear, Student, Year, Stage, Comment,
 	QuizAttempt, QuestionAttempt, QuizSpecification, QuizQuestionSpecification,
-	StudentDashboardSetting, ApprovalRecord, QuestionWritingPeriod)
+	StudentDashboardSetting, ApprovalRecord, QuestionWritingPeriod, BlockWeek)
 
 class TeachingActivityYearAdmin(admin.ModelAdmin):
 	filter_horizontal = ['question_writers',]
@@ -26,3 +26,4 @@ admin.site.register(QuizSpecification)
 admin.site.register(QuizQuestionSpecification)
 admin.site.register(StudentDashboardSetting)
 admin.site.register(QuestionWritingPeriod)
+admin.site.register(BlockWeek)

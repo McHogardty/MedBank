@@ -479,13 +479,55 @@ div.comment-heading:hover {
     }
 }
 
+.question-body p:first-child {
+  margin-bottom: 20px;
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.4;
+}
+
+@media (min-width: 768px) {
+  .question-body p:first-child {
+    font-size:21px;
+  }
+}
+/*
 .ellipsis-overflow {
   overflow:hidden;
   white-space:nowrap;
   text-overflow:ellipsis;
+}*/
+
+/*.ellipsis-overflow {
+  display:block;
+}
+
+.ellipsis-overflow p {
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  height:25px;
 }
 
 a.ellipsis-overflow {
   display:block;
 }
+*/
 
+.ellipsis-overflow {
+  overflow: hidden;
+  display:block;
+  display: -webkit-box;
+  height: 25px;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.ellipsis-overflow p {
+  margin:0;
+}
+
+.glyphicon-text-underline {
+  content:"\e104";
+}

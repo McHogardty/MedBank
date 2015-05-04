@@ -1,0 +1,13 @@
+{% extends "newbase.html" %}
+{% load tz %}
+
+{% block content %}
+	<h1>View previous versions</h1>
+	{% regroup previous_versions by revision.date_created.date as versions_by_date %}
+	{% for version_group in versions_by_date %}
+		<p><strong>Changed on {{ version_group.grouper }}:</strong></p>
+		{% for version in version_group.list %}
+		<p>{{ version.revision.date_created|localtime|time }} <a href="{{ object.get_absolute_url }}?version={{ version.id }}">{{ version.revision.comment }}</a></p>
+		{% endfor %}
+	{% endfor %}
+{% endblock content %}

@@ -18,14 +18,14 @@
 			<div class="dashboard">
 				<h1>{{ current_assigned_activities|length|default:0 }}</h1>
 				<p class="lead">open {{ current_assigned_activities|length|plural:"activity" }} assigned to me</p>
-				{% if current_assigned_activities %}<a class="action" href="{% url "activity-mine" %}">View activities</a>{% else %}{% if block_count %}<p class="action">View open blocks to the right.</p>{% else %}<p class="action">Please check back later</p>{% endif %}{% endif %}
+				{% if current_assigned_activities %}<a class="action" href="{% url "activity-mine" %}">View my activities</a>{% else %}{% if block_count %}<p class="action">View open blocks to the right.</p>{% else %}<p class="action">Please check back later</p>{% endif %}{% endif %}
 			</div>
 		</div>
 		<div class="col-sm-6">
 			<div class="dashboard">
 				<h1>{{ block_count }}</h1>
 				<p class="lead">block{{ block_count|pluralize }} open for signups</p>
-				{% if block_count %}<a class="action" href="{{ open_block_view_url }}">All blocks</a>{% else %}<p class="action">Please check back later</p>{% endif %}
+				{% if block_count %}<a class="action" href="{{ open_block_view_url }}">Signup</a>{% else %}<p class="action">Please check back later</p>{% endif %}
 			</div>
 		</div>
 	</div>
@@ -33,11 +33,11 @@
 		<div class="col-sm-12">
 			<div class="dashboard">
 				<h2>Interested in seeing questions for previous blocks?</h2>
-				{% if released_block_count %}
+				{% if visible_block_count %}
 					<p class="lead">Click the link below to view all the questions you have access to.</p>
-					<a class="action" href="{{ released_block_view_url }}">View released blocks</a>
+					<a class="action" href="{{ visible_block_view_url }}">View available blocks</a>
 				{% else %}
-					<p class="lead">Unfortunately there are no blocks released which you can view right now.</p>
+					<p class="lead">Unfortunately there are no blocks which you can view right now.</p>
 					<p class="action">Please check again later.</p>
 				{% endif %}
 			</div>

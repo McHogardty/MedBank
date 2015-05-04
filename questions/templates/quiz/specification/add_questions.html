@@ -11,14 +11,12 @@
 		{% if forloop.first %}
 			<table class="table">
 				<tr>
-					<th>Stage</th>
 					<th>Block</th>
 					<th>Question</th>
 				</tr>
 		{% endif %}
 			<tr>
-				<td class="stage">{{ question.teaching_activity_year.block_year.stage }}</td>
-				<td class="block">Block {{ question.teaching_activity_year.block_year.code }}</td>
+				<td class="block">Block&nbsp;{{ question.teaching_activity_year.block_week.writing_period.block_year.block.code }}</td>
 				<td>{{ question.body|safe }}</td>
 			</tr>
 		{% if forloop.last %}

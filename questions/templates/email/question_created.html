@@ -1,0 +1,19 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+	<p>Hi there,</p>
+
+	<p>Your question has been submitted to MedBank. Here are the details:</p>
+
+	{{ question.body|safe }}
+
+	<ol class="alpha">
+    {% for option, value in question.options_dict.items %}
+        <li{% if option == question.answer %} style="font-weight:bold;"{% endif %}>{{ value|safe }}</li>
+    {% endfor %}
+	</ol>
+	
+	<p>To view this question on MedBank, <a href="{{ question_url }}">click here</a>.</p>
+
+	<p>The MedBank team.</p>
+{% endblock content %}

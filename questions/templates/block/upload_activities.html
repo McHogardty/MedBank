@@ -2,18 +2,21 @@
 {% load custom_filters %}
 
 {% block content %}
-	<h1>Upload teaching activities for {{ teaching_block_year.block.name }}, {{ teaching_block_year.year }}</h1>
-
+	<h1>Upload teaching activities</h1>
+    <p><strong>Block:</strong> {{ writing_period.block_year }}</p>
+    <p><strong>Stage:</strong> {{ writing_period.stage }}</p>
+    <br>
     <p>You can download the teaching activities from Compass in CSV format. You need to upload them with the following columns:</p>
     <dl>
         <dt>Reference ID</dt><dd>The ID number of the activity as stored in Compass</dd>
         <dt>Name</dt><dd>The name of the activity</dd>
-        <dt>Week</dt><dd>The week of the block containing the activity</dd>
+        <dt>Week</dt><dd>The week during which the activity runs, or the category to which the activity belongs. This will change depending on whether the block is structured into weeks or not.</dd>
         <dt>Position</dt><dd>Specifies the ordering of activities in the week. Called sequence number in Compass.</dd>
         <dt>Activity Type</dt><dd>The type of activity. Currently accepts {{ accepted_types|humanize_list }}</dd>
     </dl>
     <p>The first row of the file should be the column headings, spelt the same as above. It doesn't matter what order the columns are in, and any extra columns are ignored.</p>
     <p>This form currently only accepts CSV files.</p>
+    <p><strong>Please note that the weeks/categories for the activities will be sorted by the order in which they appear in the CSV spreadsheet.</strong></p>
 
 	{% include "includes/form.html" %}
 {% endblock content %}

@@ -2,7 +2,7 @@
 
 {% block page_detail %}
 	<p>Please confirm the upload details below before submitting.</p>
-    <form method="post" action="{{ teaching_block_year.get_activity_upload_confirm_url }}">
+    <form method="post" action="{{ writing_period.get_activity_upload_confirm_url }}">
         {% csrf_token %}
     {% if new_activity_years.old_activity %}
         <h2>Teaching activities which previously existed in MedBank with the same reference ID</h2>

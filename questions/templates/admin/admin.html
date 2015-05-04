@@ -8,42 +8,32 @@
         <dt>Maintenance mode</dt><dd>{% if maintenance_mode %}<strong class="text-danger">ON</strong> (All users except admins will be displayed a site-maintenance page){% else %}<strong class="text-success">OFF</strong> (Users are able to use the site as normal){% endif %}</dd>
     </dl>
     <strong>If debug mode is set to ON, please let Michael know fairly quickly and urge him to change it.</strong>
+    <h2>Currently active blocks</h2>
     {% for b in blocks %}
         {% if forloop.first %}
-            <h3>Currently active blocks <small><a class="action" href="{% url 'block-new' %}">Add a new block</a></small></h3>
-            <p>Currently active blocks were either opened/closed this year, or they were released this year.</p>
             <div class="spacer">
                 <table class="table">
                     <tr>
-                        <th class="hidden-xs hidden-sm">Stage</th>
                         <th>Block</th>
-                        <th class="hidden-xs hidden-sm">Start</th>
-                        <th class="hidden-xs hidden-sm">End</th>
-                        <th class="hidden-xs hidden-sm">Close</th>
-                        <th>Edit</th>
+                        <th class="text-center">Latest active year</th>
                         <th>Admin</th>
                     </tr>
         {% endif %}
-        {% if b.is_active %}
-            <tr>
-                <td class="hidden-xs hidden-sm">{{ b.stage }}</td>
-                <td><a href="{{ b.get_activity_display_url }}">{{ b.name }}</a></td>
-                <td class="hidden-xs hidden-sm">{{ b.start }}</td>
-                <td class="hidden-xs hidden-sm">{{ b.end }}</td>
-                <td class="hidden-xs hidden-sm">{{ b.close }}</td>
-                <td><a href="{% url 'block-edit' code=b.code year=b.year %}">Edit</a></td>
-                <td><a href="{% url 'block-admin' code=b.code year=b.year %}">Admin</a></td>
-            </tr>
-        {% endif %}
+        {% with b.get_latest_year as block_year %}
+        <tr>
+            <td><a href="{{ block_year.get_activity_display_url }}">Block {{ b.code }}: {{ b.name }}</a></td>
+            <td class="text-center">{{ block_year.year|default:"None" }}</td>
+            <td><a href="{{ b.get_admin_url }}">Admin</a></td>
+        </tr>
+        {% endwith %}
         {% if forloop.last %}
                 </table>
             </div>
         {% endif %}
     {% empty %}
-        <h3>Add a block</h3>
-        <p>Before you can add any teaching activities, you need to set up a teaching block.</p>
-        <p>You can add a new block using the action on the right.</p>
+        <p>There are no active blocks in {% now "Y" %}.</p>
     {% endfor %}
+    <p><a class="action" href="{{ block_creation_url }}">Add a new block</a></p>
 
     <h2>Student administration</h2>
     <p>Look up <a href="{% url 'student-lookup' %}">information about a particular student.</a></p>

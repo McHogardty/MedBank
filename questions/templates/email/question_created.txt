@@ -1,0 +1,13 @@
+Hi there,
+
+Your question has been submitted to MedBank. Here are the details:
+
+{{ question.get_body_text }}
+
+{% for option, value in question.options_dict_text.items %}
+{{ option }}. {{ value }} {% if option == question.answer %}(Answer){% endif %}
+{% endfor %}
+
+To view this question on MedBank, go to {{ question_url }}.
+
+The MedBank team.

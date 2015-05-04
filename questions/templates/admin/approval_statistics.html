@@ -2,7 +2,7 @@
 
 {% block actions %}
         <h3>Page actions</h3>    
-        <a class="action" href="{% url 'block-admin' code=object.code %}">Back to admin</a>        
+        <a class="action" href="{{ object.get_admin_url }}">Back to admin</a>        
 {% endblock actions %}
 
 {% block maincontent %}

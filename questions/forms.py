@@ -18,11 +18,11 @@ import datetime
 class QuestionOptionsWidget(forms.MultiWidget):
     def __init__(self, attrs=None):
         widgets = [
-            bootstrap.TextInputWithAddon(),
-            bootstrap.TextInputWithAddon(),
-            bootstrap.TextInputWithAddon(),
-            bootstrap.TextInputWithAddon(),
-            bootstrap.TextInputWithAddon(),
+            bootstrap.RichTextInputWithAddon(),
+            bootstrap.RichTextInputWithAddon(),
+            bootstrap.RichTextInputWithAddon(),
+            bootstrap.RichTextInputWithAddon(),
+            bootstrap.RichTextInputWithAddon(),
         ]
         super(QuestionOptionsWidget, self).__init__(widgets, attrs)
 
@@ -154,7 +154,8 @@ ANSWER_CHOICES = list((x, x) for x in string.ascii_uppercase[:5])
 
 class NewQuestionForm(bootstrap.ModelForm):
     """A form for creation and editing of questions."""
-    body = forms.CharField(label="Question body", widget=forms.Textarea())
+    # body = forms.CharField(label="Question body", widget=forms.Textarea(attrs={'class': 'summernote'}))
+    body = bootstrap.RealTextField(label="Question body")
     #body = forms.CharField(label="Question body", widget=bsforms.RichTextarea())
     options = QuestionOptionsField()
     answer = forms.ChoiceField(choices=ANSWER_CHOICES, widget=forms.Select())
@@ -164,12 +165,13 @@ class NewQuestionForm(bootstrap.ModelForm):
     creator = forms.ModelChoiceField(queryset=Student.objects.all(), widget=forms.HiddenInput())
     teaching_activity_year = forms.ModelChoiceField(queryset=TeachingActivityYear.objects.all(), widget=forms.HiddenInput())
 
-    def __init__(self, admin=False, change_student=False, *args, **kwargs):
+    def __init__(self, edit_mode=False, change_student=False, *args, **kwargs):
         super(NewQuestionForm, self).__init__(*args, **kwargs)
-        if admin:
-            self.fields['reason'] = forms.CharField(label='Reason for editing', widget=forms.Textarea(), help_text="This reason will be sent in an email to the question writer. Be nice! (and please use proper grammar)")
+
         if change_student:
             self.fields['creator'] = forms.ModelChoiceField(queryset=Student.objects.select_related().order_by('user__username'), widget=forms.Select())
+        if edit_mode:
+            self.fields['reason'] = forms.CharField(label='Reason for editing')
 
     def clean(self):
         answer = self.cleaned_data['answer']
@@ -194,8 +196,13 @@ class TeachingActivityValidationForm(bootstrap.ModelForm):
 class TeachingActivityYearValidationForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingActivityYear
-        exclude = ('teaching_activity', 'block_year')
+        exclude = ('teaching_activity', 'block_week')
 
+
+class BlockWeekValidationForm(bootstrap.ModelForm):
+    class Meta:
+        model = BlockWeek
+        fields = ('name', )
 
 class NewTeachingActivityForm(bootstrap.ModelForm):
     class Meta:
@@ -206,8 +213,13 @@ class NewTeachingActivityForm(bootstrap.ModelForm):
 class NewTeachingActivityYearForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingActivityYear
-        exclude = ('teaching_activity',)
+        fields = ('position',)
 
+class NewBlockWeekForm(bootstrap.ModelForm):
+    class Meta:
+        model = BlockWeek
+        fields = ('name', 'sort_index')
+        
 
 class TeachingActivityBulkUploadForm(bootstrap.Form):
     ta_file = forms.FileField(label="Activity Information File")
@@ -219,54 +231,39 @@ class BootstrapRadioFieldRenderer(forms.widgets.RadioFieldRenderer):
         return format_html(format_html_join('\n', '<div class="radio">{0}</div>', [(force_text(w),) for w in self]))
 
 
+class NewTeachingBlockForm(bootstrap.ModelForm):
+    code = forms.RegexField(max_length=10, regex=r'^[a-zA-Z0-9]+$', help_text="A short identifying alphanumeric string which identifies the block. It must be unique and cannot contain spaces.")
+    sort_index = forms.IntegerField(localize=True, help_text="Determines the order in which blocks are displayed. Blocks are ordered by increasing sort index.")
+    code_includes_week = forms.BooleanField(required=False, widget=bootstrap.CheckboxInput(), label="The activities in this block are organised into weeks.")
+
+
+    class Meta:
+        model = TeachingBlock
+        fields = ('name', 'code', 'sort_index', 'code_includes_week')
+
+    def clean_code(self):
+        data = self.cleaned_data['code']
+
+        if TeachingBlock.objects.filter(code=data).exists():
+            raise forms.ValidationError("A block with that code already exists.")
+
+        return data
+
+
 class NewTeachingBlockYearForm(bootstrap.ModelForm):
     # Localise=True is a cheating way of using a TextInput instead of a number input.
-    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year).order_by('stage', 'code'))
-    year = forms.IntegerField(initial=datetime.datetime.now().year, widget=bootstrap.StaticControl())
-    start = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
-    end = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
-    close = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can write questions for activities in this block.", label="Close date")
-    release_date = forms.CharField(required=False, max_length=10, widget=bootstrap.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
-    sign_up_mode = forms.TypedChoiceField(widget=forms.RadioSelect(renderer=BootstrapRadioFieldRenderer), choices=TeachingBlockYear.MODE_CHOICES, coerce=int)
-    activity_capacity = forms.IntegerField(localize=True)
-    weeks = forms.IntegerField(localize=True, label="Number of weeks")
+    block = forms.ModelChoiceField(queryset=TeachingBlock.objects.exclude(years__year__exact=datetime.datetime.now().year))#.order_by('sort_index'))
+    year = forms.IntegerField(initial=datetime.datetime.now().year, widget=forms.HiddenInput())
 
     class Meta:
         model = TeachingBlockYear
-        fields = ('block', 'year', 'start', 'end', 'close', 'release_date', 'activity_capacity', 'sign_up_mode', 'weeks')
+        fields = ('block', 'year')
 
     def __init__(self, *args, **kwargs):
         super(NewTeachingBlockYearForm, self).__init__(*args, **kwargs)
 
         if self.instance.pk:
             self.fields['block'].queryset = TeachingBlock.objects.exclude(years__year__exact=self.instance.year) | TeachingBlock.objects.filter(id=self.instance.block.id)
-
-    def clean(self):
-        c = super(NewTeachingBlockYearForm, self).clean()
-        del c['release_date']
-        start = c.get('start')
-        end = c.get('end')
-        close = c.get('close')
-
-        if start and end and close:
-            if start > end:
-                self._errors["end"] = self.error_class(["The end date should not be earlier than the start date."])
-                del c["end"]
-            if start > close:
-                self._errors["close"] = self.error_class(["The close date should not be earlier than the start date."])
-            elif end > close:
-                self._errors["close"] = self.error_class(["The close date should not be earlier than the end date."])
-
-        if self.instance and self.instance.release_date:
-            if end >= self.instance.release_date:
-                self._errors["end"] = self.error_class(["The release date should not occur on or after the release date."])
-            if start >= self.instance.release_date:
-                self._errors["start"] = self.error_class(["The start date should not occur on or after the release date."])
-
-        return c
-
-    def clean_release_date(self):
-        return
 
 
 class NewQuestionWritingPeriodForm(bootstrap.ModelForm):
@@ -275,11 +272,10 @@ class NewQuestionWritingPeriodForm(bootstrap.ModelForm):
     start = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The first day that students can assign themselves to activities in this block.", label="Start date")
     end = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can assign themselves to activities in this block.", label="End date")
     close = forms.DateField(widget=bootstrap.DatepickerInput(), help_text="The last day that students can write questions for activities in this block.", label="Close date")
-    release_date = forms.CharField(required=False, max_length=10, widget=bootstrap.StaticControl(), help_text="The release date will be set once an administrator releases the block to students.")
 
     class Meta:
         model = QuestionWritingPeriod
-        fields = ('block', 'stage', 'activity_capacity', 'start', 'end', 'close', 'release_date')
+        fields = ('block', 'stage', 'activity_capacity', 'start', 'end', 'close')
 
     def __init__(self, *args, **kwargs):
         if 'block_year' in kwargs:
@@ -290,7 +286,6 @@ class NewQuestionWritingPeriodForm(bootstrap.ModelForm):
 
     def clean(self):
         c = super(NewQuestionWritingPeriodForm, self).clean()
-        del c['release_date']
         start = c.get('start')
         end = c.get('end')
         close = c.get('close')
@@ -301,12 +296,6 @@ class NewQuestionWritingPeriodForm(bootstrap.ModelForm):
             self._errors["close"] = self.error_class(["The close date should not be earlier than the start date."])
         if end and close and end > close:
             self._errors["close"] = self.error_class(["The close date should not be earlier than the end date."])
-
-        if self.instance and self.instance.release_date:
-            if end >= self.instance.release_date:
-                self._errors["end"] = self.error_class(["The release date should not occur on or after the release date."])
-            if start >= self.instance.release_date:
-                self._errors["start"] = self.error_class(["The start date should not occur on or after the release date."])
 
         return c
 
@@ -320,7 +309,7 @@ class NewTeachingBlockDetailsForm(bootstrap.ModelForm):
 class TeachingBlockValidationForm(bootstrap.ModelForm):
     class Meta:
         model = TeachingBlock
-        exclude = ('stage', 'code', 'start', 'end')
+        exclude = ('code',)
 
 
 class NewQuizSpecificationForm(bootstrap.ModelForm):
@@ -456,6 +445,10 @@ class TeachingBlockActivityUploadForm(bootstrap.Form):
     upload_file = forms.FileField(label="Activity file")
 
 
+class QuestionWritingPeriodUploadForm(bootstrap.Form):
+    upload_file = forms.FileField(label="Activity file")
+
+
 class AssignPreviousActivityForm(bootstrap.ModelForm):
     previous_activity = forms.ModelChoiceField(to_field_name="reference_id", widget=forms.TextInput(), queryset=TeachingActivity.objects.all(), help_text="Type in the reference ID of the previous activity to assign it as the old version of the current activity.")
 
@@ -486,13 +479,12 @@ class TeachingBlockDownloadForm(bootstrap.Form):
     document_type = forms.ChoiceField(choices=DOCUMENT_CHOICES, widget=bootstrap.ButtonGroup(), label="Do you want the document to include answers?")
     years = forms.TypedMultipleChoiceField(coerce=lambda val: int(val), choices=YEAR_CHOICES, widget=bootstrap.ButtonGroup(multiple=True, vertical=True), label="For which years do you want to download questions?")
 
-    def __init__(self, teaching_block=None, *args, **kwargs):
-        if teaching_block is None: raise ValueError("A teaching block is required to initialise this form.")
+    def __init__(self, years=[], *args, **kwargs):
+        if not years: raise ValueError("A teaching block is required to initialise this form.")
 
         super(TeachingBlockDownloadForm, self).__init__(*args, **kwargs)
         
-        years_available = teaching_block.released_years.values_list('year', flat=True).distinct().order_by("-year")
-        self.fields['years'].choices = ((y, y) for y in years_available)
+        self.fields['years'].choices = years
 
 class BlockFromYearChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, instance):
@@ -526,3 +518,14 @@ class StudentLookupForm(bootstrap.Form):
         super(StudentLookupForm, self).__init__(*args, **kwargs)
         if user_url:
             self.fields['user'].widget = bootstrap.Typeahead(prefetch_url=user_url)
+
+class DeleteQuestionWritingPeriodForm(bootstrap.Form):
+    CONFIRMED = "true"
+    NOT_CONFIRMED = "false"
+
+    CONFIRMATION_CHOICES = (
+        (CONFIRMED, "True"),
+        (NOT_CONFIRMED, "False")
+    )
+    confirmation = forms.ChoiceField(widget=forms.HiddenInput(), choices=CONFIRMATION_CHOICES, initial=CONFIRMED)
+

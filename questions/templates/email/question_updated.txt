@@ -1,0 +1,13 @@
+Hi there,
+
+Your question has been updated on MedBank. Here is the new question:
+
+{{ question.get_body_text }}
+
+{% for option, value in question.options_dict_text.items %}
+{{ option }}. {{ value }} {% if option == question.answer %}(Answer){% endif %}
+{% endfor %}
+
+To view this question online, go to {{ question_url }}.
+
+The MedBank team.

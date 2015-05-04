@@ -21,19 +21,15 @@ class DashboardView(TemplateView):
     def get_context_data(self, **kwargs):
         c = super(DashboardView, self).get_context_data(**kwargs)
         c.update({'example_quiz_slug': settings.EXAMPLE_QUIZ_SLUG})
-        block_count = models.TeachingBlockYear.objects.get_open_blocks_for_year_and_date_and_student(datetime.datetime.now().year, datetime.datetime.now(), self.request.user.student).count()
+        block_count = models.TeachingBlockYear.objects.get_open_block_years_for_student(self.request.user.student).count()
         c.update({'block_count': block_count})
 
-        released_blocks = models.TeachingBlockYear.objects.get_released_blocks_for_year_and_date_and_student(
-                                datetime.datetime.now().year,
-                                datetime.datetime.now(),
-                                self.request.user.student
-        )
-        c.update({"released_block_count": released_blocks.count()})
+        visible_blocks = models.TeachingBlockYear.objects.get_latest_visible_block_years_for_student(self.request.user.student)
+        c.update({"visible_block_count": visible_blocks.count()})
         message_settings = list(models.StudentDashboardSetting.objects.filter(name__in=models.StudentDashboardSetting.ALL_SETTINGS))
         message_settings = dict((setting.name, setting) for setting in message_settings)
 
-        c['current_assigned_activities'] = list(models.TeachingActivityYear.objects.get_unreleased_activities_assigned_to(self.request.user.student))
+        c['current_assigned_activities'] = list(models.TeachingActivityYear.objects.get_open_activities_assigned_to(self.request.user.student))
         override = message_settings.get(models.StudentDashboardSetting.OVERRIDE_MESSAGE, None)
         setting_to_use = None
         main_feature_text = ""
@@ -42,13 +38,11 @@ class DashboardView(TemplateView):
         try:
             if override and (override.main_text() or override.secondary_text()):
                 setting_to_use = override
-            elif self.request.user.student.current_assigned_activities().exists():
+            elif c['current_assigned_activities']:
                 if self.request.user.student.questions_due_soon_count():
                     setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_SOON]
-                elif self.request.user.student.future_block_count():
-                    setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_LATER]
                 else:
-                    setting_to_use = message_settings[models.StudentDashboardSetting.ALL_QUESTIONS_SUBMITTED]
+                    setting_to_use = message_settings[models.StudentDashboardSetting.HAS_QUESTIONS_DUE_LATER]
             else:
                 if block_count:
                     setting_to_use = message_settings[models.StudentDashboardSetting.NO_CURRENT_ACTIVITIES_AND_BLOCKS_OPEN]
@@ -75,7 +69,7 @@ class DashboardView(TemplateView):
 
         c.update({'main_feature_text': main_feature_text, "secondary_feature_text": secondary_feature_text})
         c.update({'main_guide_text': main_guide_text or "", "secondary_guide_text": secondary_guide_text or ""})
-        c['released_block_view_url'] = models.TeachingBlockYear.get_released_block_display_url()
+        c['visible_block_view_url'] = models.TeachingBlockYear.get_visible_block_display_url()
         c['open_block_view_url'] = models.TeachingBlockYear.get_open_block_display_url()
 
         return c
@@ -109,9 +103,9 @@ class EmailView(FormView):
 
 
     def get_recipients(self):
-        recipients = models.Student.objects.filter(assigned_activities__block_year=self.tb).distinct()
+        recipients = models.Student.objects.filter(assigned_activities__block_week__writing_period__block_year=self.tb).distinct()
         if 'document' in self.request.GET:
-            recipients = recipients.filter(questions_created__teaching_activity_year__block_year=self.tb).distinct()
+            recipients = recipients.filter(questions_created__teaching_activity_year__block_week__writing_period__block_year=self.tb).distinct()
         return recipients
 
 

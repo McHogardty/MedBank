@@ -19,8 +19,13 @@
 	{% endif %}
 	{% if errors.bad_activity_year %}
 		<h2>The following rows did not pass activity year validation.</h2>
-		<p>It is likely that the week or position is not a number.</p>
+		<p>It is likely that the position is not a number.</p>
 		{% include "block/upload_error_table.html" with error_rows=errors.bad_activity_year %}
+	{% endif %}
+	{% if errors.bad_activity_week %}
+		<h2>The following rows did not pass week validation</h2>
+		<p>Please make sure that there is a week or category in every column.</p>
+		{% include "block/upload_error_table.html" with error_rows=errors.bad_activity_week %}
 	{% endif %}
 	{% if errors.duplicated_by_position %}
 		<h2>The following rows had duplicates by position</h2>

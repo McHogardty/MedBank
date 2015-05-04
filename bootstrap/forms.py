@@ -9,8 +9,12 @@ from django.utils.encoding import force_text
 # Required for _html_output. Should go away in the future.
 from django.utils import six
 
+from .widgets import RichTextarea
 
-__all__ = ('Form', 'ModelForm')
+import htmlentitydefs
+
+
+__all__ = ('Form', 'ModelForm', 'RealTextField')
 
 
 class BoundField(forms.forms.BoundField):
@@ -215,3 +219,19 @@ class Form(BootstrapFormMixin, forms.Form):
 
 class ModelForm(BootstrapFormMixin, forms.ModelForm):
     pass
+
+class RealTextField(forms.CharField):
+    widget = RichTextarea
+
+    def __init__(self, *args, **kwargs):
+        super(RealTextField, self).__init__(*args, **kwargs)
+
+    def clean(self, value):
+        value = value or ""
+        def decode_entity(e):
+            try:
+                return "&%s;" % htmlentitydefs.codepoint2name[ord(e)] if ord(e) > 122 else e
+            except KeyError:
+                return e
+
+        return "".join(map(decode_entity, value))

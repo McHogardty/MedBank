@@ -134,6 +134,8 @@ INSTALLED_APPS = (
     # 'debug_toolbar',
     'impersonate',
     # 'django_extensions',
+    'post_office',
+    'reversion',
 )
 
 # A sample logging configuration. The only tangible logging
@@ -179,6 +181,8 @@ MESSAGE_TAGS = {
 
 FORMAT_MODULE_PATH = 'medbank.formats'
 TEST_RUNNER = 'django.test.runner.DiscoverRunner'
+
+EMAIL_BACKEND = 'post_office.EmailBackend'
 
 STAGE_SELECTION_VIEW = 'medbank.views.pick_stage'
 

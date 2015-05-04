@@ -1,0 +1,23 @@
+{% extends "newbase.html" %}
+
+{% block content %}
+	<h1>Remove writing period</h1>
+	<p>Please review the details below.</p>
+	<p><strong>Block:</strong> {{ writing_period.block_year }}</p>
+	<p><strong>Stage:</strong> {{ writing_period.stage }}</p>
+	<p><strong>Start:</strong> {{ writing_period.start }}</p>
+	<p><strong>End:</strong> {{ writing_period.end }}</p>
+	<p><strong>Close:</strong> {{ writing_period.close }}</p>
+    <p><strong>Activity capacity:</strong> {{ writing_period.activity_capacity }}</p>
+	<p>Are you sure you would like to remove this writing period?</p>
+    <form class="form-horizontal" method="post" role="form">
+        {% csrf_token %}
+        {{ form.as_bootstrap }}
+        <div class="form-group">
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-primary">Yes</button>
+                <a href="{{ writing_period.block_year.get_admin_url }}" class="btn btn-default">No</a>
+            </div>
+        </div>
+    </form>
+{% endblock content %}

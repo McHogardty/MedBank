@@ -95,7 +95,7 @@ def generate_document(tb, answer, request, block=None, questions=None):
 
     body.append(docx.heading(heading, 1))
     if tb:
-        qq = list(models.Question.objects.filter(teaching_activity_year__block_year=tb, status=models.Question.APPROVED_STATUS))
+        qq = list(models.Question.objects.filter(teaching_activity_year__block_week__writing_period__block_year=tb, status=models.Question.APPROVED_STATUS))
     else:
         qq = list(questions)
     qq = sorted(qq, key=lambda x: x.body.strip()[:-1][::-1] if x.body.strip()[-1] in "?:." else x.body.strip()[::-1])

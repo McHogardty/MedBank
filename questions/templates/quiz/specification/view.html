@@ -1,13 +1,5 @@
 {% extends "newbase.html" %}
 
-{% block head %}
-	<style type="text/css">
-	td.stage, th.stage {
-		width:70px;
-	}
-	</style>
-{% endblock head %}
-
 {% block content %}
 	<h1>{{ specification.stage }}: {{ specification.name }} ({% include "quiz/specification/display_status.html" %}) <small><a href="{{ specification.get_edit_url }}">Edit</a></small></h1>
 	<p>{{ specification.description }}</p>
@@ -17,14 +9,12 @@
 	{% if forloop.first %}
 	<table class="table">
 		<tr>
-			<th class="stage">Stage</th>
 			<th class="block">Block</th>
 			<th>Question</th>
 		</tr>			
 	{% endif %}
 		<tr>
-			<td class="stage">{{ question.teaching_activity_year.block_year.stage }}</td>
-			<td class="block">Block {{ question.teaching_activity_year.block_year.code }}</td>
+			<td class="block">Block&nbsp;{{ question.teaching_activity_year.block_week.writing_period.block_year.block.code }}</td>
 			<td class="question"><a href="{{ question.get_absolute_url }}">{{ question.body|safe }}</a></td>
 		</tr>
 	{% if forloop.last %}

@@ -8,31 +8,31 @@
 {% load custom_filters %}
 
 {% block actions %}
-{% if student_can_sign_up or student_can_unassign_from_activity or can_write_questions or user.is_superuser or can_view_blocks %}
+{% if student_can_sign_up or student_can_unassign_from_activity or can_write_questions or user.is_superuser or can_view_block %}
 	<h3>Page actions</h3>
 {% if view_signup_status %}
 	{% if student_can_sign_up %}
-		<a class="action" href="{{activity.get_signup_url}}">Assign to me</a>
+		<a class="action" href="{{activity.get_signup_url}}{% if user.is_superuser %}?writing_period={{ activity_year.block_week.writing_period.id }}{% endif %}">Assign to me</a>
 	{% endif %}{% if student_can_unassign_from_activity %}
-    <a class="action" href="{{ activity.get_unassign_url }}">Unassign from me</a>
+    <a class="action" href="{{ activity.get_unassign_url }}{% if user.is_superuser %}?writing_period={{ activity_year.block_week.writing_period.id }}{% endif %}">Unassign from me</a>
 {% endif %}
 {% endif %}{% if can_write_questions or user.is_superuser %}
-    <a class="action" href="{{ activity.get_new_question_url }}">Write questions</a>
+    <a class="action" href="{{ activity.get_new_question_url }}{% if user.is_superuser %}?writing_period={{ activity_year.block_week.writing_period.id }}{% endif %}">Write questions</a>
 {% endif %}
 {% if can_view_block %}
-	<a class="action" href="{{ activity.current_block_year.get_activity_display_url }}">Back to block</a>	
+	<a class="action" href="{{ activity_year.block_week.writing_period.block_year.get_activity_display_url }}">Back to block</a>	
 {% endif %}
 {% if user.is_superuser %}
 	<h3>Admin</h3>
 	<a class="action" href="{{ activity.get_previous_activity_assign_url }}">Assign previous activity</a>	
-	<a class="action" href="{{ activity.get_assign_student_url }}">Assign to student</a>
+	<a class="action" href="{{ activity.get_assign_student_url }}{% if user.is_superuser %}?writing_period={{ activity_year.block_week.writing_period.id }}{% endif %}">Assign to student</a>
 {% endif %}
 {% endif %}
 {% endblock actions %}
 
 {% block maincontent %}
-	<h1>{{ activity.get_activity_type_display }} - {{ activity.name }} ({{ activity.current_block_year.code }}.{{ activity.current_activity_year.week|stringformat:"02d" }}) <small>{% include "activity/display_activity_availability.html" with teaching_activity_year=activity.current_activity_year %}</small></h1>
-	<p><strong>Current block:</strong> {{ activity.current_block_year.name }}</p>
+	<h1>{{ activity.get_activity_type_display }} - {{ activity.name|safe }}{% if activity_year.block_week.writing_period.block_year.block.code_includes_week %} ({{ activity_year.block_week.writing_period.block_year.block.code }}.{{ activity_year.block_week.sort_index|stringformat:"02d" }}){% endif %}{% if view_signup_status %} <small>{% include "activity/display_activity_availability.html" with teaching_activity_year=activity_year %}</small>{% endif %}</h1>
+	<p><strong>Block:</strong> {{ activity_year.block_week.writing_period.block_year.block.name }}</p>
 	<p><strong>Years available:</strong> {{ activity.years_available|humanize_list }}</p>
 	<p><strong>Link to Compass:</strong> <a target="_blank" href="{{ activity.get_reference_url }}">Click here</a> to view this activity on Compass.</p>
 {% if activity.previous_activity %}
@@ -45,18 +45,13 @@
 		    <p><strong>{% if student_is_writing_for_activity %}You have assigned yourself to write questions for this {{ activity.get_activity_type_display }}. {{ current_question_writer_count|subtract:"1"|default:"No" }} other {{ current_question_writer_count|subtract:"1"|plural:"person has" }}{% else %}{{ current_question_writer_count }} {{ current_question_writer_count|plural:"person has" }}{% endif %} assigned themselves to this activity.</strong></p>
 		{% endif %}
 		{% if student_is_writing_for_activity %}
-			{% if questions_left_for_student %}
-				<p>You {% if not activity.current_block_year.has_closed %}have{% else %}had{% endif %} {{ questions_left_for_student }} {{ questions_left_for_student|plural:"question" }} left to write.
-			{% else %}
-	            <p>Thankyou! You've given us enough questions for this teaching activity, but there's no limit to how many you can submit.
-			{% endif %}
-			Questions for this activity {% if object.current_block_year.has_closed %}were{% else %}are{% endif %} due by {{ object.current_block_year.close }}.</p>
+			Questions for this activity {% if activity_year.block_week.writing_period.has_closed %}were{% else %}are{% endif %} due by {{ activity_year.block_week.writing_period.close }}.</p>
 		{% endif %}
 	{% endif %}
 
+	{% if question_list %}
 	<h2>Questions</h2>
-	{% if can_view_questions %}
-		{% regroup question_list by teaching_activity_year.block_year.year as questions_by_year %}
+		{% regroup question_list by teaching_activity_year.block_week.writing_period.block_year.year as questions_by_year %}
 		{% for question_group in questions_by_year %}
 			<div class="week">
 		        <div class="week-heading collapse-trigger" data-target="#week-activities-{{ question_group.grouper }}">
@@ -68,19 +63,18 @@
 		            {% for question in question_group.list %}
 		                <div class="activity">
 		                	<div class="row">
-		                		<div class="col-sm-10"><a class="ellipsis-overflow" href="{{ question.get_absolute_url }}">{{ question.body|safe }}</a></div>
-		                		<div class="col-sm-2 hidden-xs">{% include "question/display_status.html" %}</div>
+		                		<div class="col-sm-9"><a class="ellipsis-overflow" href="{{ question.get_absolute_url }}{% if user.is_superuser %}?writing_period={{ activity_year.block_week.writing_period.id }}{% endif %}">{{ question.body|safe }}</a></div>
+		                		{% if user.is_superuser %}<div class="col-sm-3 hidden-xs text-right">{% include "question/display_status.html" %}</div>{% elif user.student == question.creator %}<div class="col-sm-3 hidden-xs loading text-right">Written by you</div>{% endif %}
 		                	</div>
 		                </div>
 		            {% endfor %}
 		        </div>
 			</div>
 		{% empty %}
-		<p>No questions have been written for this activity so far.</p>
+		<p>No questions have been written for this activity yet.</p>
 		{% endfor %}
-	{% else %}
-		<p>You cannot currently view questions for this block.</p>
-	    <p>You can view questions from previous years by writing questions for {{ activity.current_activity_year.name }} this year. You can only view questions from this year once you have written questions and the block has been released on MedBank.</p>
+	{% elif view_signup_status or can_write_questions %}
+		<p>You cannot currently view questions for this block. You can view every question written for {{ activity_year.block_week.writing_period.block_year.block }} by writing questions for it in {% now "Y" %}.</p>
 	{% endif %}
 {% endblock maincontent %}
 

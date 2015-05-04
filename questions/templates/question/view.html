@@ -2,30 +2,25 @@
 
 {% block actions %}
     <h3>Page actions</h3>
-    <a class="action" href="{{ question.teaching_activity_year.teaching_activity.get_absolute_url }}">Back to activity</a>
+    <a class="action" href="{{ question.teaching_activity_year.teaching_activity.get_absolute_url }}{% if user.is_superuser %}?writing_period={{ writing_period_id }}{% endif %}">Back to activity</a>
 {% if student_can_edit_question %}
-    <a class="action" href="{{ question.get_edit_url }}">Edit question</a>
-{% endif %}
-
-{% if perms.questions.can_approve %}
-    <h3>Admin</h3>    
-    <a class="action" href="{{ question.get_approval_url }}">View approval mode</a>
-    <a class="action" href="{{ question.get_approval_history_url }}">View approval history</a>
+    <a class="action" href="{{ question.get_edit_url }}">Submit a change</a>
 {% endif %}
 {% endblock actions %}
 
 {% block maincontent %}
-    <h1>{{ question.teaching_activity_year.block_year.code }}.{{ question.teaching_activity_year.week|stringformat:"02d" }}: {{ question.teaching_activity_year.name }}</h1>
-    <p class="lead">Block: {{ question.teaching_activity_year.block_year }}</p>
+    <h1>{{ question.teaching_activity_year.block_week.writing_period.block_year.block.code }}{% if question.teaching_activity_year.block_week.writing_period.block_year.block.code_includes_week %}.{{ question.teaching_activity_year.block_week.sort_index|stringformat:"02d" }}{% endif %}: {{ question.teaching_activity_year.name|safe }}</h1>
+    <p class="lead">Block: {{ question.teaching_activity_year.block_week.writing_period.block_year }}</p>
 
-    {% if perms.questions.can_approve %}
-    {% if question.exemplary_question %}
+    {% if user.is_superuser and question.exemplary_question %}
         <p><strong>This question has been marked as an exemplary question for this block.</strong></p>
     {% endif %}
+
+    {% if has_revisions %}
+    	<p><strong>This question has been changed since it was added to MedBank. You can view previous versions by <a href="{{ question.get_previous_version_url }}">clicking here</a>.</strong></p>
     {% endif %}
 
     {% include "question/display_question.html" %}
-    {% include "question/display_question_reasons.html" %}
 {% endblock maincontent %}
 
 {% block javascript %}

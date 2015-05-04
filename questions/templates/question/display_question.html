@@ -1,7 +1,9 @@
-<h2>Question {% if perms.questions.can_approve %}#{{ question.id }}{% endif %} <small>{% include "question/display_status.html" with show_approver=True %}</small></h2>
+<h2>Question{% if user.is_superuser  %} #{{ question.id }} <small>{% include "question/display_status.html" with show_approver=True %}</small>{% endif %}</h2>
 {% if user.is_superuser %}<h4>Written by {{ question.creator }}</h4>{% endif %}
 
-<p class="lead">{{ question.body|safe|linebreaksbr }}</p>
+<div class="question-body">
+    {{ question.body|safe }}
+</div>
 <ol class="alpha">
     {% for a in question.options_list %}
         <li>{{ a|safe }}</li>

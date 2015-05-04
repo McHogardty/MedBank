@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from medbank.models import Setting
 
+import reversion
 import json
 import datetime
 import string
@@ -23,7 +24,8 @@ import html2text
 import hashlib
 import collections
 from HTMLParser import HTMLParser
-from htmlentitydefs import name2codepoint
+from htmlentitydefs import name2codepoint, codepoint2name
+import bs4
 
 def int_to_base(x, base, places=0):
     """ A method which converts any base 10 integer (x) into its representation in a base using the lowercase alphabet in a fixed number of characters (places)."""
@@ -142,11 +144,9 @@ class Student(models.Model, ObjectCacheMixin):
     def get_previous_stages(self):
         return self.stages.filter(sort_index__lt=self.get_current_stage().sort_index)
 
-    def current_assigned_activities(self):
-        return self.assigned_activities.filter(models.Q(block_year__release_date__year=datetime.datetime.now().year) | models.Q(block_year__start__year=datetime.datetime.now().year))
-
     def questions_due_soon_count(self):
-        count = self.assigned_activities.filter(block_year__close__range=[datetime.datetime.now(), datetime.datetime.now()+datetime.timedelta(weeks=1)]).count() * settings.QUESTIONS_PER_USER
+        writing_periods_for_student = QuestionWritingPeriod.objects.writing_periods_for_student(self)
+        count = self.assigned_activities.filter(block_week__writing_period__in=writing_periods_for_student, block_week__writing_period__close__range=[datetime.datetime.now(), datetime.datetime.now()+datetime.timedelta(weeks=1)]).count() * settings.QUESTIONS_PER_USER
         return count
 
     def future_block_count(self):
@@ -173,20 +173,16 @@ class TeachingBlockManager(models.Manager):
     def get_from_kwargs(self, **kwargs):
         return self.get_queryset().get(code=kwargs.get('code'))
 
-    def get_block_for_activity(self, activity):
-        return self.get_queryset().filter(years__activities__teaching_activity=activity).get()
-
-    def get_released_blocks_for_student(self, student):
-        # Get the latest block year for each block.
-        block_years = TeachingBlockYear.objects.get_released_block_years_for_student(student)
+    def get_visible_blocks_for_student(self, student):
+        block_years = TeachingBlockYear.objects.get_visible_block_years_for_student(student)
         return self.get_queryset().filter(years__in=block_years).distinct()
 
 
 class TeachingBlock(models.Model):
     name = models.CharField(max_length=50)
-    stage = models.ForeignKey(Stage)
     code = models.CharField(max_length=10)
     sort_index = models.IntegerField(db_index=True)
+    code_includes_week = models.BooleanField(default=True)
 
     objects = TeachingBlockManager()
 
@@ -210,213 +206,110 @@ class TeachingBlock(models.Model):
     def get_admin_year_selection_url(self):
         return reverse('block-admin-select', kwargs=self.get_url_kwargs())
 
-    def get_released_years(self):
-        return self.years.filter(release_date__lte=datetime.datetime.now())
-    released_years = property(get_released_years)
+    def get_new_year_creation_url(self):
+        return reverse('block-year-new', kwargs=self.get_url_kwargs())
+
+    def get_admin_url(self):
+        return reverse('block-admin', kwargs=self.get_url_kwargs())
+
+    @classmethod
+    def get_block_creation_url(self):
+        return reverse('block-new')
 
     def get_latest_year(self):
         return self.years.latest("year")
 
+    def latest_writing_period_for_student(self, student):
+        if student.user.is_superuser:
+            writing_periods = QuestionWritingPeriod.objects.filter(block_year__block=self)
+        else:
+            writing_periods = QuestionWritingPeriod.objects.writing_periods_for_student(student).filter(block_year__block=self)
+        return writing_periods.last()
+
     def is_viewable_by(self, student):
         if student.user.is_superuser: return True
 
-        if student.has_perm("questions.can_approve") and student.get_previous_stages().filter(id=self.stage.id).exists():
+        if self.approved_questions_are_viewable_by(student):
             return True
 
-        block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
-        if self.years.filter(block_is_released_and_questions_written).exists():
+        # A student can view a block open for signup if it is in their stage in the current year.
+        open_block_years = TeachingBlockYear.objects.get_open_block_years_for_student(student)
+        if open_block_years.filter(block=self).exists():
+            # There is an open block year for this block to which the student has access.
             return True
-
-        # A student can view a block open for signup if it is in their stage.
-        if student.get_current_stage() == self.stage:
-            block_is_open = models.Q(start__lte=datetime.datetime.now(), close__gte=datetime.datetime.now())
-            if self.years.filter(block_is_open).exists():
-                return True
 
         return False
 
     def is_available_for_download_by(self, student):
-        return self.approved_questions_are_viewable_by(student) and self.released_years.exists()
+        return self.approved_questions_are_viewable_by(student)
 
     def approved_questions_are_viewable_by(self, student):
         if student.user.is_superuser: return True
 
-        if student.has_perm("questions.can_approve") and student.get_all_stages().filter(id=self.stage.id).exists():
-            return True
+        # A student can view approved questions if they have written questions for the block at some point.
+        block_years = self.years.filter(writing_periods__weeks__activities__questions__creator=student) \
+                                .annotate(questions_written=models.Count('writing_periods__weeks__activities__questions')) \
+                                .filter(questions_written__gte=settings.QUESTIONS_PER_USER)
 
-        block_is_released_and_questions_written = models.Q(release_date__lte=datetime.datetime.now(), activities__questions__creator=student)
-        if self.years.filter(block_is_released_and_questions_written).exists():
-            return True
-
-        return False
-
-    def can_be_approved_by(self, student):
-        if student.user.is_superuser: return True
-
-        if student.has_perm('questions.can_approve'):
-            return student.get_previous_stages().filter(id=self.stage.id).exists()
-
-        return False
+        return block_years.exists()
 
     def name_for_form_fields(self):
         return self.name.replace(" ", "_").replace(",", "").lower()
 
 
 class TeachingBlockYearManager(models.Manager):
-    def get_all_blocks_for_stages(self, stages):
-        if not isinstance(stages, (list, tuple, models.query.QuerySet)):
-            stages = [stages, ]
-
-        return self.get_queryset().filter(block__stage__in=stages)
-
-    def get_blocks_with_pending_questions_for_stages(self, stages):
-        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
-
-        blocks = all_blocks_for_stages.filter(activities__questions__status=Question.PENDING_STATUS)
-
-        return blocks.distinct().order_by("year", "block")
-
-    def get_blocks_with_unassigned_pending_questions_for_stages(self, stages):
-        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
-
-        blocks = all_blocks_for_stages.filter(activities__questions__in=Question.objects.get_unassigned_pending_questions())
-
-        return blocks.distinct().order_by("year", "block")
-
-    def get_blocks_with_flagged_questions_for_stages(self, stages):
-        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
-
-        return all_blocks_for_stages.filter(activities__questions__status=Question.FLAGGED_STATUS).distinct().order_by("year", "block")
-
-    def get_all_blocks_for_year_and_stages(self, year, stages):
-        # Returns all of the blocks for the supplied year which were
-        # 1. In one of the supplied stages
-        # 2. a. Released in that particular year, OR
-        #    b. Starting in that particular year
-        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
-
-        return all_blocks_for_stages.filter(models.Q(release_date__year=year) | models.Q(start__year=year)).distinct()
-
-    def get_released_blocks_for_year_and_date_and_stages(self, year, date, stages):
-        # Returns all the blocks for the year which were released before the date provide. 
-        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
-
-        return all_blocks_for_stages.filter(year=year, release_date__lte=date)
-
-    def get_released_blocks_for_year_and_date_and_student(self, year, date, student):
-        if student.user.is_superuser:
-            stages = Stage.objects.all()
-        elif student.has_perm("questions.can_approve"):
-            stages = student.get_all_stages()
-        else:
-            stages = student.get_current_stage()
-
-        blocks = self.get_released_blocks_for_year_and_date_and_stages(year, date, stages)
-
-        if student.user.is_superuser or student.has_perm("questions.can_approve"):
-            return blocks
-
-        return blocks.filter(activities__questions__creator=student).distinct()
-
-    def get_released_block_years_for_student(self, student):
-        # The following conditions apply:
-        # 1. A student must have written questions for a block to be able to see all of its questions.
-        # 2. A student may not see the previous questions for a block until the questions are released
-        #    for the year to which they have contributed.
-        # 3. If the block year to which a student has contributed is released, they may see up to the
-        #    latest block year released for that block.
-
-        # First we get all of block_years containing questions written by the student.
-        block_years = self.get_queryset()
-        if not student.user.is_superuser:
-            block_years = block_years.filter(activities__questions__creator=student).distinct()
-
-        # Next we calculate the latest year of release for each block year the student has written questions for.
-        # A stupid workaround we need to do because django's annotate doesn't let you annotate over subsets of a queryset.
-        block_years = block_years.extra(select=collections.OrderedDict([
-                ('latest_release_year', 'SELECT MAX(tby1.year) FROM questions_teachingblockyear tby1 WHERE tby1.block_id = questions_teachingblockyear.block_id AND tby1.release_date IS NOT NULL AND tby1.release_date <= %s'),
-            ]), select_params=(timezone.now(),))
-
-        released_block_year_conditions = models.Q()
-
-        # If the year they have written questions for is already released, they may see up to the latest year of release.
-        for block_year in block_years:
-            if block_year.year <= block_year.latest_release_year:
-                released_block_year_conditions |= models.Q(block=block_year.block, year=block_year.latest_release_year)
-
-        # released_block_years_conditions restricts the block years only to those which satisfy the conditions above.
-        return self.get_queryset().filter(released_block_year_conditions)
-
-    def get_unreleased_blocks_for_student(self, student):
-        current_date = datetime.datetime.now()
-        if student.has_perm("questions.can_approve"):
-            stages = student.get_all_stages()
-        else:
-            stages = student.get_current_stage()
-
-        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
-
-        release_date_null = models.Q(release_date__isnull=True)
-        release_date_too_early = models.Q(release_date__gt=current_date)
-        return all_blocks_for_stages.filter(release_date_null | release_date_too_early)
-
-    def all_open_blocks(self):
-        return self.get_queryset().filter(start__lte=datetime.datetime.now(), close__gte=datetime.datetime.now())
-
-    def get_open_blocks_for_year_and_date_and_stages(self, year, date, stages):
-        all_blocks_for_stages = self.get_all_blocks_for_stages(stages)
-
-        # We want all blocks which were open in the specified year. This means that 
-        return all_blocks_for_stages.filter(year=year, end__gte=date, start__lte=date)
-
-    def get_open_blocks_for_year_and_date_and_student(self, year, date, student):
-        if student.user.is_superuser:
-            stages = student.get_all_stages()
-        # elif student.has_perm("questions.can_approve"):
-        #     stages = student.get_previous_stages()
-        else:
-            stages = student.get_current_stage()
-
-        blocks = self.get_open_blocks_for_year_and_date_and_stages(year, date, stages)
-
-        return blocks.distinct()
-
     def get_from_kwargs(self, **kwargs):
         return self.get_queryset().select_related().get(block__code=kwargs.get("code"), year=kwargs.get("year"))
 
+    def get_blocks_for_student(self, student):
+        # Returns only the blocks which the student has access to write for.
+        queryset = self.get_queryset()
+
+        # If the user is a superuser, return all open blocks.
+        if not student.user.is_superuser:
+            # First, look for all TeachingBlockYears with a stage which the student was in at any point.
+            # Then, get only those TeachingBlockYears where the student was in that stage during the same year.
+            # We need to do them in the same filter command, otherwise the two restrictions won't apply to the same Year object.
+            queryset = queryset.filter(writing_periods__stage__year__student=student, writing_periods__stage__year__year=models.F('year'))
+
+        return queryset
+
+    def get_open_block_years_for_student(self, student):
+        queryset = self.get_blocks_for_student(student)
+
+        # Return only the open ones.
+        now = datetime.datetime.now()
+        return queryset.filter(writing_periods__end__gte=now, writing_periods__start__lte=now).distinct()
+
+    def get_visible_block_years_for_student(self, student):
+        blocks = TeachingBlock.objects.all()
+
+        block_years = self.get_queryset().annotate(latest_release_year=models.Max('block__years__year')).filter(year__lte=models.F('latest_release_year'))
+
+        if not student.user.is_superuser:
+            block_years = block_years.filter(writing_periods__weeks__activities__questions__creator=student) \
+                                    .annotate(questions_written=models.Count("writing_periods__weeks__activities__questions")) \
+                                    .filter(questions_written__gte=settings.QUESTIONS_PER_USER) \
+                                    .distinct()
+
+        return block_years
+
+    def get_latest_visible_block_years_for_student(self, student):
+        block_years = self.get_visible_block_years_for_student(student)
+
+        block_years = block_years.filter(year=models.F('latest_release_year'))
+
+        return block_years
+
     def get_open_blocks_assigned_to_student(self, student):
         current_date = datetime.datetime.now()
-        open_blocks = self.get_open_blocks_for_year_and_date_and_student(current_date.year, current_date, student)
+        open_blocks = self.get_open_block_years_for_student(student)
 
-        return open_blocks.filter(activities__question_writers=student)
-
-    def get_blocks_requiring_approval_for_student(self, student):
-        if not student.has_perm('questions.can_approve'): return self.none()
-
-        blocks = self.get_queryset()
-        if not student.user.is_superuser:
-            blocks = self.get_all_blocks_for_stages(student.get_previous_stages())
-
-        return blocks.filter(activities__questions__in=Question.objects.get_unassigned_pending_questions()).distinct()
+        return open_blocks.filter(writing_periods__weeks__activities__question_writers=student)
 
 
-
-class TeachingBlockYear(models.Model):
-    ACTIVITY_MODE = 0
-    WEEK_MODE = 1
-
-    MODE_CHOICES = (
-        (ACTIVITY_MODE, 'By activity'),
-        (WEEK_MODE, 'By week')
-    )
+class TeachingBlockYear(models.Model, ObjectCacheMixin):
     year = models.IntegerField()
-    start = models.DateField(verbose_name='Start date')
-    end = models.DateField(verbose_name='End date')
-    close = models.DateField(verbose_name='Close date')
-    release_date = models.DateField(verbose_name='Release date', blank=True, null=True)
-    activity_capacity = models.IntegerField(verbose_name='Maximum users per activity', default=2)
-    sign_up_mode = models.IntegerField(choices=MODE_CHOICES)
-    weeks = models.IntegerField(verbose_name='Number of weeks')
     block = models.ForeignKey(TeachingBlock, related_name="years")
 
     objects = TeachingBlockYearManager()
@@ -429,33 +322,15 @@ class TeachingBlockYear(models.Model):
         return "%s, %d" % (self.block, self.year)
 
     def filename(self):
-        spaceless = "".join(self.name.split())
+        spaceless = "".join(self.block.name.split())
         commaless = "".join(spaceless.split(","))
         return "%s%d" % (commaless, self.year)
-
-    def __init__(self, *args, **kwargs):
-        super(TeachingBlockYear, self).__init__(*args, **kwargs)
-        # Adds properties to the model to check the mode, e.g. self.by_activity
-        for k in self.__class__.__dict__.keys():
-            if not "_MODE" in k or hasattr(self, "by_%s" % k.split("_")[0].lower()):
-                continue
-
-            self.add_model_mode_property_method(k)
-
-    def add_model_mode_property_method(self, k):
-        def check_mode_function(self):
-            return self.sign_up_mode == getattr(self, k)
-
-        setattr(self.__class__, "by_%s" % k.split("_")[0].lower(), property(check_mode_function))
 
     def get_url_kwargs(self):
         return {'code': self.block.code, 'year': self.year}
 
     def get_activity_display_url(self):
         return reverse('block-activities', kwargs=self.get_url_kwargs())
-
-    def get_approval_assign_url(self):
-        return reverse('approve-choose-activity', kwargs=self.get_url_kwargs())
 
     def get_activity_upload_url(self):
         return reverse('block-activity-upload', kwargs=self.get_url_kwargs())
@@ -467,10 +342,7 @@ class TeachingBlockYear(models.Model):
         return reverse('block-activity-upload-confirm', kwargs=self.get_url_kwargs())
 
     def get_admin_url(self):
-        return reverse('block-admin', kwargs=self.get_url_kwargs())
-
-    def get_approval_statistics_url(self):
-        return reverse('block-approval-statistics', kwargs=self.get_url_kwargs())
+        return "%s?year=%s" % (self.block.get_admin_url(), self.year)
 
     def get_edit_url(self):
         return reverse('block-edit', kwargs=self.get_url_kwargs())
@@ -478,154 +350,52 @@ class TeachingBlockYear(models.Model):
     def get_download_url(self):
         return reverse('block-download', kwargs=self.get_url_kwargs())
 
-    def get_release_url(self):
-        return reverse("block-release", kwargs=self.get_url_kwargs())
-
     @classmethod
-    def get_block_display_url(cls):
-        return reverse("block-list")
-
-    @classmethod
-    def get_released_block_display_url(cls):
-        return reverse('block-released-list')
+    def get_visible_block_display_url(cls):
+        return reverse('block-visible-list')
 
     @classmethod
     def get_open_block_display_url(cls):
         return reverse('block-open-list')
 
-    @classmethod
-    def get_approval_assign_block_list_url(cls):
-        return reverse("approve-choose-block")
-
-    def name(self):
-        return self.block.name
-    name = property(name)
-
-    def stage(self):
-        return self.block.stage
-    stage = property(stage)
-
-    def code(self):
-        return self.block.code
-    code = property(code)
-
-    def total_weeks(self):
-        return self.activities.aggregate(models.Max('week'))['week__max']
-
     def name_for_form_fields(self):
         return self.block.name_for_form_fields()
 
-    def convert_activities_to_weeks(self, activities):
-        weeks = {}
-        weeks_list = []
+    def writing_period_for_student(self, student):
+        WRITING_PERIOD_CACHE = "_writing_period_cached"
 
-        for activity in activities:
-            week = weeks.setdefault(activity.week, [])
-            week.append(activity)
-        
-        for week in weeks:
-            individual_week = {'number': week}
-            individual_week['activities'] = weeks[week]
-            weeks_list.append(individual_week)
-        return weeks_list
+        value = self.get_cache_value(WRITING_PERIOD_CACHE)
+        if value: return value
 
-    def get_activities_as_weeks(self):
-        activities = self.activities.select_related().order_by("week", "teaching_activity__activity_type", "position")
+        try:
+            writing_period_for_student = self.writing_periods.get(stage__year__student=student, stage__year__year=self.year)
+        except QuestionWritingPeriod.DoesNotExist:
+            writing_period_for_student = None
 
-        return self.convert_activities_to_weeks(activities)
 
-    def get_pending_unassigned_activities_as_weeks(self):
-        # There are two ways a pending question is unassigned:
-        # 1. It has no approver.
-        # 2. It was completed.
-        activities = self.activities.filter(questions__in=Question.objects.get_unassigned_pending_questions()).distinct()
-
-        return self.convert_activities_to_weeks(activities)
-
-    def assigned_activities_count(self):#
-        return self.activities.exclude(question_writers=None).count()
-
-    def total_activities_count(self):
-        return self.activities.count()
-
-    def assigned_users_count(self):
-        return Student.objects.filter(assigned_activities__block_year=self).distinct().count()
-
-    def is_active(self):
-        current_year = datetime.datetime.now().year
-        if self.release_date:
-            return self.release_date.year == current_year
-
-        return self.close.year == current_year
+        self.set_cache_value(WRITING_PERIOD_CACHE, writing_period_for_student)
+        return writing_period_for_student
 
     def student_is_eligible_for_sign_up(self, student):
-        return self.block.stage == student.get_current_stage()
+        return bool(self.writing_period_for_student(student)) and self.writing_period_for_student(student).can_sign_up
 
-    def student_can_sign_up(self, student):
-        return self.student_is_eligible_for_sign_up(student) and self.can_sign_up
-
-    def has_started(self):
-        return self.start <= datetime.datetime.now().date()
-
-    def has_ended(self):
-        return self.end <= datetime.datetime.now().date()
-
-    def has_closed(self):
-        return self.close < datetime.datetime.now().date()
-
-    def can_write_questions(self):
-        return self.start <= datetime.datetime.now().date() <= self.close
-    can_write_questions = property(can_write_questions)
-
-    def released(self):
-        return self.release_date and self.release_date <= datetime.datetime.now().date()
-    released = property(released)
-
-    def can_access(self):
-        return self.can_write_questions or self.released
-
-    def can_sign_up(self):
-        return self.start <= datetime.datetime.now().date() <= self.end
-    can_sign_up = property(can_sign_up)
-
-    def questions_need_approval(self):
-        return bool(self.questions_pending_count())
+    def student_can_write_questions(self, student):
+        return bool(self.writing_period_for_student(student)) and self.writing_period_for_student(student).can_write_questions
 
     def questions_for_status(self, status):
-        return Question.objects.filter(teaching_activity_year__block_year=self, status=status)
+        return Question.objects.filter(teaching_activity_year__block_week__writing_period__block_year=self, status=status)
 
     def approved_questions(self):
         return self.questions_for_status(status=Question.APPROVED_STATUS)
 
-    def flagged_questions(self):
-        return self.questions_for_status(status=Question.FLAGGED_STATUS)
-
     def questions_approved_count(self):
         return self.approved_questions().count()
 
-    def questions_pending_count(self):
-        return Question.objects.filter(teaching_activity_year__block_year=self, status=Question.PENDING_STATUS).count()
-
-    def questions_flagged_count(self):
-        return self.flagged_questions().count()
-
-    def total_questions_count(self):
-        return Question.objects.filter(teaching_activity_year__block_year=self).exclude(status=Question.DELETED_STATUS).count()
-
     def question_count_for_student(self, s):
-        return Question.objects.filter(teaching_activity_year__block_year=self, creator=s).count()
+        return Question.objects.filter(teaching_activity_year__block_week__writing_period__block_year=self, creator=s).count()
 
     def questions_written_for_student(self, s):
-        return Question.objects.filter(teaching_activity_year__block_year=self, creator=s).exists()
-
-    def get_latest_approved_records(self):
-        approval_records = ApprovalRecord.objects.filter(question__teaching_activity_year__block_year=self) \
-            .annotate(max=models.Max('question__approval_records__date_completed')) \
-            .filter(max=models.F('date_completed')) \
-            .select_related('question') \
-            .filter(status=ApprovalRecord.APPROVED_STATUS)
-
-        return approval_records.order_by("approver__user__username").select_related("approver", "approver__user")
+        return Question.objects.filter(teaching_activity_year__block_week__writing_period__block_year=self, creator=s).exists()
 
 
 class QuestionWritingPeriodManager(models.Manager):
@@ -636,6 +406,14 @@ class QuestionWritingPeriodManager(models.Manager):
             queryset = self.get_queryset().filter(block_year__block__code=kwargs.get("code"), block_year__year=kwargs.get("year"))
 
         return queryset.get(id=kwargs.get('id'))
+
+    def writing_periods_for_student(self, student):
+        queryset = self.get_queryset()
+
+        # The student must be assigned to the same stage as the writing period in the same year as the block year for which the writing period exists.
+        queryset = queryset.filter(stage__year__student=student, stage__year__year=models.F('block_year__year'))
+
+        return queryset
 
 
 class QuestionWritingPeriod(models.Model):
@@ -649,11 +427,33 @@ class QuestionWritingPeriod(models.Model):
 
     objects = QuestionWritingPeriodManager()
 
+    class Meta:
+        unique_together = ('block_year', 'stage')
+        ordering = ('block_year', 'stage')
+
+    def __str__(self):
+        return "%s, %s" % (self.block_year, self.stage)
+
+    def get_url_kwargs(self):
+        return {'code': self.block_year.block.code, 'year': self.block_year.year, 'id': self.id}
+
+    def get_activity_upload_url(self):
+        return reverse('block-admin-period-upload', kwargs=self.get_url_kwargs())
+
+    def get_activity_upload_submit_url(self):
+        return reverse('block-admin-period-upload-submit', kwargs=self.get_url_kwargs())
+
+    def get_activity_upload_confirm_url(self):
+        return reverse('block-admin-period-upload-confirm', kwargs=self.get_url_kwargs())
+
+    def get_edit_url(self):
+        return reverse('block-admin-period-edit', kwargs=self.get_url_kwargs())
+
     def has_started(self):
         return self.start <= datetime.datetime.now().date()
 
     def has_ended(self):
-        return self.end <= datetime.datetime.now().date()
+        return self.end < datetime.datetime.now().date()
 
     def has_closed(self):
         return self.close < datetime.datetime.now().date()
@@ -662,16 +462,22 @@ class QuestionWritingPeriod(models.Model):
         return self.start <= datetime.datetime.now().date() <= self.close
     can_write_questions = property(can_write_questions)
 
-    def released(self):
-        return self.release_date and self.release_date <= datetime.datetime.now().date()
-    released = property(released)
-
-    def can_access(self):
-        return self.can_write_questions or self.released
-
     def can_sign_up(self):
-        return self.start <= datetime.datetime.now().date() <= self.end
+        return self.has_started() and not self.has_ended()
     can_sign_up = property(can_sign_up)
+
+    def assigned_activities_count(self):
+        return TeachingActivityYear.objects.filter(block_week__writing_period=self).exclude(question_writers=None).count()
+
+    def total_activities_count(self):
+        return TeachingActivityYear.objects.filter(block_week__writing_period=self).count()
+
+    def assigned_users_count(self):
+        return Student.objects.filter(assigned_activities__block_week__writing_period=self).distinct().count()
+
+    def total_questions_count(self):
+        return Question.objects.filter(teaching_activity_year__block_week__writing_period=self).exclude(status=Question.DELETED_STATUS).count()
+
 
 
 class TeachingActivityManager(models.Manager):
@@ -685,12 +491,15 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
     PRACTICAL_TYPE = 3
     SEMINAR_TYPE = 4
     WEEK_TYPE = 5
+    CRS_TYPE = 6
+
     TYPE_CHOICES = (
         (LECTURE_TYPE, 'Lecture'),
         (PBL_TYPE, 'PBL'),
         (PRACTICAL_TYPE, 'Practical'),
         (SEMINAR_TYPE, 'Seminar'),
         (WEEK_TYPE, 'Week'),
+        (CRS_TYPE, 'CRS')
     )
     name = models.CharField(max_length=150)
     activity_type = models.IntegerField(choices=TYPE_CHOICES)
@@ -705,8 +514,8 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
     def get_url_kwargs(self):
         return {'reference_id': self.reference_id, }
 
-    def get_absolute_url(self):
-        return reverse('activity-view', kwargs=self.get_url_kwargs())
+    def get_absolute_url(self, writing_period=None):
+        return "%s%s" % (reverse('activity-view', kwargs=self.get_url_kwargs()), ("?writing_period=%s" % writing_period.id) if writing_period else "")
 
     def get_signup_url(self):
         return reverse('activity-signup', kwargs=self.get_url_kwargs())
@@ -753,39 +562,21 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
 
         if self.has_student(student): return True
 
-        return self.current_block_year().block.is_viewable_by(student)
+        return self.get_latest_activity_year_for_student(student).block_week.writing_period.block_year.block.is_viewable_by(student)
 
-    def student_can_view_sign_up_information(self, student):
-        current_block = self.current_block_year()
+    def student_can_view_sign_up_information(self, student, writing_period=None):
+        current_block = self.get_latest_activity_year_for_student(student, writing_period=writing_period).block_week.writing_period.block_year
 
-        return not current_block.released and current_block.student_is_eligible_for_sign_up(student)
+        return current_block and current_block.student_is_eligible_for_sign_up(student)
 
     def student_is_eligible_for_sign_up(self, student):
         return self.current_block_year().student_is_eligible_for_sign_up(student)
 
-    def student_can_sign_up(self, student):
-        # The student can sign up if the following conditions are met:
-        # 1. The current activity year does not have enough writers
-        # 2. They are not already signed up for that activity
-        # 3. They can sign up for activities within the particular block.
-        current_year = self.current_activity_year()
-
-        return not current_year.enough_writers() and not self.has_student(student) and current_year.block_year.student_can_sign_up(student)
-
-    def student_can_unassign_activity(self, student):
-        return self.has_student(student) and self.current_block_year().can_sign_up and not self.student_has_written_questions(student)
-
     def approved_questions_are_viewable_by(self, student):
         if student.user.is_superuser: return True
 
-        if self.student_has_written_questions(student): return True
-        return self.current_block_year().block.approved_questions_are_viewable_by(student)
-
-    def questions_can_be_written_by(self, student):
-        if student.user.is_superuser: return True
-
-        current_year = self.current_activity_year()
-        return self.has_student(student) and current_year.block_year.can_write_questions
+        activity_year = self.get_latest_activity_year_for_student(student)
+        return activity_year.block_week.writing_period.block_year.block.approved_questions_are_viewable_by(student)
 
     def questions_for(self, student):
         questions = []
@@ -807,7 +598,7 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
         return questions
 
     def questions_left_for(self, student):
-        return self.current_activity_year().questions_left_for(student)
+        return self.get_latest_activity_year_for_student(student).questions_left_for(student)
 
     def current_activity_year(self):
         CURRENT_YEAR_CACHE = "_current_year_cached"
@@ -815,30 +606,44 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
         value = self.get_cache_value(CURRENT_YEAR_CACHE)
         if value: return value
 
-        years = self.years.select_related("block_year").select_related("block_year__block")
+        years = self.years.select_related("block_week__writing_period__block_year").select_related("block_week__writing_period__block_year__block")
 
         try:
-            current_activity_year = years.get(block_year__year=datetime.datetime.now().year)
+            current_activity_year = years.get(block_week__writing_period__block_year__year=datetime.datetime.now().year)
         except TeachingActivityYear.DoesNotExist:
-            current_activity_year = years.order_by("-block_year__year")[0]
+            current_activity_year = years.order_by("-block_week__writing_period__block_year__year")[0]
 
         self.set_cache_value(CURRENT_YEAR_CACHE, current_activity_year)
         return current_activity_year
-        
+
+    def get_latest_activity_year_for_student(self, student, writing_period=None):
+        activity_year = None
+
+        if writing_period:
+            try:
+                return self.get_activity_year_for_writing_period(writing_period)
+            except TeachingActivityYear.DoesNotExist:
+                pass
+
+        years = self.years.select_related("block_week__writing_period__block_year__block")
+        years = years.filter(block_week__writing_period__stage__year__student=student, block_week__writing_period__stage__year__year=models.F("block_week__writing_period__block_year__year"))
+
+        try:
+            return years.latest("block_week__writing_period__block_year__year")
+        except TeachingActivityYear.DoesNotExist:
+            return None
+
+    def get_activity_year_for_writing_period(self, writing_period):
+        print writing_period
+        print self.years.select_related("block_week__writing_period__block_year__block").filter(block_week__writing_period=writing_period)
+        return self.years.select_related("block_week__writing_period__block_year__block").get(block_week__writing_period=writing_period)
+
     def current_block_year(self):
-        return self.current_activity_year().block_year
+        return self.current_activity_year().block_week.writing_period.block_year
 
     def years_available(self):
-        return [activity_year.block_year.year for activity_year in self.years.select_related("block_year").order_by("block_year__year")]
-
-    def add_student(self, student):
-        current_year = self.current_activity_year()
-        current_year.question_writers.add(student)
-        current_year.save()
-
-    def remove_student(self, student):
-        current_year = self.current_activity_year()
-        current_year.question_writers.remove(student)
+        years = [activity_year.block_week.writing_period.block_year.year for activity_year in self.years.select_related("block_week__writing_period__block_year").order_by("block_week__writing_period__block_year__year")]
+        return list(set(years))
 
     def has_student(self, student):
         HAS_STUDENT_CACHE = "_has_student_cache"
@@ -856,33 +661,49 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
 
         return current_year.question_writer_count()
 
+    def question_writer_count_for_student(self, student, writing_period=None):
+        activity_year = self.get_latest_activity_year_for_student(student, writing_period=writing_period)
+        return 0 if not activity_year else activity_year.question_writer_count()
+
+
+class BlockWeek(models.Model):
+    name = models.CharField(max_length=50)
+    sort_index = models.IntegerField(db_index=True)
+    writing_period = models.ForeignKey(QuestionWritingPeriod, related_name="weeks")
+
+    class Meta:
+        ordering = ('writing_period', 'sort_index', )
+
+    def __str__(self):
+        return "%s, %s" % (self.name, self.writing_period)
+
 
 class TeachingActivityYearManager(models.Manager):
     def get_activities_assigned_to(self, student):
         return self.get_queryset().filter(question_writers=student)
 
-    def get_unreleased_activities_assigned_to(self, student):
-        unreleased_blocks = TeachingBlockYear.objects.get_unreleased_blocks_for_student(student)
-        return self.get_activities_assigned_to(student).filter(block_year__in=unreleased_blocks)
+    def get_open_activities_assigned_to(self, student):
+        open_blocks = TeachingBlockYear.objects.get_open_block_years_for_student(student)
+        return self.get_activities_assigned_to(student).filter(block_week__writing_period__block_year__in=open_blocks)
+
 
     def get_from_kwargs(self, **kwargs):
         activity = self.get_queryset().filter(teaching_activity__reference_id=kwargs.get('reference_id'))
         if 'year' in kwargs:
-            activity = activity.filter(block_year__year=kwargs.get('year'))
+            activity = activity.filter(block_week__writing_period__block_year__year=kwargs.get('year'))
         return activity.get()
 
 
 class TeachingActivityYear(models.Model):
     teaching_activity = models.ForeignKey(TeachingActivity, related_name="years")
-    week = models.IntegerField()
+    block_week = models.ForeignKey(BlockWeek, related_name="activities", blank=True, null=True)
     position = models.IntegerField()
-    block_year = models.ForeignKey(TeachingBlockYear, related_name='activities')
     question_writers = models.ManyToManyField(Student, blank=True, null=True, related_name='assigned_activities')
 
     objects = TeachingActivityYearManager()
 
     class Meta:
-        ordering = ('block_year', 'week', 'position')
+        ordering = ('block_week__writing_period', 'teaching_activity__activity_type', 'block_week', 'position')
 
     def name(self):
         return self.teaching_activity.name
@@ -895,10 +716,7 @@ class TeachingActivityYear(models.Model):
         return {'id': self.id, }
 
     def get_url_kwargs(self):
-        return {'reference_id': self.teaching_activity.reference_id, 'year': self.block_year.year}
-
-    def get_approval_assign_url(self):
-        return reverse('activity-approval-assign', kwargs=self.get_url_kwargs())
+        return {'reference_id': self.teaching_activity.reference_id, 'year': self.block_week.writing_period.block_year.year}
 
     def activity_type(self):
         return self.teaching_activity.activity_type
@@ -912,7 +730,7 @@ class TeachingActivityYear(models.Model):
     reference_id = property(reference_id)
 
     def current_block(self):
-        return self.block_year
+        return self.block_week.writing_period.block_year
 
     def set_cache_value(self, attribute, value):
         setattr(self, attribute, value)
@@ -921,36 +739,58 @@ class TeachingActivityYear(models.Model):
         if hasattr(self, attribute):
             return getattr(self, attribute)
 
+    def student_has_written_questions(self, student):
+        return self.questions.filter(creator=student).exists()
+
+    def student_can_sign_up(self, student):
+        # The student can sign up if the following conditions are met:
+        # 1. The current activity year does not have enough writers
+        # 2. They are not already signed up for that activity
+        # 3. They can sign up for activities within the particular block.
+        return not self.enough_writers() and not self.has_student(student) and self.block_week.writing_period.can_sign_up
+
+    def student_can_unassign_activity(self, student):
+        return self.has_student(student) and self.block_week.writing_period.can_sign_up and not self.student_has_written_questions(student)
+
+    def add_student(self, student):
+        self.question_writers.add(student)
+
+    def remove_student(self, student):
+        self.question_writers.remove(student)
+
     def question_writer_count(self):
         COUNT_CACHE_ATTR = "_question_writer_count"
         if hasattr(self, COUNT_CACHE_ATTR):
             return getattr(self, COUNT_CACHE_ATTR)
 
-        count = self.question_writers.count()
+        count = self.question_writers.filter().count()
         setattr(self, COUNT_CACHE_ATTR, count)
 
         return count
 
-    def enough_writers(self):
-        return self.question_writer_count() >= self.current_block().activity_capacity
+    def questions_can_be_written_by(self, student):
+        if student.user.is_superuser: return True
 
-    def has_writers(self):
+        return self.has_student(student) and self.block_week.writing_period.can_write_questions
+
+    def annotate_for_writing_period(self, writing_period):
+        # Have to include this method because django does not allow passing of arguments to models in templates.
+        self.has_writers = self.has_writers_for_writing_period(writing_period)
+
+    def enough_writers(self):
+        return self.question_writer_count() >= self.block_week.writing_period.activity_capacity
+
+    def has_writers_for_writing_period(self, writing_period):
         return bool(self.question_writer_count())
 
     def has_questions(self):
         return self.questions.exists()
 
+    def has_writers(self):
+        return self.question_writers.exists()
+
     def has_student(self, student):
-        return self.teaching_activity.has_student(student)
-
-    def has_assigned_approver(self):
-        # If an activity has an assigned approver then of all the pending questions
-        # 1. None should lack an approver (approver__isnull=True)
-        # 2. None should be complete (date_completed__isnull=False)
-        questions = self.questions.filter(status=Question.PENDING_STATUS) \
-                .filter(models.Q(approver__isnull=True) | models.Q(date_completed__isnull=False))
-
-        return not questions.exists()
+        return self.question_writers.filter(id=student.id).exists()
 
     def questions_pending_count(self):
         return self.questions.filter(status=Question.PENDING_STATUS).count()
@@ -996,14 +836,7 @@ class TeachingActivityYear(models.Model):
 
         if not student.user.is_superuser:
             # Nobody can view questions which have been deleted.
-            questions = questions.exclude(status=Question.DELETED_STATUS)
-
-        if not student.has_perm('questions.can_approve'):
-            # The user is not an approver so they are only allowed to view questions they wrote, or
-            # questions which have been approved.
-            questions = questions.filter(
-                models.Q(creator=student) | models.Q(status=Question.APPROVED_STATUS)
-            )
+            questions = questions.exclude(status=Question.DELETED_STATUS).filter(models.Q(creator=student) | models.Q(status=Question.APPROVED_STATUS))
 
         return questions
 
@@ -1038,18 +871,9 @@ class QuestionManager(models.Manager):
 
         return questions.get()
 
-    def get_unassigned_pending_questions(self):
-        # Pending questions are unassigned if one of the two are satisfied:
-        # 1. It was completed.
-        # 2. It has no approver.
-        return self.get_queryset().filter(status=Question.PENDING_STATUS) \
-            .filter(models.Q(date_completed__isnull=False) | models.Q(approver__isnull=True)) \
-            .distinct()
-
     def get_approved_questions_for_block_and_years(self, block, years):
-        return self.get_queryset().filter(teaching_activity_year__block_year__block=block) \
-                                   .filter(teaching_activity_year__block_year__year__in=years) \
-                                   .filter(status=Question.APPROVED_STATUS)
+        return self.get_queryset().filter(teaching_activity_year__teaching_activity__years__block_week__writing_period__block_year__block=block, teaching_activity_year__block_week__writing_period__block_year__year__in=years) \
+                                   .filter(status=Question.APPROVED_STATUS).distinct()
 
 
 class QuestionParser(HTMLParser):
@@ -1076,6 +900,7 @@ class QuestionParser(HTMLParser):
         self.parsed_string += c  
 
 
+@reversion.register(exclude=["approver", "date_assigned", "date_completed", "requires_special_formatting", "approver"])
 class Question(models.Model):
     APPROVED_STATUS = 0
     PENDING_STATUS = 1
@@ -1107,7 +932,7 @@ class Question(models.Model):
     teaching_activity_year = models.ForeignKey(TeachingActivityYear, related_name="questions")
     exemplary_question = models.BooleanField(default=False)
     requires_special_formatting = models.BooleanField(default=False)
-    status = models.IntegerField(choices=STATUS_CHOICES, default=PENDING_STATUS)
+    status = models.IntegerField(choices=STATUS_CHOICES, default=APPROVED_STATUS)
     date_assigned = models.DateTimeField(blank=True, null=True)
     date_completed = models.DateTimeField(blank=True, null=True)
     approver = models.ForeignKey(Student, related_name="assigned_questions", blank=True, null=True)
@@ -1158,23 +983,51 @@ class Question(models.Model):
     def __str__(self):
         return "%s" % (self.id,)
 
+    def _get_text(self, element):
+        element_text = ""
+        formatting_tags = {'sup': '^', 'sub': '_'}
+        symbols = {}
+
+        if isinstance(element, bs4.NavigableString):
+            element_text += element.string
+        elif isinstance(element, bs4.Tag):
+            if element.contents:
+                if element.name in formatting_tags:
+                    element_text += formatting_tags[element.name]
+
+                for subelement in element.contents:
+                    element_text += self._get_text(subelement)
+
+        return element_text
+
+    def _soup_to_text(self, soup):
+        body_text = ""
+
+        for element in soup.body.contents:
+            body_text += self._get_text(element)
+
+        body_text = body_text.replace(u'\xa0', u' ')
+        new_body_text = ""
+        for c in body_text:
+            if ord(c) in codepoint2name:
+                new_body_text += codepoint2name[ord(c)]
+            else:
+                new_body_text += c
+
+        return new_body_text
+
+    def get_body_text(self):
+        soup = bs4.BeautifulSoup(self.body)
+        return self._soup_to_text(soup)
+
     def was_assigned_before_being_completed(self):
         return self.date_assigned and (not self.date_completed or self.date_assigned < self.date_completed)
-
-    def get_approval_records_recent_first(self):
-        return self.approval_records.order_by("-date_assigned")
 
     def get_url_kwargs(self):
         return {'pk': self.pk, 'reference_id': self.teaching_activity_year.teaching_activity.reference_id, }
 
-    @classmethod
-    def request_is_in_multiple_approval_mode(self, request):
-        return request.GET.get("mode") == "multiple"
-
-    def get_query_string(self, multiple_approval_mode=False):
+    def get_query_string(self):
         params = []
-        if multiple_approval_mode:
-            params.append("mode=multiple")
 
         if not params:
             return ""
@@ -1183,26 +1036,19 @@ class Question(models.Model):
     def get_absolute_url(self):
         return reverse('question-view', kwargs=self.get_url_kwargs())
 
-    def get_edit_url(self, multiple_approval_mode=False):
-        query_string = self.get_query_string(multiple_approval_mode=multiple_approval_mode)
+    def get_edit_url(self):
+        query_string = self.get_query_string()
         return "%s%s" % (reverse('question-edit', kwargs=self.get_url_kwargs()), query_string)
 
     def get_add_to_specification_url(self):
         return reverse('quiz-spec-add', kwargs=self.get_url_kwargs())
 
-    def get_approval_url(self, multiple_approval_mode=False):
-        query_string = self.get_query_string(multiple_approval_mode=multiple_approval_mode)
-        return "%s%s" % (reverse('question-approval', kwargs=self.get_url_kwargs()), query_string)
-
-    def get_next_approval_url(self):
-        return reverse('approve-assigned-next', kwargs={'previous_question_id': self.id, })
-
-    def get_approval_history_url(self):
-        return reverse('question-approval-history', kwargs=self.get_url_kwargs())
-
-    def get_flag_url(self, multiple_approval_mode=False):
-        query_string = self.get_query_string(multiple_approval_mode=multiple_approval_mode)
+    def get_flag_url(self):
+        query_string = self.get_query_string()
         return "%s%s" % (reverse('question-flag', kwargs=self.get_url_kwargs()), query_string)
+
+    def get_previous_version_url(self):
+        return reverse('question-versions', kwargs=self.get_url_kwargs())
 
     def is_viewable_by(self, student):
         # A student can view a question in the following situations:
@@ -1214,10 +1060,7 @@ class Question(models.Model):
             return True
 
         if not self.deleted:
-            if student.has_perm('questions.can_approve'):
-                return True
-
-            if self.approved and self.teaching_activity_year.block_year.block.approved_questions_are_viewable_by(student):
+            if self.approved and self.teaching_activity_year.teaching_activity.approved_questions_are_viewable_by(student):
                 return True
             else:
                 return student == self.creator
@@ -1228,67 +1071,7 @@ class Question(models.Model):
         # A student can edit a question in the following situations:
         # 1. They wrote it, and the block is open for writing.
         # 2. They are an approver (or the superuser).
-        return student.has_perm("questions.can_approve") or (self.creator == student and self.teaching_activity_year.block_year.can_write_questions)
-
-    def change_status(self, new_status, student):
-        # A manual change is once which occurs outside the regular approval process.
-        # This is when:
-        # 1. The question is currently complete.
-        # 2. The question is currently assigned but the person changing the status is different.
-        #
-        # If the question is brand new and has not been assigned, approver is None and the below
-        # code also treats it as a manual change.
-        is_manual_change = False
-
-        if self.date_completed:
-            # We only need to create an approval record for the current status
-            # if it has already been completed.
-            self.create_new_record()
-            is_manual_change = True
-        else:
-            is_manual_change = student != self.approver
-
-        self.status = new_status
-        self.approver = student
-        if is_manual_change:
-            self.date_assigned = datetime.datetime.now()
-
-        # We want the date_completed to be identical to the date_assigned when the status
-        # is manually changed instead of through the approval process.
-        self.date_completed = self.date_assigned if is_manual_change else datetime.datetime.now()
-        self.save()
-
-    def create_new_record(self):
-        approval_record = ApprovalRecord()
-        approval_record.question = self
-        approval_record.status = self.status
-        approval_record.approver = self.approver
-        approval_record.date_assigned = self.date_assigned
-        approval_record.date_completed = self.date_completed
-        approval_record.save()
-
-        if self.flagged:
-            for reason in self.reasons.filter(reason_type=Reason.TYPE_FLAG):
-                reason.related_object = approval_record
-                reason.save()
-
-        return approval_record
-
-
-    def assign_to_student(self, student):
-        if self.date_completed:
-            # The question already has a status. If it was made pending, then
-            # we can assign an approver, but we have to create the history first.
-            if self.status == self.PENDING_STATUS:
-                self.create_new_record()
-                self.date_completed = None
-            else:
-                # The question is not pending and thus does not accept a new approver.
-                return
-
-        self.approver = student
-        self.date_assigned = datetime.datetime.now()
-        self.save()
+        return (self.creator == student and self.teaching_activity_year.questions_can_be_written_by(student)) or (self.approved and self.teaching_activity_year.teaching_activity.approved_questions_are_viewable_by(student))
 
     def add_model_status_property_method(self, k):
         def check_status_function(self):
@@ -1301,7 +1084,7 @@ class Question(models.Model):
         label = options.keys()
         label.sort()
         options['labels'] = label
-        json_repr = {'id': self.id, 'body': linebreaksbr(self.body), 'options': options}
+        json_repr = {'id': self.id, 'body': self.body, 'options': options}
         if include_answer:
             json_repr['answer'] = self.answer
             explanation = self.explanation_dict()
@@ -1338,6 +1121,15 @@ class Question(models.Model):
                 d[k] = e[k]
         return d
 
+    def options_dict_text(self):
+        d = self.options_dict()
+
+        for key in d:
+            soup = bs4.BeautifulSoup(d[key])
+            d[key] = self._soup_to_text(soup)
+
+        return d
+
     def options_list(self):
         if self.sorted_options:
             return [option["text"] for option in self.sorted_options.values()]
@@ -1359,15 +1151,13 @@ class Question(models.Model):
     def explanation_list(self):
         return self.explanation_dict().values()
 
-    def explanation_dict(self):
+    def decode_explanation(self, explanation=None):
+        explanation = explanation or self.explanation
+        explanation_dict = SortedDict()
         if self.sorted_options:
-            explanation_dict = SortedDict()
             for letter, option in self.sorted_options.items():
                 explanation_dict[letter] = option["explanation"]
-            return explanation_dict
         else:
-            explanation_dict = SortedDict()
-            # print "Generating explanation"
             if "{" in self.explanation:
                 explanation = json.loads(self.explanation)
             else:
@@ -1377,12 +1167,15 @@ class Question(models.Model):
                         explanation[option] = self.explanation
                     else:
                         explanation[option] = ""
-                # print explanation
             keys = explanation.keys()
             keys.sort()
             for key in keys:
                 explanation_dict[key] = explanation[key]
-            return explanation_dict
+
+        return explanation_dict
+
+    def explanation_dict(self):
+        return self.decode_explanation()
 
     def explanation_for_answer(self):
         explanation = self.explanation_dict()
@@ -1392,10 +1185,7 @@ class Question(models.Model):
             return self.explanation
 
     def user_is_creator(self, user):
-        return user.has_perm('questions.can_approve') or user.student == self.creator
-
-    def latest_approver(self):
-        return self.approver
+        return user.student == self.creator
 
     def principal_comments(self):
         return self.comments.filter(reply_to__isnull=True)
@@ -1413,7 +1203,7 @@ class Question(models.Model):
         self.body = html2text.html2text(body)
 
     def block(self):
-        return self.teaching_activity_year.block_year
+        return self.teaching_activity_year.block_week.writing_period.block_year
 
     def number_correct_attempts(self):
         return self.attempts.filter(answer=models.F("question__answer")).count()
@@ -1458,13 +1248,6 @@ class Question(models.Model):
 
         difference = sum(qa.score() for qa in upper_group) - sum(qa.score() for qa in lower_group)
         return difference/group_size
-
-    def associated_reasons(self):
-        reasons_associated_with_question = Reason.objects.get_reasons_associated_with_object(self)
-        reasons_associated_with_records = Reason.objects.get_reasons_associated_with_multiple_objects(self.approval_records.all())
-        reasons = list(reasons_associated_with_question) + list(reasons_associated_with_records)
-        reasons.sort(key=lambda r: r.date_created, reverse=True)
-        return reasons
 
 
 class ApprovalRecordManager(models.Manager):
@@ -1544,8 +1327,7 @@ class QuizSpecificationManager(models.Manager):
 
     def get_allowed_specifications_for_student(self, student):
         stages = student.get_all_stages()
-        allowed_blocks = TeachingBlock.objects.get_released_blocks_for_student(student)
-        print "Allowed blocks is %s" % allowed_blocks
+        allowed_blocks = TeachingBlock.objects.get_visible_blocks_for_student(student)
         block_permission_needed = models.Q(block__in=allowed_blocks)
         no_permission_needed = models.Q(block__isnull=True)
         return self.get_queryset().filter(stage__in=stages, active=True).filter(block_permission_needed | no_permission_needed)
@@ -1595,7 +1377,7 @@ class QuizSpecification(models.Model):
         return questions_to_return
 
     def get_questions_in_order(self):
-        return self.get_questions().order_by('teaching_activity_year__block_year')
+        return self.get_questions().order_by('teaching_activity_year__block_week__writing_period__block_year')
 
     def number_of_questions(self):
         return self.get_questions().count()

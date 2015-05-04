@@ -1,4 +1,4 @@
-{% if perms.questions.can_approve and question.associated_reasons %}
+{% if user.is_superuser and question.associated_reasons %}
     <h3>Question activity</h3>
     <dl>
         {% for reason in question.associated_reasons %}

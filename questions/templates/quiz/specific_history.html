@@ -16,7 +16,7 @@
 	<p>Click the question number to view it's individual question page on MedBank.</p>
 {% for question_attempt in quiz_attempt.questions_in_order %}
 	<h3>{% if question_attempt.date_completed %}<a href="{{ question_attempt.question.get_absolute_url }}">Question {{ forloop.counter }}</a>{% else %}Question {{ forloop.counter }}{% endif %} <small>{% if not question_attempt.date_completed %}<span class="loading">Incomplete</span>{% elif question_attempt.score %}<span class="text-success">Correct</span>{% elif not question_attempt.answer %}<span class="text-warning">Unanswered</span>{% else %}<span class="text-warning">Incorrect</span>{% endif %}</small></h3>
-	<p class="lead">{{ question_attempt.question.body|safe|linebreaksbr }}</p>
+	<p class="lead">{{ question_attempt.question.body|safe }}</p>
 {% if question_attempt.date_completed %}
 	<p>
 		<strong>Your answer:</strong>

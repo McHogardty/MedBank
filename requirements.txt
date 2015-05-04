@@ -11,3 +11,6 @@ django-maintenancemode==0.10
 python-dateutil==2.2
 python-mimeparse==0.1.4
 django-tastypie==0.11.0
+django-post_office
+premailer
+beautifulsoup4

@@ -5,6 +5,9 @@ from django.contrib.auth.decorators import user_passes_test
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 from django.http import Http404
 from django.http import HttpResponse, Http404
+from django.db import transaction
+
+import reversion
 
 import json
 
@@ -26,6 +29,21 @@ def class_view_decorator(function_decorator):
 def user_is_superuser(func):
 	decorator = user_passes_test(lambda u: u.is_superuser)
 	return decorator(func)
+
+
+def track_changes(func):
+
+    @transaction.atomic()
+    @reversion.create_revision()
+    def _dec(request, *args, **kwargs):
+        if request.user and request.user.is_authenticated():
+            reversion.set_user(request.user)
+        return func(request, *args, **kwargs)
+
+    _dec.__name__ = func.__name__
+    _dec.__doc__ = func.__doc__
+
+    return _dec
 
 class GetObjectMixin(object):
     def get_object(self, queryset=None):
