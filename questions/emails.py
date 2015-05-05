@@ -22,7 +22,7 @@ def _send_email(template_name, template_context, recipient, sender="SUMS MedBank
 	)
 
 
-def send_question_creation_email(student, question, question_url, template_name="question_created"):
+def send_question_creation_email(student, question, question_url, template_name="email/question_created"):
 	# Sends an email to the creator of the question confirming that their question has been submitted.
 	template_context = {"question": question, "question_url": question_url}
 
