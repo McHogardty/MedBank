@@ -93,9 +93,7 @@ class AssignPreviousActivity(GetObjectMixin, UpdateView):
     model = models.TeachingActivity
 
     def dispatch(self, request, *args, **kwargs):
-        r = super(AssignPreviousActivity, self).dispatch(request, *args, **kwargs)
-
-        writing_period_id = self.request.GET.get('writing_period', None)
+        writing_period_id = request.GET.get('writing_period', None)
         writing_period = None
         if writing_period_id and self.request.user.is_superuser:
             try:
@@ -103,6 +101,8 @@ class AssignPreviousActivity(GetObjectMixin, UpdateView):
             except models.QuestionWritingPeriod.DoesNotExist:
                 pass
         self.writing_period = writing_period
+
+        r = super(AssignPreviousActivity, self).dispatch(request, *args, **kwargs)
 
         return r
 
