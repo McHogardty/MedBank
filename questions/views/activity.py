@@ -92,10 +92,9 @@ class AssignPreviousActivity(GetObjectMixin, UpdateView):
     template_name = "activity/assign_previous_activity.html"
     model = models.TeachingActivity
 
-    def get_context_data(self, **kwargs):
-        c = super(AssignPreviousActivity, self).get_context_data(**kwargs)
-        c['teaching_activity'] = self.object
-        c['activity_blocks'] = models.TeachingBlock.objects.filter(years__writing_periods__weeks__activities__teaching_activity=self.object).distinct()
+    def dispatch(self, request, *args, **kwargs):
+        r = super(AssignPreviousActivity, self).dispatch(request, *args, **kwargs)
+
         writing_period_id = self.request.GET.get('writing_period', None)
         writing_period = None
         if writing_period_id and self.request.user.is_superuser:
@@ -104,17 +103,20 @@ class AssignPreviousActivity(GetObjectMixin, UpdateView):
             except models.QuestionWritingPeriod.DoesNotExist:
                 pass
         self.writing_period = writing_period
+
+        return r
+
+    def get_context_data(self, **kwargs):
+        c = super(AssignPreviousActivity, self).get_context_data(**kwargs)
+        c['teaching_activity'] = self.object
+        c['activity_blocks'] = models.TeachingBlock.objects.filter(years__writing_periods__weeks__activities__teaching_activity=self.object).distinct()
+        c['writing_period'] = self.writing_period
         return c
 
     def get_form_kwargs(self, **kwargs):
         k = super(AssignPreviousActivity, self).get_form_kwargs(**kwargs)
         k['activity_queryset'] = models.TeachingActivity.objects.all()
         return k
-
-    def get_context_data(self, **kwargs):
-        c = super(AssignPreviousActivity, self).get_context_data(**kwargs)
-        c['writing_period'] = self.writing_period
-        return c
 
     def get_success_url(self):
         return self.object.get_absolute_url(writing_period=self.writing_period)
