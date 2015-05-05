@@ -633,8 +633,6 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
             return None
 
     def get_activity_year_for_writing_period(self, writing_period):
-        print writing_period
-        print self.years.select_related("block_week__writing_period__block_year__block").filter(block_week__writing_period=writing_period)
         return self.years.select_related("block_week__writing_period__block_year__block").get(block_week__writing_period=writing_period)
 
     def current_block_year(self):

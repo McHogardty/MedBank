@@ -32,7 +32,7 @@ def user_is_superuser(func):
 
 
 def track_changes(func):
-
+    print "Got here."
     @transaction.atomic()
     @reversion.create_revision()
     def _dec(request, *args, **kwargs):

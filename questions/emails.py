@@ -8,11 +8,13 @@ import premailer
 css_files = [finders.find('medbank/css/bootstrap-email.css'), finders.find('medbank/css/bootstrap-custom.css')]
 
 def _send_email(template_name, template_context, recipient, sender="SUMS MedBank <medbank@sydneymedsoc.org.au>", subject=""):
-	html = render_to_string("%s.html" % template_name, template_context)
+	html = render_to_string("%s.html" % template_name, template_context.copy())
 	css_inliner = premailer.Premailer(html, external_styles=css_files, disable_validation=True)
 	html = css_inliner.transform()
-	txt = render_to_string("%s.txt" % template_name, template_context)
+	print "HTML fine."
+	txt = render_to_string("%s.txt" % template_name, template_context.copy())
 
+	print "Email rendered ok"
 	post_office.mail.send(
 		recipient,
 		sender,
@@ -20,6 +22,8 @@ def _send_email(template_name, template_context, recipient, sender="SUMS MedBank
 		message=txt,
 		html_message=html,
 	)
+
+	print "Email sent!"
 
 
 def send_question_creation_email(student, question, question_url, template_name="email/question_created"):
