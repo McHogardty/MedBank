@@ -545,7 +545,6 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
         accepted_types = collections.defaultdict(None)
         for k, v in cls.TYPE_CHOICES:
             if k == cls.WEEK_TYPE: continue
-            if k == cls.PRACTICAL_TYPE: continue
             accepted_types[v] = k
 
         return accepted_types
