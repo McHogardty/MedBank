@@ -24,7 +24,7 @@
 {% endif %}
 {% if user.is_superuser %}
 	<h3>Admin</h3>
-	<a class="action" href="{{ activity.get_previous_activity_assign_url }}">Assign previous activity</a>	
+	<a class="action" href="{{ activity.get_previous_activity_assign_url }}{% if user.is_superuser %}?writing_period={{ activity_year.block_week.writing_period.id }}{% endif %}">Assign previous activity</a>	
 	<a class="action" href="{{ activity.get_assign_student_url }}{% if user.is_superuser %}?writing_period={{ activity_year.block_week.writing_period.id }}{% endif %}">Assign to student</a>
 {% endif %}
 {% endif %}
