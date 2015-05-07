@@ -710,7 +710,7 @@ class ConfirmUploadForWritingPeriod(View):
         for n, week_name in enumerate(block_week_names):
             data =  {
                 'name': week_name,
-                'sort_index': n
+                'sort_index': n + 1
             }
 
             block_week_form = forms.NewBlockWeekForm(data)

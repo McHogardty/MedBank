@@ -32,7 +32,6 @@ def user_is_superuser(func):
 
 
 def track_changes(func):
-    print "Got here."
     @transaction.atomic()
     @reversion.create_revision()
     def _dec(request, *args, **kwargs):
@@ -42,7 +41,6 @@ def track_changes(func):
 
     _dec.__name__ = func.__name__
     _dec.__doc__ = func.__doc__
-
     return _dec
 
 class GetObjectMixin(object):
