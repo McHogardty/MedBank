@@ -1,5 +1,9 @@
 from __future__ import unicode_literals
 
+import guppy
+from guppy.heapy import Remote
+Remote.on()
+
 from django.conf.urls import patterns, include, url
 
 from django.conf import settings
