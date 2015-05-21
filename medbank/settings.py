@@ -103,6 +103,7 @@ MIDDLEWARE_CLASSES = (
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'questions.middleware.CurrentStageMiddleware',
     'impersonate.middleware.ImpersonateMiddleware',
+    'medbank.middleware.ExtraErrorEmailInfoMiddleware',
 )
 
 ROOT_URLCONF = 'medbank.urls'
