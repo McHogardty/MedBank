@@ -108,7 +108,7 @@ class CheckboxInput(forms.CheckboxInput):
         return format_html(checkbox, checkbox_input, self.label)
 
 
-class RadioInputLikeButton(forms.widgets.RadioInput):
+class RadioInputLikeButton(forms.widgets.RadioChoiceInput):
     def render(self, name=None, value=None, attrs=None, choices=()):
         choice_label = force_text(self.choice_label)
 
@@ -119,7 +119,7 @@ class RadioInputLikeButton(forms.widgets.RadioInput):
         return format_html('<label{0}>{1} {2}</label>', flatatt({'class': label_class}), self.tag(), choice_label)
 
 
-class CheckboxInputAsButton(forms.widgets.RadioInput):
+class CheckboxInputAsButton(forms.widgets.RadioChoiceInput):
     def tag(self):
         if 'id' in self.attrs:
             self.attrs['id'] = '%s_%s' % (self.attrs['id'], self.index)

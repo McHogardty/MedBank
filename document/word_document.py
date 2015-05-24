@@ -227,7 +227,6 @@ class RunProperties(DocumentElement):
 			else:
 				property_element = docx.makeelement(k)
 			run_element.append(property_element)
-		print etree.tostring(run_element)
 
 		return run_element
 

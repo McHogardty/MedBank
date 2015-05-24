@@ -30,7 +30,7 @@ def deploy():
 	with cd(REMOTE_DIRECTORY):
 		with hide("stderr", "stdout"):
 			run("git merge v1")
-			run('rsync -r --delete ./ %s --exclude ".git*" --exclude "local_settings.py --chown webmaster:www"' % PRODUCTION_DIRECTORY)
+			run('rsync -r --delete ./ %s --exclude ".git*" --exclude "local_settings.py" --chown webmaster:www' % PRODUCTION_DIRECTORY)
 
 	with cd(PRODUCTION_DIRECTORY):
 		with hide("stderr", "stdout"):

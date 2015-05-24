@@ -130,8 +130,6 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'medbank',
     'questions',
-    # 'south',
-    # 'tastypie',
     # 'debug_toolbar',
     'impersonate',
     # 'django_extensions',

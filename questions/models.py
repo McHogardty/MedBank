@@ -19,8 +19,6 @@ import json
 import datetime
 import string
 import random
-import markdown2
-import html2text
 import hashlib
 import collections
 from HTMLParser import HTMLParser
@@ -695,7 +693,7 @@ class TeachingActivityYear(models.Model):
     teaching_activity = models.ForeignKey(TeachingActivity, related_name="years")
     block_week = models.ForeignKey(BlockWeek, related_name="activities", blank=True, null=True)
     position = models.IntegerField()
-    question_writers = models.ManyToManyField(Student, blank=True, null=True, related_name='assigned_activities')
+    question_writers = models.ManyToManyField(Student, blank=True, related_name='assigned_activities')
 
     objects = TeachingActivityYearManager()
 
@@ -1186,18 +1184,6 @@ class Question(models.Model):
 
     def principal_comments(self):
         return self.comments.filter(reply_to__isnull=True)
-
-    def body_html(self):
-        return format_html(markdown2.markdown(self.body))
-
-    def explanation_html(self):
-        return format_html(markdown2.markdown(self.explanation))
-
-    def set_body_html(self, body):
-        self.body = html2text.html2text(body)
-
-    def set_explanation_html(self, body):
-        self.body = html2text.html2text(body)
 
     def block(self):
         return self.teaching_activity_year.block_week.writing_period.block_year
