@@ -49,7 +49,7 @@
 		{% endif %}
 	{% endif %}
 
-	{% if question_list %}
+	{% if can_view_questions or question_list %}
 	<h2>Questions</h2>
 		{% regroup question_list by teaching_activity_year.block_week.writing_period.block_year.year as questions_by_year %}
 		{% for question_group in questions_by_year %}
