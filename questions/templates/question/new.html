@@ -215,7 +215,9 @@
                 onpaste: function (e) {
                     var bufferText = ((e.originalEvent || e).clipboardData || window.clipboardData).getData('Text');
                     e.preventDefault();
-                    document.execCommand('insertText', false, bufferText);
+
+                    // alert(bufferText.split("\r\n").join("").split("\n").join(""));
+                    document.execCommand('insertText', false, bufferText.split("\r\n").join("").split("\n").join(""));
                 }
             });
             $(".summernote").blur(function () { lastField = $(this); });
