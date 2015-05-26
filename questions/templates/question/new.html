@@ -211,7 +211,12 @@
                     ['medbankScripts', ['medbankSuperscript', 'medbankSubscript']],
                     ['medbankClear', ['medbankClear']]
                 ],
-                airMode: true
+                airMode: true,
+                onpaste: function (e) {
+                    var bufferText = ((e.originalEvent || e).clipboardData || window.clipboardData).getData('Text');
+                    e.preventDefault();
+                    document.execCommand('insertText', false, bufferText);
+                }
             });
             $(".summernote").blur(function () { lastField = $(this); });
             setTimeout(function () {
