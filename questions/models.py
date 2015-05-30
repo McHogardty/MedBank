@@ -502,7 +502,7 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
     name = models.CharField(max_length=150)
     activity_type = models.IntegerField(choices=TYPE_CHOICES)
     reference_id = models.IntegerField(unique=True)
-    previous_activity = models.OneToOneField('self', null=True, blank=True)
+    previous_activity = models.OneToOneField('self', null=True, blank=True, related_name='next_activity')
 
     objects = TeachingActivityManager()
 
@@ -616,19 +616,23 @@ class TeachingActivity(models.Model, ObjectCacheMixin):
     def get_latest_activity_year_for_student(self, student, writing_period=None):
         activity_year = None
 
+        # If a writing period is specified, look for an appropriate year first.
         if writing_period:
             try:
                 return self.get_activity_year_for_writing_period(writing_period)
             except TeachingActivityYear.DoesNotExist:
                 pass
 
+        # If a writing period is not specified, look for the appropriate year for this activity.
         years = self.years.select_related("block_week__writing_period__block_year__block")
         years = years.filter(block_week__writing_period__stage__year__student=student, block_week__writing_period__stage__year__year=models.F("block_week__writing_period__block_year__year"))
 
         try:
             return years.latest("block_week__writing_period__block_year__year")
         except TeachingActivityYear.DoesNotExist:
-            return None
+            # If they don't have a specific year, then return the latest year for this activity.
+            return self.years.select_related("block_week__writing_period__block_year__block").latest("block_week__writing_period__block_year__year")
+
 
     def get_activity_year_for_writing_period(self, writing_period):
         return self.years.select_related("block_week__writing_period__block_year__block").get(block_week__writing_period=writing_period)

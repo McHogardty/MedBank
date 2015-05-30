@@ -38,6 +38,9 @@
 {% if activity.previous_activity %}
 	<p><strong>There is an older version of this activity on MedBank. You can view the older version by <a href="{{ activity.previous_activity.get_absolute_url }}">clicking here</a>.</strong></p>
 {% endif %}
+{% if activity.next_activity %}
+	<p><strong>There is a newer version of this activity on MedBank. You can view the newer version by <a href="{{ activity.next_activity.get_absolute_url }}">clicking here</a>.</strong></p>
+{% endif %}
 	{% if view_signup_status %}
 		{% if not current_question_writer_count %}
 	        <p>Nobody has assigned themselves to write questions for this activity.</p>
