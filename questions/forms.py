@@ -13,6 +13,7 @@ from .models import *
 import string
 import json
 import datetime
+import bs4
 
 
 class QuestionOptionsWidget(forms.MultiWidget):
@@ -181,6 +182,27 @@ class NewQuestionForm(bootstrap.ModelForm):
                 # The user needs to complete the answer explanation, or all of the incorrect option explanations.
                 self._errors['explanation'] = self.error_class(["You must complete the explanation.",])
         return super(NewQuestionForm, self).clean()
+
+    def clean_body(self):
+        body = self.cleaned_data['body']
+        # Replace all non-breaking spaces with regular spaces, and then remove all 'extra' whitespace.
+        # Extra whitespace means newline characters, tabs, multiple spaces etc.
+        body = body.replace('&nbsp;', ' ')
+        body = ' '.join(body.split())
+        
+        # Remove all <br> elements and then remove all empty elements.
+        soup = bs4.BeautifulSoup(body)
+        for br in soup.find_all('br'):
+            br.decompose()
+        for element in soup.find_all(True):
+            if not element.contents:
+                # Element is empty
+                element.decompose()
+            elif element.string is not None and not element.string.strip():
+                # Element ONLY contains a string, which is only whitespace
+                element.decompose()
+
+        return ''.join(str(element) for element in soup.body.contents)
 
     class Meta:
         model = Question

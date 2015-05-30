@@ -51,7 +51,7 @@ class RichTextInput(forms.TextInput):
         classes.append("summernote")
         classes.append("summernote-textinput")
         attrs['class'] = " ".join(classes)
-        return format_html('<div class="{0}" data-field="{2}"></div>{1}', attrs['class'], i, name)
+        return format_html('{1}<div class="{0}" data-field="{2}"></div>', attrs['class'], i, name)
 
 
 class RichTextInputWithAddon(RichTextInput):
