@@ -498,8 +498,8 @@ class TeachingBlockDownloadForm(bootstrap.Form):
 
     YEAR_CHOICES = ((datetime.datetime.now().year, datetime.datetime.now().year),)
 
-    document_type = forms.ChoiceField(choices=DOCUMENT_CHOICES, widget=bootstrap.ButtonGroup(), label="Do you want the document to include answers?")
-    years = forms.TypedMultipleChoiceField(coerce=lambda val: int(val), choices=YEAR_CHOICES, widget=bootstrap.ButtonGroup(multiple=True, vertical=True), label="For which years do you want to download questions?")
+    document_type = forms.ChoiceField(choices=DOCUMENT_CHOICES, widget=bootstrap.CSSRadioSelect(), label="Do you want the document to include answers?")
+    years = forms.TypedMultipleChoiceField(coerce=lambda val: int(val), choices=YEAR_CHOICES, widget=bootstrap.CSSCheckboxSelectMultiple(), label="For which years do you want to download questions?")
 
     def __init__(self, years=[], *args, **kwargs):
         if not years: raise ValueError("A teaching block is required to initialise this form.")

@@ -8,7 +8,9 @@ from django.utils.encoding import force_text
 from django.utils import datetime_safe, formats
 
 
-__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup", "Typeahead", "DatepickerInput", "RichTextarea", "RichTextInputWithAddon")
+__all__ = ("StaticControl", "TextInputWithAddon", "CheckboxInput", "ButtonGroup", "Typeahead", "DatepickerInput", "RichTextarea", "RichTextInputWithAddon",
+    "CSSCheckboxSelectMultiple", "CSSRadioSelect",
+    )
 
 
 class StaticControl(forms.Widget):
@@ -95,6 +97,7 @@ class TextInputWithAddon(forms.TextInput):
             i = format_html('<div{0}>{1}<span class="input-group-addon">{2}</span></div>', flatatt(input_group_attrs), i, self.post_add_on)
         return i
 
+
 class CheckboxInput(forms.CheckboxInput):
     def render(self, name, value, attrs=None):
         checkbox_input = super(CheckboxInput, self).render(name, value, attrs)
@@ -106,6 +109,65 @@ class CheckboxInput(forms.CheckboxInput):
         </div>
         """
         return format_html(checkbox, checkbox_input, self.label)
+
+
+class CSSCheckboxInput(forms.CheckboxInput):
+    def render(self, name, value, attrs=None):
+        checkbox_input = super(CSSCheckboxInput, self).render(name, value, attrs)
+        final_attrs = self.build_attrs(attrs)
+        checkbox = """
+        <div class="mb-checkbox">
+            {0}
+            <label for="{2}">{1}</label>
+        </div>
+        """
+        id_string = final_attrs.get('id', 'id_%s' % name)
+
+        return format_html(checkbox, checkbox_input, self.label, id_string)
+
+
+class CSSCheckboxChoiceInput(forms.widgets.CheckboxChoiceInput):
+    def render(self, name=None, value=None, attrs=None, choices=()):
+        if self.id_for_label:
+            label_for = format_html(' for="{}"', self.id_for_label)
+        else:
+            label_for = ''
+        attrs = dict(self.attrs, **attrs) if attrs else self.attrs
+        return format_html (
+            '{1}<label{0}>{2}</label>', label_for, self.tag(attrs), self.choice_label
+        )
+
+
+class CSSCheckboxInputRenderer(forms.widgets.CheckboxFieldRenderer):
+    choice_input_class = CSSCheckboxChoiceInput
+    outer_html = '{content}'
+    inner_html = '<div class="mb-checkbox">{choice_value}</div>'
+
+
+class CSSCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
+    renderer = CSSCheckboxInputRenderer
+
+
+class CSSRadioChoiceInput(forms.widgets.RadioChoiceInput):
+    def render(self, name=None, value=None, attrs=None, choices=()):
+        if self.id_for_label:
+            label_for = format_html(' for="{}"', self.id_for_label)
+        else:
+            label_for = ''
+        attrs = dict(self.attrs, **attrs) if attrs else self.attrs
+        return format_html (
+            '{1}<label{0}>{2}</label>', label_for, self.tag(attrs), self.choice_label
+        )
+
+
+class CSSRadioInputRenderer(forms.widgets.RadioFieldRenderer):
+    choice_input_class = CSSRadioChoiceInput
+    outer_html = '{content}'
+    inner_html = '<div class="mb-radio">{choice_value}</div>'
+
+
+class CSSRadioSelect(forms.RadioSelect):
+    renderer = CSSRadioInputRenderer
 
 
 class RadioInputLikeButton(forms.widgets.RadioChoiceInput):

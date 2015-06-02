@@ -1,5 +1,73 @@
 {% extends "newbase.html" %}
 
+{% block head %}
+	<style type="text/css">
+		.mb-checkbox, .mb-radio {
+			position:relative;
+		}
+
+		.mb-checkbox label, .mb-radio label {
+			padding-left:35px;
+			padding-top:7px;
+			font-weight:400;
+		}
+
+		.mb-checkbox input[type="checkbox"], .mb-radio input[type="radio"] {
+			display:none;
+		}
+
+		.mb-checkbox label::before, .mb-radio label::before {
+			position:absolute;
+			width:28px;
+			height:28px;
+			top: 3px;
+			left: 0;
+			background: #fff;
+			border:1px solid #ccc;
+			content:'';
+		}
+
+		.mb-radio label::before {
+			border-radius: 26px;
+		}
+
+		.mb-radio label::after, .mb-checkbox label::after {
+			-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
+			filter: alpha(opacity=0);
+			opacity: 0;
+			z-index:3;
+			content: '';
+			position: absolute;
+			width: 17px;
+			height: 7px;
+			background: transparent;
+			top: 12px;
+			left: 5.5px;
+			border: 1px solid #b1001d;
+			border-top: none;
+			border-right: none;
+
+			-webkit-transform: rotate(-50deg);
+			-moz-transform: rotate(-50deg);
+			-o-transform: rotate(-50deg);
+			-ms-transform: rotate(-50deg);
+			transform: rotate(-50deg);
+		}
+
+		.mb-radio label:hover::after, .mb-checkbox label:hover::after {
+			-ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=30)";
+			filter: alpha(opacity=30);
+			opacity: 0.3;
+		}
+
+		.mb-radio input[type=radio]:checked + label::after, .mb-checkbox input[type="checkbox"]:checked + label:after {
+			-ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=100)";
+			filter: alpha(opacity=100);
+			opacity: 1;
+		}
+	</style>
+{% endblock head %}
+
 {% block content %}
 	<h1>Download questions for {{ teaching_block.name }}</h1>
 	<p>To download the questions for {{ teaching_block.name }}, you can fill in the form below and click "Download"</p>
