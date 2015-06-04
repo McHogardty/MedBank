@@ -183,15 +183,17 @@ class NewQuestionForm(bootstrap.ModelForm):
                 self._errors['explanation'] = self.error_class(["You must complete the explanation.",])
         return super(NewQuestionForm, self).clean()
 
-    def clean_body(self):
-        body = self.cleaned_data['body']
+    def clean_html_string(self, html_string, single_line_mode=False):
         # Replace all non-breaking spaces with regular spaces, and then remove all 'extra' whitespace.
         # Extra whitespace means newline characters, tabs, multiple spaces etc.
-        body = body.replace('&nbsp;', ' ')
-        body = ' '.join(body.split())
+        html_string = html_string.replace('&nbsp;', ' ')
+        html_string = ' '.join(html_string.split())
+
+        if not html_string:
+            return html_string
         
         # Remove all <br> elements and then remove all empty elements.
-        soup = bs4.BeautifulSoup(body)
+        soup = bs4.BeautifulSoup(html_string)
         for br in soup.find_all('br'):
             br.decompose()
         for element in soup.find_all(True):
@@ -202,7 +204,34 @@ class NewQuestionForm(bootstrap.ModelForm):
                 # Element ONLY contains a string, which is only whitespace
                 element.decompose()
 
-        return ''.join(str(element) for element in soup.body.contents)
+        if not soup.body:
+            return ""
+
+        contents = soup.body.p.contents if single_line_mode else soup.body.contents
+        return ''.join(str(element) for element in contents)
+
+    def clean_body(self):
+        body = self.cleaned_data['body']
+
+        return self.clean_html_string(body)
+
+    def clean_json_dict_html(self, html_dict):
+        for key in html_dict.keys():
+            html_dict[key] = self.clean_html_string(html_dict[key], single_line_mode=True)
+
+        return html_dict
+
+    def clean_options(self):
+        options = self.cleaned_data['options']
+        options_dict = json.loads(options)
+
+        return json.dumps(self.clean_json_dict_html(options_dict))
+
+    def clean_explanation(self):
+        explanation = self.cleaned_data['explanation']
+        explanation_dict = json.loads(explanation)
+
+        return json.dumps(self.clean_json_dict_html(explanation_dict))
 
     class Meta:
         model = Question
