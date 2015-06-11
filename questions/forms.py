@@ -208,7 +208,7 @@ class NewQuestionForm(bootstrap.ModelForm):
             return ""
 
         contents = soup.body.p.contents if single_line_mode else soup.body.contents
-        return ''.join(str(element) for element in contents)
+        return ''.join(unicode(element) for element in contents)
 
     def clean_body(self):
         body = self.cleaned_data['body']
@@ -331,7 +331,7 @@ class NewQuestionWritingPeriodForm(bootstrap.ModelForm):
     def __init__(self, *args, **kwargs):
         if 'block_year' in kwargs:
             initial = kwargs.setdefault('initial', {})
-            initial['block'] = str(kwargs.pop('block_year'))
+            initial['block'] = unicode(kwargs.pop('block_year'))
 
         super(NewQuestionWritingPeriodForm, self).__init__(*args, **kwargs)
 
