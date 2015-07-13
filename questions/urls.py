@@ -123,6 +123,7 @@ quiz_urls = [
     url(r'^attempt/(?P<slug>[a-z]+)/', include(quiz_attempt_urls)),
     url(r'^specification/', include(quiz_specification_urls)),
     url(r'^admin/$', quiz.QuizAdminView.as_view(), name="quiz-admin"),
+    url(r'^new/$', quiz.NewQuizView.as_view(), name="new-quiz")
 ]
 
 

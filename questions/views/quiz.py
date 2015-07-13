@@ -73,6 +73,11 @@ class QuizAttemptReport(GetObjectMixin, DetailView):
 
 
 @class_view_decorator(login_required)
+class NewQuizView(TemplateView):
+    template_name = "quiz/new_quiz.html"
+
+
+@class_view_decorator(login_required)
 class QuizView(TemplateView):
     template_name = "quiz/selection.html"
     model = models.QuizSpecification

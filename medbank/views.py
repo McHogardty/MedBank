@@ -41,6 +41,9 @@ def class_view_decorator(function_decorator):
 def home(request):
     return render_to_response("base-no-nav.html", context_instance=RequestContext(request))
 
+class HomeView(TemplateView):
+    template_name = "home.html"
+
 
 def test(request, name):
     return render_to_response("%s.html" % name, context_instance=RequestContext(request))

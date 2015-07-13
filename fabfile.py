@@ -35,7 +35,7 @@ def deploy():
 	with cd(PRODUCTION_DIRECTORY):
 		with hide("stderr", "stdout"):
 			run('python manage.py migrate')
-			# run('python manage.py collectstatic --noinput')
+			run('python manage.py collectstatic --noinput')
 			run('find . -name "*.pyc" -exec rm -f {} \;')
 			run('touch %s' % WSGI_LOCATION)
 	# 		run('killall %s' % WSGI_FILE)

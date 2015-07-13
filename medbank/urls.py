@@ -13,12 +13,13 @@ import forms
 from django.contrib import admin
 admin.autodiscover()
 
-from medbank.views import ResetPasswordRequest, ResetPassword, FeedbackView, UserList
+from medbank.views import *
 from django.views.generic import TemplateView
 
 urlpatterns = patterns(
     '',
     url(r'^$', 'medbank.views.home', name="medbank-home"),
+    url(r'^newhome/$', HomeView.as_view()),
     url(r'^(?P<name>[0-9]+)/$', 'medbank.views.test'),
     url(r'^%s$' % settings.LOCAL_LOGIN_URL.lstrip("/"), 'django.contrib.auth.views.login', {'authentication_form': forms.BootstrapAuthenticationForm}, name="login"),
     url(r'^logout/$', 'medbank.views.logout_view', name="logout"),
